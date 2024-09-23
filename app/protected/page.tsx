@@ -1,54 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import Image from "next/image";
-import { Star, StarHalf } from "lucide-react";
-
-interface Streamer {
-  id: number;
-  user_id: string;
-  name: string;
-  platform: string;
-  category: string;
-  rating: number;
-  price: number;
-  image_url: string;
-}
-
-function RatingStars({ rating }: { rating: number }) {
-  const fullStars = Math.floor(rating);
-  const hasHalfStar = rating % 1 >= 0.5;
-
-  return (
-    <div className="flex items-center">
-      {[...Array(fullStars)].map((_, i) => (
-        <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-      ))}
-      {hasHalfStar && <StarHalf className="w-4 h-4 fill-yellow-400 text-yellow-400" />}
-      <span className="ml-1 text-sm text-foreground/70">{rating.toFixed(1)}</span>
-    </div>
-  );
-}
-
-function StreamerCard({ streamer }: { streamer: Streamer }) {
-  return (
-    <div className="bg-background border border-foreground/10 shadow-md rounded-lg overflow-hidden transition-colors duration-300">
-      <img
-        src={streamer.image_url}
-        alt={streamer.name}
-        width={300}
-        height={300}
-        className="w-full h-48 object-cover"
-      />
-      ç<div className="p-4">
-        <h3 className="font-bold text-xl mb-2 text-foreground">{streamer.name}</h3>
-        <p className="text-foreground/70">{streamer.platform}</p>
-        <p className="text-foreground/70">{streamer.category}</p>
-        <RatingStars rating={streamer.rating} />
-        <p className="text-foreground font-medium text-lg mt-2">${streamer.price.toFixed(2)}/hour</p>
-      </div>
-    </div>
-  );
-}
+import { StreamerList } from "@/components/streamer-list";
 
 export default async function ProtectedPage() {
   const supabase = createClient();
@@ -65,7 +17,7 @@ export default async function ProtectedPage() {
 
   const { data: streamers, error: streamersError } = await supabase
     .from('streamers')
-    .select('*');
+    .select('id, name, platform, category, rating, price, image_url, bio, location');
 
   if (streamersError) {
     console.error('Error fetching streamers:', streamersError);
@@ -78,11 +30,17 @@ export default async function ProtectedPage() {
 
   return (
     <div className="flex-1 w-full flex flex-col items-center">
-      <h1 className="text-4xl font-bold mb-8 text-foreground">Welcome to Streamer Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {streamers.map((streamer: Streamer) => (
-          <StreamerCard key={streamer.id} streamer={streamer} />
-        ))}
+      <div className="w-full bg-[#000080] text-white py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h1 className="text-4xl font-bold text-center mb-4">Welcome to Lilo!</h1>
+          <p className="text-xl text-center mb-8">Discover hassle-free livestreaming sellers with 250+ top creators across various platforms</p>
+          <StreamerList initialStreamers={streamers} />
+        </div>
+      </div>
+      <div className="w-full bg-black py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div id="streamer-cards-container"></div>
+        </div>
       </div>
     </div>
   );
