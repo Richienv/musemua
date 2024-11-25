@@ -442,28 +442,27 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     );
   };
 
-  const handleMessageClick = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent profile modal from opening
-    
+  const handleMessageClick = async () => {
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         toast.error('Please sign in to send messages');
         router.push('/sign-in');
         return;
       }
 
-      // Create or get conversation using user IDs
-      await createOrGetConversation(user.id.toString(), streamer.id.toString());
-      
-      // Redirect to messages page
+      // user.id is already string (UUID) from auth
+      const clientId = user.id;
+      // streamer.id is number (BigInt) from database
+      const streamerId = streamer.id;
+
+      await createOrGetConversation(clientId, streamerId);
       router.push('/messages');
-      
     } catch (error) {
       console.error('Error creating conversation:', error);
-      toast.error('Failed to start conversation. Please try again.');
+      toast.error('Failed to create conversation');
     }
   };
 
