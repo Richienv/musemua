@@ -14,8 +14,8 @@ export function AvailabilityFilter({ selectedDate, setSelectedDate }: Availabili
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   const handleDateChange = (date: Date) => {
-    setSelectedDate(prevDate => 
-      isSameDay(prevDate, date) ? null : date
+    setSelectedDate((prevDate: Date | null) => 
+      prevDate && isSameDay(prevDate, date) ? null : date
     );
   };
 
