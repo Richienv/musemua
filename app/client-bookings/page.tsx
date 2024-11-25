@@ -18,14 +18,20 @@ interface Booking {
   created_at: string;
   price: number;
   special_request: string;
+  streamer_id: number;
   streamer: {
     id: number;
     first_name: string;
     last_name: string;
     platform: string;
-    rating: number;
+    rating?: number;
     image_url: string;
   };
+}
+
+interface RatingData {
+  streamer_id: number;
+  rating: number;
 }
 
 const getStatusInfo = (status: string) => {
@@ -198,8 +204,14 @@ export default function ClientBookings() {
         console.error('Error fetching bookings:', bookingsError);
         setError("Failed to fetch bookings");
       } else if (bookingsData) {
-        // Fetch average ratings for each streamer
-        const streamerIds = bookingsData.map(booking => booking.streamer.id);
+        // Get unique streamer IDs
+        const streamerIds = Array.from(
+          new Set(
+            bookingsData.map((booking: any) => booking.streamer.id)
+          )
+        );
+
+        // Fetch ratings
         const { data: ratingsData, error: ratingsError } = await supabase
           .from('streamer_ratings')
           .select('streamer_id, rating')
@@ -208,28 +220,29 @@ export default function ClientBookings() {
         if (ratingsError) {
           console.error('Error fetching ratings:', ratingsError);
         } else {
-          // Calculate average ratings
-          const averageRatings = ratingsData.reduce((acc, { streamer_id, rating }) => {
-            if (!acc[streamer_id]) {
-              acc[streamer_id] = { sum: 0, count: 0 };
+          // Calculate average ratings with proper typing
+          const averageRatings = (ratingsData || []).reduce((acc: Record<number, { sum: number; count: number }>, curr) => {
+            if (!acc[curr.streamer_id]) {
+              acc[curr.streamer_id] = { sum: 0, count: 0 };
             }
-            acc[streamer_id].sum += rating;
-            acc[streamer_id].count += 1;
+            acc[curr.streamer_id].sum += curr.rating;
+            acc[curr.streamer_id].count += 1;
             return acc;
-          }, {} as Record<number, { sum: number; count: number }>);
+          }, {});
 
-          // Add average ratings to bookings data
-          const bookingsWithRatings = bookingsData.map(booking => ({
+          // Add ratings to bookings with proper typing
+          const bookingsWithRatings: Booking[] = bookingsData.map((booking: any) => ({
             ...booking,
+            streamer_id: booking.streamer.id,
             streamer: {
               ...booking.streamer,
-              rating: averageRatings[booking.streamer.id] 
-                ? parseFloat((averageRatings[booking.streamer.id].sum / averageRatings[booking.streamer.id].count).toFixed(2))
+              rating: averageRatings[booking.streamer.id]
+                ? (averageRatings[booking.streamer.id].sum / averageRatings[booking.streamer.id].count)
                 : 0
             }
           }));
 
-          setBookings(bookingsWithRatings as Booking[]);
+          setBookings(bookingsWithRatings);
         }
       } else {
         setBookings([]);
