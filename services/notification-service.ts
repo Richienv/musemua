@@ -1,10 +1,11 @@
 import { createClient } from "@/utils/supabase/client";
+import { format } from 'date-fns';
 
 interface NotificationData {
   user_id?: string | null;
   streamer_id?: number | null;
   message: string;
-  type: 'booking_request' | 'booking_payment' | 'booking_cancelled' | 'booking_accepted' | 'booking_rejected';
+  type: 'booking_request' | 'booking_payment' | 'booking_cancelled' | 'booking_accepted' | 'booking_rejected' | 'confirmation';
   booking_id: number;
 }
 
@@ -53,11 +54,10 @@ export async function createBookingNotifications(booking: any, type: string) {
       throw streamerError;
     }
 
-    const notifications = [];
+    const notifications: NotificationData[] = [];
 
     switch (type) {
       case 'initial_booking':
-        // When client first makes a booking
         notifications.push(
           {
             streamer_id: booking.streamer_id,
@@ -96,7 +96,7 @@ export async function createBookingNotifications(booking: any, type: string) {
           {
             user_id: booking.client_id,
             message: `${streamerData.first_name} ${streamerData.last_name} has accepted your booking for ${format(new Date(booking.start_time), 'dd MMMM HH:mm')}`,
-            type: 'booking_confirmation',
+            type: 'confirmation',
             booking_id: booking.id
           }
         );

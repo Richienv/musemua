@@ -101,7 +101,7 @@ export default function RatingModal({
       console.log('Booking status updated to completed');
       toast({
         title: "Rating Submitted",
-        description: "Thank you for your feedback!",
+        description: "Thank you for your feedback!"
       });
       onSubmit();
       onClose();
@@ -116,7 +116,7 @@ export default function RatingModal({
       toast({
         title: "Error",
         description: "Failed to submit rating. Please try again.",
-        variant: "destructive",
+        className: "bg-destructive"
       });
       setError("Failed to submit rating. Please try again.");
     } finally {
