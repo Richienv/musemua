@@ -32,19 +32,20 @@ interface UserData {
 
 interface Booking {
   id: number;
-  streamer_id: string;
   client_id: string;
+  client_first_name: string;
+  client_last_name: string;
+  streamer_id: number;
   start_time: string;
   end_time: string;
   platform: string;
-  price: number;
   status: string;
-  special_request: string | null;
-  created_at: string;
-  client_first_name: string;
-  client_last_name: string;
-  sub_account_links?: { link: string }[];
-  stream_link?: string;
+  price: number;
+  special_request?: string | null;
+  stream_link?: string | null;
+  sub_account_links?: Array<{
+    link: string;
+  }> | null;
 }
 
 // Add these utility functions at the top of the file
@@ -111,23 +112,32 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
     try {
       const supabase = createClient();
       
+      // Get streamer data first
+      const { data: streamerData, error: streamerError } = await supabase
+        .from('streamers')
+        .select('first_name, last_name')
+        .eq('id', booking.streamer_id)
+        .single();
+
+      if (streamerError) throw streamerError;
+
       // Update booking status
       const { error: bookingError } = await supabase
         .from('bookings')
         .update({ 
           status: 'completed',
-          stream_link: null // Clear stream link
+          stream_link: null
         })
         .eq('id', booking.id);
 
       if (bookingError) throw bookingError;
 
-      // Create notification for client
+      // Create notification for client using streamerData
       const { error: notificationError } = await supabase
         .from('notifications')
         .insert([{
           user_id: booking.client_id,
-          message: `Stream session with ${booking.streamer.first_name} ${booking.streamer.last_name} has ended.`,
+          message: `Stream session with ${streamerData.first_name} ${streamerData.last_name} has ended.`,
           type: 'confirmation',
           booking_id: booking.id,
           created_at: new Date().toISOString(),
@@ -137,7 +147,7 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
       if (notificationError) throw notificationError;
 
       toast.success("Stream ended successfully");
-      onStreamEnd(); // Refresh the bookings list
+      onStreamEnd();
 
     } catch (error) {
       console.error('Error ending stream:', error);
@@ -234,7 +244,7 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
       ) : booking.stream_link ? (
         <Button
           className="mt-8 w-full py-6 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-lg font-medium flex items-center justify-center gap-2"
-          onClick={() => window.open(booking.stream_link, '_blank')}
+          onClick={() => booking.stream_link ? window.open(booking.stream_link, '_blank') : null}
         >
           <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
           Join Stream
