@@ -50,7 +50,7 @@ export default async function AuthButton() {
 
   return user ? (
     <div className="flex items-center gap-4">
-      <ProfileButton email={user.email ?? ''} />
+      <ProfileButton user={user} />
     </div>
   ) : (
     <div className="flex gap-2">
