@@ -17,12 +17,6 @@ import { Navbar } from "@/components/ui/navbar";
 import Image from 'next/image';
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface BookingDetails {
   streamerId: string;
