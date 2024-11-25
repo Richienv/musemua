@@ -17,7 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+
 import { Slider as UISlider } from "@/components/ui/slider";
 import Select from 'react-select';
 import { indonesianCities } from '@/lib/constants/indonesia-cities';

@@ -61,7 +61,11 @@ export function Navbar({ onFilterChange }: NavbarProps) {
               .single();
             
             if (streamerData) {
-              setUserData(prevData => ({ 
+              setUserData((prevData: { 
+                profile_picture_url?: string | null;
+                streamer_id?: number;
+                [key: string]: any; 
+              }) => ({ 
                 ...prevData, 
                 profile_picture_url: streamerData.image_url,
                 streamer_id: streamerData.id
