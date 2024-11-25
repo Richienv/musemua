@@ -7,7 +7,7 @@ import {
   ToastProvider,
   ToastTitle,
   ToastViewport,
-} from "@/components/ui/toast"
+} from "@radix-ui/react-toast"
 import { useToast } from "@/components/ui/use-toast"
 
 export function Toaster() {
@@ -19,13 +19,10 @@ export function Toaster() {
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
-              {description && (
-                <ToastDescription>{description}</ToastDescription>
-              )}
+              {title}
+              {description}
             </div>
             {action}
-            <ToastClose />
           </Toast>
         )
       })}
