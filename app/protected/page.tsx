@@ -332,7 +332,7 @@ export default function ProtectedPage() {
                       hover:bg-gray-50 transition-all duration-200">
                       <DollarSign size={18} className="text-gray-600" />
                       <span className="text-sm text-gray-600 whitespace-nowrap">
-                        Price Range
+                        Range Harga
                       </span>
                     </button>
                   </PopoverTrigger>

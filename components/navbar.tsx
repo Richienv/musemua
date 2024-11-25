@@ -14,14 +14,14 @@ export function Navbar() {
             <div className="relative w-8 h-8">
               <Image
                 src="https://placehold.co/32x32/000080/FFFFFF/png?text=L"
-                alt="Lilo Logo"
+                alt="Salda Logo"
                 width={32}
                 height={32}
                 className="rounded"
                 unoptimized
               />
             </div>
-            <span className="text-xl font-bold text-custom-navy">Lilo</span>
+            <span className="text-xl font-bold text-custom-navy">Salda</span>
           </Link>
 
           {/* Navigation Links - Center */}

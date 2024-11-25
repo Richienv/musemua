@@ -6,7 +6,7 @@ import Link from "next/link";
 export function Hero() {
   const cards = [
     {
-      title: "Welcome to Lilo",
+      title: "Welcome to Salda",
       description: "Your one-stop livestream platform"
     },
     {
@@ -43,7 +43,7 @@ export function Hero() {
               animation: 'gradient 8s ease infinite'
             }}
           >
-            SELAMAT DATANG DI LILO YAA!
+            SELAMAT DATANG DI Salda YAA!
           </h1>
           <p className="text-lg md:text-xl text-custom-navy/80 font-medium">
             KITA SENANG KAMU DISINI! LIAT-LIAT DULU AJAA

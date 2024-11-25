@@ -88,7 +88,7 @@ export function Navbar({ onFilterChange }: NavbarProps) {
               <div className="p-1.5">
                 <Image
                   src="/images/salda.png"
-                  alt="Lilo Logo"
+                  alt="Salda Logo"
                   width={68}
                   height={68}
                   className="object-contain"

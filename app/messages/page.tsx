@@ -372,7 +372,7 @@ export default function MessagesPage() {
               <div className="bg-red-50 p-3 text-sm text-red-800 flex items-start border-b border-red-100">
                 <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
                 <p className="flex-1">
-                  Hati-hati penipuan! Mohon tidak bertransaksi di luar Lilo dan tidak memberikan data pribadi kepada streamer, seperti nomor HP dan alamat. Tetap berinteraksi melalui aplikasi Lilo, ya.
+                  Hati-hati penipuan! Mohon tidak bertransaksi di luar Salda dan tidak memberikan data pribadi kepada streamer, seperti nomor HP dan alamat. Tetap berinteraksi melalui aplikasi Salda, ya.
                 </p>
               </div>
 
@@ -408,7 +408,7 @@ export default function MessagesPage() {
               <div className="bg-red-50 p-3 text-sm text-red-800 flex items-start border-b border-red-100">
                 <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
                 <p className="flex-1">
-                  Hati-hati penipuan! Mohon tidak bertransaksi di luar Lilo dan tidak memberikan data pribadi kepada streamer, seperti nomor HP dan alamat. Tetap berinteraksi melalui aplikasi Lilo, ya.
+                  Hati-hati penipuan! Mohon tidak bertransaksi di luar Salda dan tidak memberikan data pribadi kepada streamer, seperti nomor HP dan alamat. Tetap berinteraksi melalui aplikasi Salda, ya.
                 </p>
               </div>
               <div className="flex-1 flex items-center justify-center p-4 text-center text-gray-500">
