@@ -2,23 +2,33 @@ import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-  // The `/auth/callback` route is required for the server-side auth flow implemented
-  // by the SSR package. It exchanges an auth code for the user's session.
-  // https://supabase.com/docs/guides/auth/server-side/nextjs
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
-  const origin = requestUrl.origin;
-  const redirectTo = requestUrl.searchParams.get("redirect_to")?.toString();
+  try {
+    const requestUrl = new URL(request.url);
+    const code = requestUrl.searchParams.get("code");
+    const origin = requestUrl.origin;
+    const redirectTo = requestUrl.searchParams.get("redirect_to")?.toString();
 
-  if (code) {
+    if (!code) {
+      console.error("No code provided in auth callback");
+      return NextResponse.redirect(`${origin}/auth/error`);
+    }
+
     const supabase = createClient();
-    await supabase.auth.exchangeCodeForSession(code);
-  }
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
-  if (redirectTo) {
-    return NextResponse.redirect(`${origin}${redirectTo}`);
-  }
+    if (error) {
+      console.error("Auth exchange error:", error);
+      return NextResponse.redirect(`${origin}/auth/error`);
+    }
 
-  // URL to redirect to after sign up process completes
-  return NextResponse.redirect(`${origin}/protected`);
+    // Successful authentication
+    const finalRedirect = redirectTo 
+      ? `${origin}${redirectTo}`
+      : `${origin}/protected`;
+
+    return NextResponse.redirect(finalRedirect);
+  } catch (error) {
+    console.error("Auth callback error:", error);
+    return NextResponse.redirect(`${origin}/auth/error`);
+  }
 }
