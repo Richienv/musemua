@@ -125,6 +125,61 @@ export default function Home() {
           </div>
         </section>
 
+        {/* About Section */}
+        <section className="py-24 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <h2 className="text-[32px] font-semibold mb-4">
+                Temukan Kemudahan Streaming dengan Salda
+              </h2>
+            </div>
+
+            {/* Updated Image container - matched width with text columns */}
+            <div className="max-w-6xl mx-auto mb-16">
+              <Image
+                src="/images/aboutSalda.png"
+                alt="Salda Host Experience"
+                width={1200}
+                height={675}
+                className="w-full"
+                priority
+              />
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-12 max-w-6xl mx-auto">
+              {/* Column 1 */}
+              <div className="text-center md:text-left">
+                <h3 className="text-xl font-semibold mb-4">
+                  Bimbingan One-on-One dari Host Professional
+                </h3>
+                <p className="text-gray-600">
+                  Kami akan mencocokkan Anda dengan host profesional di area Anda, yang akan membimbing Anda dari pertanyaan pertama hingga sesi streaming pertama Anda.
+                </p>
+              </div>
+
+              {/* Column 2 */}
+              <div className="text-center md:text-left">
+                <h3 className="text-xl font-semibold mb-4">
+                  Host Berpengalaman untuk Streaming Pertama Anda
+                </h3>
+                <p className="text-gray-600">
+                  Untuk streaming pertama Anda, kami menyediakan host berpengalaman yang telah memiliki minimal tiga tahun pengalaman dan track record yang baik.
+                </p>
+              </div>
+
+              {/* Column 3 */}
+              <div className="text-center md:text-left">
+                <h3 className="text-xl font-semibold mb-4">
+                  Dukungan Khusus dari Salda
+                </h3>
+                <p className="text-gray-600">
+                  Brand baru mendapatkan akses one-tap ke agen Dukungan Komunitas khusus yang dapat membantu dengan segala hal mulai dari masalah akun hingga dukungan teknis.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* iPhone Section */}
         <section className="py-24 bg-gray-50">
           <div className="container mx-auto px-4">
