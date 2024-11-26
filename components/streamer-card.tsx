@@ -469,72 +469,98 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   return (
     <>
       <div 
-        className="group relative bg-transparent w-full max-w-xs font-sans cursor-pointer"
+        className="group relative bg-transparent w-full sm:max-w-sm font-sans cursor-pointer"
         onClick={() => setIsProfileModalOpen(true)}
       >
-        {/* Image Container with hover effect */}
-        <div className="relative w-full h-48 rounded-xl overflow-hidden">
+        {/* Image Container */}
+        <div className="relative w-full h-56 sm:h-64 rounded-xl overflow-hidden">
           <img
             src={streamer.image_url}
             alt={fullName}
             className="w-full h-full object-cover transform transition-transform duration-300 scale-100 group-hover:scale-105"
           />
-          {/* Subtle gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/5" />
         </div>
 
-        {/* Content Container with floating effect */}
-        <div className="mt-2 p-4 bg-white/95 rounded-xl 
-          transition-all duration-300 group-hover:bg-white">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-bold text-base text-foreground">{fullName}</h3>
-            <div className={`px-2 py-0.5 rounded-full text-white text-[10px] font-medium
-              ${streamer.platform.toLowerCase() === 'shopee' 
-                ? 'bg-gradient-to-r from-orange-500 to-orange-600 shadow-[0_0_5px_rgba(249,115,22,0.5)] hover:shadow-[0_0_8px_rgba(249,115,22,0.6)]' 
-                : 'bg-gradient-to-r from-purple-800 to-purple-900 shadow-[0_0_5px_rgba(88,28,135,0.5)] hover:shadow-[0_0_8px_rgba(88,28,135,0.6)]'
-              } transition-all duration-300`}>
-              {streamer.platform}
+        {/* Content Container - reduced top padding */}
+        <div className="p-5 pt-3 bg-white/95 rounded-b-xl transition-all duration-300 group-hover:bg-white">
+          {/* Name and Price Row */}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-base text-foreground">{fullName}</h3>
+              <div className={`px-2 py-0.5 rounded-full text-white text-[10px] font-medium
+                ${streamer.platform.toLowerCase() === 'shopee' 
+                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 shadow-[0_0_5px_rgba(249,115,22,0.5)] hover:shadow-[0_0_8px_rgba(249,115,22,0.6)]' 
+                  : 'bg-gradient-to-r from-purple-800 to-purple-900 shadow-[0_0_5px_rgba(88,28,135,0.5)] hover:shadow-[0_0_8px_rgba(88,28,135,0.6)]'
+                } transition-all duration-300`}>
+                {streamer.platform}
+              </div>
             </div>
+            <span className="text-base font-bold text-foreground">
+              Rp {streamer.price.toLocaleString('id-ID')}
+              <span className="text-xs font-normal text-foreground/70 ml-1">/ jam</span>
+            </span>
           </div>
 
-          <div className="flex items-center text-[10px] text-foreground/70 mb-2">
-            <span>{streamer.category}</span>
-            <span className="mx-1">|</span>
-            <MapPin className="w-2 h-2 mr-0.5 inline" />
-            <span>{streamer.location}</span>
-          </div>
-
+          {/* Rating */}
           <RatingStars rating={averageRating} />
 
-          <div className="mt-3 flex flex-col space-y-2">
-            <div className="flex items-baseline justify-between">
-              <span className="text-base font-bold text-foreground">
-                Rp {streamer.price.toLocaleString('id-ID')}
-                <span className="text-xs font-normal text-foreground/70 ml-1">/ jam</span>
-              </span>
+          {/* Bio Preview */}
+          <div className="mt-3 mb-3 min-h-[2.5rem]">
+            <p className="text-sm text-gray-600 line-clamp-2 relative">
+              {streamer.bio}
+              {streamer.bio.length > 100 && (
+                <span 
+                  className="font-bold text-red-500 hover:text-red-600 cursor-pointer ml-1 inline-block"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsProfileModalOpen(true);
+                  }}
+                >
+                  Read more
+                </span>
+              )}
+            </p>
+          </div>
+
+          {/* Location and Category with Icons */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-red-50 rounded-full">
+                <MapPin className="w-4 h-4 text-red-500" />
+              </div>
+              <span className="text-sm text-gray-600">{streamer.location}</span>
             </div>
-            <div className="flex gap-2">
-              <Button 
-                className={`flex-1 text-xs py-1 text-white
-                  ${streamer.platform.toLowerCase() === 'shopee' 
-                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700' 
-                    : 'bg-gradient-to-r from-purple-800 to-purple-900 hover:from-purple-900 hover:to-purple-950'
-                  }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openBookingModal();
-                }}
-              >
-                Book Livestreamer
-              </Button>
-              <Button
-                variant="outline"
-                className="px-3 text-red-500 border-red-500 hover:bg-red-50 hover:text-red-500 hover:border-red-500"
-                onClick={handleMessageClick}
-              >
-                <Mail className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-red-50 rounded-full">
+                <Monitor className="w-4 h-4 text-red-500" />
+              </div>
+              <span className="text-sm text-gray-600">{streamer.category}</span>
             </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-2">
+            <Button 
+              className={`flex-1 text-xs py-1 text-white border-2 border-black
+                ${streamer.platform.toLowerCase() === 'shopee' 
+                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700' 
+                  : 'bg-gradient-to-r from-purple-800 to-purple-900 hover:from-purple-900 hover:to-purple-950'
+                }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                openBookingModal();
+              }}
+            >
+              Book Livestreamer
+            </Button>
+            <Button
+              variant="outline"
+              className="px-3 text-red-500 border-red-500 hover:bg-red-50 hover:text-red-500 hover:border-red-500"
+              onClick={handleMessageClick}
+            >
+              <Mail className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>

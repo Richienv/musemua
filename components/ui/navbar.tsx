@@ -140,7 +140,12 @@ export function Navbar({ onFilterChange }: NavbarProps) {
                 <div className="h-6 w-px bg-black opacity-10"></div>
               </>
             )}
-            <ProfileButton user={userData} />
+            <div className="hidden sm:block">
+              <ProfileButton user={userData} />
+            </div>
+            <div className="sm:hidden">
+              <ProfileButton user={userData} showNameOnMobile={false} />
+            </div>
           </div>
         </div>
       </div>

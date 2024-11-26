@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import { useCallback } from 'react';
 import Image from 'next/image';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import Link from 'next/link';
@@ -12,21 +12,27 @@ interface ExtendedUser {
   id: string;
   email?: string;
   first_name?: string;
+  last_name?: string;
   profile_picture_url?: string;
   user_type?: string;
 }
 
 interface ProfileButtonProps {
   user: ExtendedUser | null;
+  showNameOnMobile?: boolean;
 }
 
-export function ProfileButton({ user }: ProfileButtonProps) {
+export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonProps) {
   const router = useRouter();
 
-  const handleLogout = async () => {
-    await signOut();
-    router.push('/sign-in');
-  };
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut();
+      router.push('/sign-in');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }, [router]);
 
   if (!user) {
     return (
@@ -40,21 +46,26 @@ export function ProfileButton({ user }: ProfileButtonProps) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="flex items-center space-x-2 focus:outline-none">
-          {user.profile_picture_url ? (
-            <Image
-              src={user.profile_picture_url}
-              alt={`${user.first_name}'s profile`}
-              width={24}
-              height={24}
-              className="rounded-full"
-            />
-          ) : (
-            <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
-              <span className="text-gray-600 text-xs">{user.first_name?.[0] || user.email?.[0]}</span>
-            </div>
+        <button className="flex items-center gap-2">
+          <div className="relative w-8 h-8 rounded-full overflow-hidden">
+            {user?.profile_picture_url ? (
+              <Image
+                src={user.profile_picture_url}
+                alt="Profile"
+                layout="fill"
+                objectFit="cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                <User className="w-4 h-4 text-gray-500" />
+              </div>
+            )}
+          </div>
+          {showNameOnMobile && (
+            <span className="hidden sm:block text-sm font-medium">
+              {user?.first_name} {user?.last_name}
+            </span>
           )}
-          <span className="text-xs text-gray-700">{user.first_name || 'User'}</span>
         </button>
       </DropdownMenu.Trigger>
 

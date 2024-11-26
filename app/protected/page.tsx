@@ -287,14 +287,14 @@ export default function ProtectedPage() {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full overflow-x-hidden">
       <Navbar onFilterChange={handleFilterChange} />
       
-      {/* Category Filter */}
-      <div className="sticky top-16 bg-white z-40 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative">
-            <div className="flex overflow-x-auto scrollbar-hide py-4 gap-6">
+      {/* Category Filter - Updated for mobile */}
+      <div className="sticky top-16 bg-white z-40 border-b border-gray-200 w-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <div className="relative w-full">
+            <div className="flex overflow-x-auto scrollbar-hide py-4 gap-4 md:gap-6 w-full">
               {categories.map((category) => (
                 <button
                   key={category.name}
@@ -437,38 +437,47 @@ export default function ProtectedPage() {
               </div>
             </div>
             
-            {/* Gradient Fade */}
-            <div className="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-white pointer-events-none" />
+            {/* Gradient Fade - adjusted for mobile */}
+            <div className="absolute right-0 top-0 h-full w-12 md:w-24 bg-gradient-to-l from-white pointer-events-none" />
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="w-full mb-10">
-          <Slider {...settings}>
-            {carouselImages.map((image, index) => (
-              <div key={index} className="outline-none">
-                <Image
-                  src={image}
-                  alt={`Carousel image ${index + 1}`}
-                  width={1200}
-                  height={400}
-                  objectFit="cover"
-                  className="rounded-lg"
-                />
-              </div>
-            ))}
-          </Slider>
+      {/* Main Content - Updated for mobile */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Carousel - Updated for mobile */}
+          <div className="w-full mb-6 md:mb-10">
+            <Slider {...settings}>
+              {carouselImages.map((image, index) => (
+                <div key={index} className="outline-none px-1">
+                  <Image
+                    src={image}
+                    alt={`Carousel image ${index + 1}`}
+                    width={1200}
+                    height={400}
+                    objectFit="cover"
+                    className="rounded-lg w-full"
+                  />
+                </div>
+              ))}
+            </Slider>
+          </div>
+          
+          <hr className="border-t border-gray-200 my-6 md:my-8" />
+
+          {/* Headings - Updated for mobile */}
+          <h2 className="text-2xl md:text-3xl mb-2 text-gray-800 first-letter:text-3xl md:first-letter:text-4xl px-2 md:px-0">
+            Salda Top Streamer
+          </h2>
+          
+          <hr className="border-t border-gray-200 my-4 md:my-5" />
+
+          {/* StreamerList - Updated for mobile */}
+          <div className="px-2 md:px-4 lg:px-6">
+            <StreamerList initialStreamers={filteredStreamers} filter={filter} />
+          </div>
         </div>
-        
-        <hr className="border-t border-gray-200 my-8" />
-
-        <h2 className="text-3xl mb-2 text-gray-800 first-letter:text-4xl">Salda Top Streamer</h2>
-        
-        <p className="text-sm text-gray-600 mb-2">Streamer yang memiliki rating tertinggi dan terpercaya di Salda</p>
-        <hr className="border-t border-gray-200 my-5" />
-
-        <StreamerList initialStreamers={filteredStreamers} filter={filter} />
       </div>
     </div>
   );

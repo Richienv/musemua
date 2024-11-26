@@ -20,10 +20,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={GeistSans.className}>
+    <html lang="en" className="overflow-x-hidden">
+      <body className={`${GeistSans.className} overflow-x-hidden w-full`}>
         <Toaster position="top-center" />
-        <main className="min-h-screen flex flex-col items-center">
+        <main className="min-h-screen flex flex-col items-center w-full max-w-full overflow-x-hidden">
           {children}
         </main>
       </body>
