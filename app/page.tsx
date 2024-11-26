@@ -74,40 +74,53 @@ export default function Home() {
       </nav>
 
       <main className="flex flex-col min-h-screen bg-white">
-        {/* Hero Section */}
-        <section className="relative h-[90vh] flex items-center justify-center overflow-hidden">
-          {/* Video Background */}
-          <div className="absolute inset-0">
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover"
-            >
-              <source src="/images/hero.mp4" type="video/mp4" />
-            </video>
-            {/* Dark overlay */}
-            <div className="absolute inset-0 bg-black/70" />
-          </div>
-
-          {/* Content */}
-          <div className="relative z-10 container mx-auto px-4 text-center">
-            <div className="max-w-4xl mx-auto space-y-8">
-              <h1 className="text-5xl lg:text-6xl font-bold leading-tight text-white">
-                Temukan Streamer Favoritmu di <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600">Salda</span>
+        {/* Updated Hero Section */}
+        <section className="min-h-screen flex items-end justify-center bg-gradient-to-bl from-red-800 via-red-500 to-white rounded-3xl mx-4 my-4 pt-16 md:pt-32">
+          <div className="container mx-auto px-4 pb-0">
+            <div className="flex flex-col items-center text-center max-w-5xl mx-auto">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 text-white px-4 leading-tight">
+                Temukan Streamer
+                <br />
+                Favoritmu di{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-200 to-white">
+                  Salda
+                </span>
               </h1>
-              <p className="text-xl text-gray-200 max-w-2xl mx-auto">
+              <p className="text-lg md:text-xl text-white mb-8 max-w-2xl px-4">
                 Platform yang menghubungkan kamu dengan streamer terbaik untuk pengalaman live streaming yang lebih interaktif.
               </p>
-              <Button 
-                size="lg"
-                className="bg-red-500 hover:bg-red-600 text-white px-12 h-12 rounded-full"
-                onClick={() => router.push('/sign-in')}
-              >
-                Mulai Sekarang
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+              <div className="mb-8 w-full max-w-xl px-4">
+                <button 
+                  onClick={() => router.push('/sign-in')}
+                  className="px-8 py-3 bg-red-600 text-white rounded-full hover:bg-red-700 transition-all hover:scale-105 shadow-[0_4px_8px_-2px_rgba(0,0,0,0.2)]"
+                >
+                  Mulai Sekarang
+                </button>
+              </div>
+              <div className="relative w-full max-w-3xl">
+                <Image
+                  src="/images/18.png"
+                  alt="Hero Image"
+                  width={600}
+                  height={400}
+                  className="rounded-2xl w-full"
+                  priority
+                />
+                <div className="absolute top-[55%] -translate-y-[55%] -left-4 bg-white/95 p-4 rounded-xl max-w-xs backdrop-blur-sm shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12)] hidden md:block">
+                  <p className="text-sm text-red-950">250+ Host Profesional Terverifikasi siap membantu</p>
+                  <div className="flex items-center mt-2">
+                    <div className="w-6 h-6 rounded-full bg-gray-200 mr-2"></div>
+                    <span className="text-xs text-gray-700">Tim Salda Professional</span>
+                  </div>
+                </div>
+                <div className="absolute top-[40%] -translate-y-[40%] right-4 bg-white/95 p-4 rounded-xl max-w-xs backdrop-blur-sm shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12)] hidden md:block">
+                  <p className="text-sm text-red-950">Tingkatkan penjualan hingga 10x lipat</p>
+                  <div className="flex items-center mt-2">
+                    <div className="w-6 h-6 rounded-full bg-gray-200 mr-2"></div>
+                    <span className="text-xs text-gray-700">Salda Analytics</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -117,7 +130,7 @@ export default function Home() {
           <div className="container mx-auto px-4">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <IPhoneMockup 
-                imageSrc="/images/stream3.png"
+                imageSrc="/images/16.png"
                 altText="Streaming demo"
               />
 
