@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from "@/utils/supabase/client";
@@ -10,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { format, parseISO, differenceInHours, addHours, isSameDay, startOfDay } from 'date-fns';
 import toast from 'react-hot-toast';
-import { MapPin, Star, Loader2, Shield, Clock, Calendar, Monitor, DollarSign, AlertTriangle, Phone, ChevronLeft, Info } from 'lucide-react';
+import { MapPin, Star, Shield, Clock, Calendar, Monitor, DollarSign, AlertTriangle, Phone, ChevronLeft, Info } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { PaymentModal } from '@/components/payment-modal';
 import { Navbar } from "@/components/ui/navbar";
@@ -55,6 +57,18 @@ const platformStyles = {
 };
 
 export default function BookingDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto p-4 flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <BookingDetailContent />
+    </Suspense>
+  );
+}
+
+function BookingDetailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
