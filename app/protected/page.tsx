@@ -295,50 +295,20 @@ export default function ProtectedPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="relative w-full">
             <div className="flex overflow-x-auto scrollbar-hide py-4 gap-4 md:gap-6 w-full">
-              {categories.map((category) => (
-                <button
-                  key={category.name}
-                  onClick={() => handleCategoryFilter(category.name)}
-                  className={`flex flex-col items-center min-w-[64px] transition-all duration-200 ${
-                    categoryFilter === category.name 
-                      ? 'transform scale-105' 
-                      : 'hover:scale-105'
-                  }`}
-                >
-                  <div className={`p-2 rounded-full mb-1.5 
-                    ${categoryFilter === category.name 
-                      ? 'text-red-600' 
-                      : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <category.icon size={20} strokeWidth={1.5} />
-                  </div>
-                  <span className={`text-xs whitespace-nowrap ${
-                    categoryFilter === category.name 
-                      ? 'font-semibold text-red-600 border-b-2 border-red-600' 
-                      : 'text-gray-600'
-                  }`}>
-                    {category.name}
-                  </span>
-                </button>
-              ))}
-              
-              {/* Filter Buttons */}
-              <div className="flex gap-2 ml-2">
+              {/* Important Filters First */}
+              <div className="flex gap-2">
                 {/* Price Range Filter */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 
-                      hover:bg-gray-50 transition-all duration-200">
-                      <DollarSign size={18} className="text-gray-600" />
-                      <span className="text-sm text-gray-600 whitespace-nowrap">
-                        Range Harga
-                      </span>
+                    <button className="flex items-center justify-center w-[40px] h-[40px] rounded-lg 
+                      bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 
+                      transition-all duration-200">
+                      <DollarSign size={16} className="text-white" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-80 p-4">
-                    <div className="space-y-4">
-                      <h4 className="font-medium">Select Price Range</h4>
+                  <PopoverContent className="w-72 p-3">
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-medium">Select Price Range</h4>
                       <div className="space-y-6">
                         <div className="relative pt-6">
                           <UISlider
@@ -396,19 +366,15 @@ export default function ProtectedPage() {
                 {/* Location Filter */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 
-                      hover:bg-gray-50 transition-all duration-200">
-                      <MapPin size={18} className="text-gray-600" />
-                      <span className="text-sm text-gray-600 whitespace-nowrap">
-                        {selectedLocation ? 
-                          indonesianCities.find(city => city.value === selectedLocation)?.label : 
-                          'Location'}
-                      </span>
+                    <button className="flex items-center justify-center w-[40px] h-[40px] rounded-lg 
+                      bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 
+                      transition-all duration-200">
+                      <MapPin size={16} className="text-white" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-64 p-4">
-                    <div className="space-y-4">
-                      <h4 className="font-medium">Select Location</h4>
+                  <PopoverContent className="w-56 p-3">
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-medium">Select Location</h4>
                       <Select
                         options={indonesianCities}
                         placeholder="Select city..."
@@ -433,7 +399,39 @@ export default function ProtectedPage() {
                 <AvailabilityFilter 
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
+                  className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
                 />
+              </div>
+
+              {/* Categories */}
+              <div className="flex gap-3">
+                {categories.map((category) => (
+                  <button
+                    key={category.name}
+                    onClick={() => handleCategoryFilter(category.name)}
+                    className={`flex flex-col items-center min-w-[48px] sm:min-w-[64px] transition-all duration-200 ${
+                      categoryFilter === category.name 
+                        ? 'transform scale-105' 
+                        : 'hover:scale-105'
+                    }`}
+                  >
+                    <div className={`p-1.5 sm:p-2 rounded-full mb-1 
+                      ${categoryFilter === category.name 
+                        ? 'text-red-600' 
+                        : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <category.icon size={18} strokeWidth={1.5} />
+                    </div>
+                    <span className={`text-[10px] sm:text-xs whitespace-nowrap ${
+                      categoryFilter === category.name 
+                        ? 'font-semibold text-red-600 border-b-2 border-red-600' 
+                        : 'text-gray-600'
+                    }`}>
+                      {category.name}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
             
@@ -475,7 +473,11 @@ export default function ProtectedPage() {
 
           {/* StreamerList - Updated for mobile */}
           <div className="px-2 md:px-4 lg:px-6">
-            <StreamerList initialStreamers={filteredStreamers} filter={filter} />
+            <StreamerList 
+              initialStreamers={filteredStreamers} 
+              filter={filter} 
+              className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
+            />
           </div>
         </div>
       </div>

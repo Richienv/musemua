@@ -396,191 +396,192 @@ function BookingDetailContent() {
   const total = Math.round(subtotalWithPlatformFee + tax);
 
   return (
-    <>
-      <Navbar />
-      <div className="container mx-auto p-4 max-w-6xl font-sans text-sm mt-8">
-        <div className="flex items-center gap-6 mb-8">
-          <ChevronLeft 
-            className="h-6 w-6 text-red-500 cursor-pointer hover:text-red-600 transition-colors"
-            onClick={() => router.push('/protected')}
-          />
-          <h1 className="text-2xl">Detail Pemesanan</h1>
-        </div>
+    <div className="container mx-auto p-3 sm:p-4 max-w-6xl font-sans text-xs sm:text-sm mt-4 sm:mt-8">
+      <div className="flex items-center gap-3 sm:gap-6 mb-4 sm:mb-8">
+        <ChevronLeft 
+          className="h-5 w-5 sm:h-6 sm:w-6 text-red-500 cursor-pointer hover:text-red-600 transition-colors"
+          onClick={() => router.push('/protected')}
+        />
+        <h1 className="text-lg sm:text-2xl">Detail Pemesanan</h1>
+      </div>
 
-        <div className="flex flex-col md:flex-row gap-6">
-          {/* Left Container */}
-          <div className="flex-1 space-y-6">
-            <div className="border border-gray-200 rounded-lg p-6">
-              <h2 className="text-xl mb-6">Informasi Pemesanan</h2>
-              <div className="space-y-5">
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-5 w-5 text-red-500" />
-                  <span className="text-base">
-                    {format(new Date(bookingDetails?.date || ''), 'MMMM d, yyyy')}
-                  </span>
-                </div>
+      <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
+        {/* Left Container */}
+        <div className="flex-1 space-y-4 sm:space-y-6">
+          <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
+            <h2 className="text-base sm:text-xl mb-4 sm:mb-6">Informasi Pemesanan</h2>
+            <div className="space-y-3 sm:space-y-5">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
+                <span className="text-sm sm:text-base">
+                  {format(new Date(bookingDetails?.date || ''), 'MMMM d, yyyy')}
+                </span>
+              </div>
 
-                <div className="flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-red-500" />
-                  <span className="text-base">
-                    {selectedHours.length > 0 && (
-                      `${selectedHours[0]} - ${format(addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1), 'HH:mm')} (${differenceInHours(
-                        addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1),
-                        parseISO(`${bookingDetails?.date}T${selectedHours[0]}`)
-                      )} jam)`
-                    )}
-                  </span>
-                </div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
+                <span className="text-sm sm:text-base">
+                  {selectedHours.length > 0 && (
+                    `${selectedHours[0]} - ${format(addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1), 'HH:mm')} (${differenceInHours(
+                      addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1),
+                      parseISO(`${bookingDetails?.date}T${selectedHours[0]}`)
+                    )} jam)`
+                  )}
+                </span>
+              </div>
 
-                <div className="flex items-center gap-3">
-                  <Monitor className="h-5 w-5 text-red-500" />
-                  <span className="text-base">{bookingDetails?.platform}</span>
-                </div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Monitor className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
+                <span className="text-sm sm:text-base">{bookingDetails?.platform}</span>
               </div>
             </div>
+          </div>
 
-            <div className="border border-gray-200 rounded-lg p-6">
-              <h2 className="text-xl mb-4">Permintaan Khusus</h2>
-              <Textarea
-                id="special-request"
-                placeholder="Ada permintaan khusus untuk streamer?"
-                value={specialRequest}
-                onChange={(e) => setSpecialRequest(e.target.value)}
-                className="mt-1 text-sm"
+          <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
+            <h2 className="text-base sm:text-xl mb-3 sm:mb-4">Permintaan Khusus</h2>
+            <Textarea
+              id="special-request"
+              placeholder="Ada permintaan khusus untuk streamer?"
+              value={specialRequest}
+              onChange={(e) => setSpecialRequest(e.target.value)}
+              className="mt-1 text-xs sm:text-sm"
+            />
+          </div>
+
+          {bookingDetails?.platform.toLowerCase() === 'shopee' ? (
+            <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
+              <h2 className="text-base sm:text-xl mb-2 flex items-center gap-2">
+                Sub Account Link 
+                <Badge className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 text-[10px] sm:text-xs">
+                  Shopee
+                </Badge>
+              </h2>
+              <Input 
+                placeholder="Masukkan link sub account Shopee" 
+                className="mt-1 text-xs sm:text-sm"
+                value={subAccountLink}
+                onChange={(e) => setSubAccountLink(e.target.value)}
               />
             </div>
-
-            {bookingDetails?.platform.toLowerCase() === 'shopee' ? (
-              <div className="border border-gray-200 rounded-lg p-6">
-                <h2 className="text-xl mb-2 flex items-center gap-2">
-                  Sub Account Link 
-                  <Badge className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0">
-                    Shopee
-                  </Badge>
-                </h2>
+          ) : bookingDetails?.platform.toLowerCase() === 'tiktok' ? (
+            <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
+              <h2 className="text-base sm:text-xl mb-2 flex items-center gap-2">
+                Nomor Telepon 
+                <Badge className="bg-gradient-to-r from-[#00f2ea] to-[#ff0050] text-white border-0 text-[10px] sm:text-xs">
+                  TikTok
+                </Badge>
+              </h2>
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
                 <Input 
-                  placeholder="Masukkan link sub account Shopee" 
-                  className="mt-1 text-sm"
+                  type="tel"
+                  placeholder="Masukkan nomor telepon Anda" 
+                  className="mt-1 text-xs sm:text-sm"
                   value={subAccountLink}
                   onChange={(e) => setSubAccountLink(e.target.value)}
                 />
               </div>
-            ) : bookingDetails?.platform.toLowerCase() === 'tiktok' ? (
-              <div className="border border-gray-200 rounded-lg p-6">
-                <h2 className="text-xl mb-2 flex items-center gap-2">
-                  Nomor Telepon 
-                  <Badge className="bg-gradient-to-r from-[#00f2ea] to-[#ff0050] text-white border-0">
-                    TikTok
-                  </Badge>
-                </h2>
-                <div className="flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-red-500" />
-                  <Input 
-                    type="tel"
-                    placeholder="Masukkan nomor telepon Anda" 
-                    className="mt-1 text-sm"
-                    value={subAccountLink}
-                    onChange={(e) => setSubAccountLink(e.target.value)}
-                  />
-                </div>
-                <p className="mt-3 text-sm text-gray-600 border border-blue-100 p-3 rounded-lg">
-                  Mohon berkoordinasi dengan streamer dan siap menerima OTP yang akan dibagikan ke streamer dalam waktu 1-5 menit
-                </p>
-              </div>
-            ) : null}
-
-            <div className="border border-gray-200 rounded-lg p-6">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-1" />
-                <div>
-                  <h2 className="text-xl mb-2">Kebijakan Pembatalan</h2>
-                  <p className="text-sm text-gray-600">
-                    Pembatalan gratis hingga 24 jam sebelum pemesanan. Setelah itu, biaya 50% akan dikenakan.
-                  </p>
-                </div>
-              </div>
+              <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-gray-600 border border-blue-100 p-2 sm:p-3 rounded-lg">
+                Mohon berkoordinasi dengan streamer dan siap menerima OTP yang akan dibagikan ke streamer dalam waktu 1-5 menit
+              </p>
             </div>
-          </div>
+          ) : null}
 
-          {/* Right Container */}
-          <div className="w-full md:w-1/3">
-            <div className="border border-gray-200 rounded-lg p-6 sticky top-4">
-              <p className="text-sm text-gray-500 mb-2">Informasi Streamer</p>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-2xl">{bookingDetails?.streamerName}</h2>
-                  <div className="bg-blue-50 p-1 rounded-full">
-                    <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                  </div>
-                </div>
-                <div className="flex items-center bg-yellow-50 px-3 py-2 rounded-lg">
-                  <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                  <span className="ml-1 text-lg">{bookingDetails?.rating.toFixed(1)}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center text-base text-gray-600 mb-4">
-                <MapPin className="h-5 w-5 text-red-500 mr-2" />
-                <span>{bookingDetails?.location}</span>
-              </div>
-
-              <hr className="border-t border-gray-200 my-6" />
-
-              <div className="space-y-4">
-                <div className="flex justify-between text-base">
-                  <span className="text-gray-600">{`Rp ${bookingDetails?.price.toLocaleString()} x ${selectedHours.length} jam`}</span>
-                  <span>{`Rp ${subtotal.toLocaleString()}`}</span>
-                </div>
-                <div className="flex justify-between text-base">
-                  <span className="text-gray-600">Biaya platform (30%)</span>
-                  <span>{`Rp ${platformFee.toLocaleString()}`}</span>
-                </div>
-                <div className="flex justify-between text-base">
-                  <span className="text-gray-600">Pajak (11%)</span>
-                  <span>{`Rp ${tax.toLocaleString()}`}</span>
-                </div>
-              </div>
-
-              <hr className="border-t border-gray-200 my-6" />
-
-              <div className="flex justify-between text-xl mb-8">
-                <span>Total</span>
-                <span>{`Rp ${total.toLocaleString()}`}</span>
-              </div>
-
-              <div className="pt-4">
-                <Button 
-                  onClick={handleConfirmBooking} 
-                  disabled={isLoading}
-                  className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-4 rounded-lg text-lg transition-colors duration-200"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                      Memproses...
-                    </>
-                  ) : (
-                    <>
-                      <Shield className="mr-2 h-6 w-6" />
-                      Bayar
-                    </>
-                  )}
-                </Button>
+          <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 flex-shrink-0 mt-1" />
+              <div>
+                <h2 className="text-base sm:text-xl mb-2">Kebijakan Pembatalan</h2>
+                <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
+                  Pembatalan gratis hingga 24 jam sebelum pemesanan. Setelah itu, biaya 50% akan dikenakan.
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {paymentToken && (
-          <PaymentModal
-            token={paymentToken}
-            onSuccess={handlePaymentSuccess}
-            onPending={handlePaymentPending}
-            onError={handlePaymentError}
-            onClose={handlePaymentClose}
-          />
-        )}
+        {/* Right Container */}
+        <div className="w-full md:w-1/3">
+          <div className="rounded-lg p-3 sm:p-6 sticky top-4">
+            <p className="text-xs text-gray-500 mb-2 font-bold">Informasi Streamer</p>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg">{bookingDetails?.streamerName}</h2>
+                <div className="bg-blue-50 p-1 rounded-full">
+                  <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                </div>
+              </div>
+              <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-lg">
+                <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                <span className="ml-1 text-sm">{bookingDetails?.rating.toFixed(1)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center text-sm text-gray-600 mb-4">
+              <MapPin className="h-4 w-4 text-red-500 mr-2" />
+              <span>{bookingDetails?.location}</span>
+            </div>
+
+            <div className="h-2 bg-gray-100 -mx-3 sm:-mx-6 my-4" />
+
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 font-bold">{`Rp ${bookingDetails?.price.toLocaleString()} x ${selectedHours.length} jam`}</span>
+                <span>{`Rp ${subtotal.toLocaleString()}`}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 font-bold">Biaya platform (30%)</span>
+                <span>{`Rp ${platformFee.toLocaleString()}`}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 font-bold">Pajak (11%)</span>
+                <span>{`Rp ${tax.toLocaleString()}`}</span>
+              </div>
+            </div>
+
+            <div className="h-2 bg-gray-100 -mx-3 sm:-mx-6 my-4" />
+
+            <div className="flex justify-between text-base sm:text-lg mb-6">
+              <span className="font-bold">Total</span>
+              <span className="font-bold">{`Rp ${total.toLocaleString()}`}</span>
+            </div>
+
+            <div className="pt-2">
+              <Button 
+                onClick={handleConfirmBooking} 
+                disabled={isLoading}
+                className={`w-full py-3 rounded-lg text-sm transition-all duration-200 ${
+                  isLoading 
+                    ? 'bg-gradient-to-r from-red-600 to-red-700 text-white'
+                    : 'bg-white border-2 border-red-500 text-red-500 hover:bg-gradient-to-r hover:from-red-500 hover:to-red-600 hover:text-white'
+                }`}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Bayar
+                  </>
+                ) : (
+                  <>
+                    <Shield className="mr-2 h-4 w-4" />
+                    Konfirmasi
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
-    </>
+
+      {paymentToken && (
+        <PaymentModal
+          token={paymentToken}
+          onSuccess={handlePaymentSuccess}
+          onPending={handlePaymentPending}
+          onError={handlePaymentError}
+          onClose={handlePaymentClose}
+        />
+      )}
+    </div>
   );
 }

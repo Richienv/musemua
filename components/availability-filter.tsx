@@ -6,86 +6,62 @@ import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
 interface AvailabilityFilterProps {
   selectedDate: Date | null;
-  setSelectedDate: React.Dispatch<React.SetStateAction<Date | null>>;
+  setSelectedDate: (date: Date | null) => void;
+  className?: string;
 }
 
-export function AvailabilityFilter({ selectedDate, setSelectedDate }: AvailabilityFilterProps) {
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+export function AvailabilityFilter({ selectedDate, setSelectedDate, className }: AvailabilityFilterProps) {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const weekStart = startOfWeek(currentDate);
 
-  const handleDateChange = (date: Date) => {
-    setSelectedDate((prevDate: Date | null) => 
-      prevDate && isSameDay(prevDate, date) ? null : date
-    );
-  };
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-
-  const handlePreviousWeek = () => {
-    setCurrentWeekStart(prev => addDays(prev, -7));
-  };
-
-  const handleNextWeek = () => {
-    setCurrentWeekStart(prev => addDays(prev, 7));
-  };
-
-  const isSelected = (date: Date) => selectedDate && isSameDay(selectedDate, date);
+  const nextWeek = () => setCurrentDate(addDays(currentDate, 7));
+  const prevWeek = () => setCurrentDate(addDays(currentDate, -7));
 
   return (
-    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+    <Popover>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 
-          hover:bg-gray-50 transition-all duration-200">
-          <Calendar size={18} className="text-gray-600" />
-          <span className="text-sm text-gray-600 whitespace-nowrap">
-            {selectedDate ? format(selectedDate, 'dd MMM yyyy') : 'Select Date'}
-          </span>
+        <button className={`flex items-center justify-center w-[40px] h-[40px] rounded-lg 
+          transition-all duration-200 ${className}`}
+        >
+          <Calendar size={16} className="text-white" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <div className="p-4 space-y-4">
-          <div className="flex justify-between items-center">
-            <Button onClick={handlePreviousWeek} variant="ghost" size="icon" className="h-7 w-7">
+      <PopoverContent className="w-auto p-3" align="start" sideOffset={8}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <button onClick={prevWeek} className="p-1 hover:bg-gray-100 rounded-md">
               <ChevronLeft className="h-4 w-4" />
-            </Button>
+            </button>
             <span className="text-sm font-medium">
-              {format(currentWeekStart, 'd')} - {format(endOfWeek(currentWeekStart), 'd MMM')}
+              {format(weekStart, 'MMM d')} - {format(endOfWeek(currentDate), 'MMM d')}
             </span>
-            <Button onClick={handleNextWeek} variant="ghost" size="icon" className="h-7 w-7">
+            <button onClick={nextWeek} className="p-1 hover:bg-gray-100 rounded-md">
               <ChevronRight className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
           <div className="grid grid-cols-7 gap-1">
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-              <div key={day} className="text-center text-xs font-medium text-gray-500">
-                {day}
-              </div>
-            ))}
-            {weekDays.map((date, index) => {
-              const isSelectedDate = isSelected(date);
-              const isCurrentMonth = isSameMonth(date, currentWeekStart);
-              const isCurrentDay = isToday(date);
-              const isPastDate = isBefore(date, new Date()) && !isCurrentDay;
-
+            {days.map((day) => {
+              const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
+              const isDisabled = isBefore(day, startOfWeek(new Date()));
+              
               return (
-                <Button
-                  key={date.toISOString()}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => !isPastDate && handleDateChange(date)}
+                <button
+                  key={day.toString()}
+                  onClick={() => setSelectedDate(day)}
+                  disabled={isDisabled}
                   className={`
-                    p-2 h-10 w-10 flex flex-col items-center justify-center
-                    ${isSelectedDate ? 'bg-blue-100 text-blue-600' : ''}
-                    ${!isCurrentMonth ? 'text-gray-300' : ''}
-                    ${isCurrentDay ? 'border border-blue-600' : ''}
-                    ${isPastDate ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100'}
+                    aspect-square p-1 text-center flex flex-col items-center justify-center
+                    rounded-md text-sm
+                    ${isDisabled ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100'}
+                    ${isSelected ? 'bg-red-500 text-white hover:bg-red-600' : ''}
+                    ${isToday(day) ? 'font-bold' : ''}
                   `}
-                  disabled={isPastDate}
                 >
-                  <span className={`text-sm ${isSelectedDate ? 'font-bold' : ''}`}>
-                    {format(date, 'd')}
-                  </span>
-                </Button>
+                  <span className="text-[10px]">{format(day, 'EEE')}</span>
+                  <span className="text-xs font-semibold">{format(day, 'd')}</span>
+                </button>
               );
             })}
           </div>

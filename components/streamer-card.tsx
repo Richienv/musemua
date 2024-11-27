@@ -11,6 +11,7 @@ import { format, addDays, startOfWeek, addWeeks, isSameDay, endOfWeek, isAfter, 
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { createOrGetConversation } from '@/services/message-service';
+import { BookingCalendar } from './booking-calendar';
 
 // Add this function at the top of your file, outside of the StreamerCard component
 function getYouTubeVideoId(url: string): string | null {
@@ -99,6 +100,11 @@ function formatPrice(price: number): string {
   }
   const firstTwoDigits = Math.floor(price / 1000);
   return `Rp ${firstTwoDigits}K/hour`;
+}
+
+// First, add a helper function to format the name
+function formatName(firstName: string, lastName: string): string {
+  return `${firstName} ${lastName.charAt(0)}.`;
 }
 
 export function StreamerCard({ streamer }: { streamer: Streamer }) {
@@ -469,83 +475,92 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   return (
     <>
       <div 
-        className="group relative bg-transparent w-full sm:max-w-sm font-sans cursor-pointer"
+        className="group relative bg-transparent w-full font-sans cursor-pointer"
         onClick={() => setIsProfileModalOpen(true)}
       >
-        {/* Image Container */}
-        <div className="relative w-full h-56 sm:h-64 rounded-xl overflow-hidden">
+        {/* Image Container - reduced height */}
+        <div className="relative w-full h-44 sm:h-52 rounded-xl overflow-hidden">
           <img
             src={streamer.image_url}
-            alt={fullName}
+            alt={formatName(streamer.first_name, streamer.last_name)}
             className="w-full h-full object-cover transform transition-transform duration-300 scale-100 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/5" />
         </div>
 
-        {/* Content Container - reduced top padding */}
-        <div className="p-5 pt-3 bg-white/95 rounded-b-xl transition-all duration-300 group-hover:bg-white">
-          {/* Name and Price Row */}
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-base text-foreground">{fullName}</h3>
-              <div className={`px-2 py-0.5 rounded-full text-white text-[10px] font-medium
+        {/* Content Container - reduced padding and font sizes */}
+        <div className="p-3 sm:p-4 pt-2 sm:pt-3 bg-white/95 rounded-b-xl transition-all duration-300 group-hover:bg-white">
+          {/* Name and Platform */}
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm sm:text-base text-foreground">
+                {formatName(streamer.first_name, streamer.last_name)}
+              </h3>
+              <div className={`px-1.5 py-0.5 rounded-full text-white text-[9px] sm:text-[10px] font-medium
                 ${streamer.platform.toLowerCase() === 'shopee' 
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 shadow-[0_0_5px_rgba(249,115,22,0.5)] hover:shadow-[0_0_8px_rgba(249,115,22,0.6)]' 
-                  : 'bg-gradient-to-r from-purple-800 to-purple-900 shadow-[0_0_5px_rgba(88,28,135,0.5)] hover:shadow-[0_0_8px_rgba(88,28,135,0.6)]'
-                } transition-all duration-300`}>
+                  ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
+                  : 'bg-gradient-to-r from-purple-800 to-purple-900'
+                }`}>
                 {streamer.platform}
               </div>
             </div>
-            <span className="text-base font-bold text-foreground">
-              Rp {streamer.price.toLocaleString('id-ID')}
-              <span className="text-xs font-normal text-foreground/70 ml-1">/ jam</span>
-            </span>
           </div>
 
-          {/* Rating */}
-          <RatingStars rating={averageRating} />
+          {/* Price Display - smaller text */}
+          <div className="flex flex-col mb-1.5">
+            <div className="flex items-center gap-1">
+              <span className="text-sm sm:text-base font-bold text-foreground">
+                Rp {streamer.price.toLocaleString('id-ID')}
+              </span>
+              <span className="text-[10px] sm:text-xs font-normal text-foreground/70">/ jam</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs sm:text-sm text-gray-400 line-through">
+                Rp {Math.round(streamer.price * 1.25).toLocaleString('id-ID')}
+              </span>
+              <span className="text-[10px] sm:text-xs font-medium text-red-500">25%</span>
+            </div>
+          </div>
 
-          {/* Bio Preview */}
-          <div className="mt-3 mb-3 min-h-[2.5rem]">
-            <p className="text-sm text-gray-600 line-clamp-2 relative">
+          {/* Rating - smaller size */}
+          <div className="scale-90 origin-left">
+            <RatingStars rating={averageRating} />
+          </div>
+
+          {/* Bio Preview - reduced margins */}
+          <div className="mt-2 mb-2 min-h-[2.5rem]">
+            <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 relative">
               {streamer.bio}
               {streamer.bio.length > 100 && (
-                <span 
-                  className="font-bold text-red-500 hover:text-red-600 cursor-pointer ml-1 inline-block"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsProfileModalOpen(true);
-                  }}
-                >
+                <span className="font-bold text-red-500 hover:text-red-600 cursor-pointer ml-1 inline-block">
                   Read more
                 </span>
               )}
             </p>
           </div>
 
-          {/* Location and Category with Icons */}
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-red-50 rounded-full">
-                <MapPin className="w-4 h-4 text-red-500" />
+          {/* Location and Category - smaller icons and text */}
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-1.5">
+              <div className="p-1 bg-red-50 rounded-full">
+                <MapPin className="w-3 h-3 text-red-500" />
               </div>
-              <span className="text-sm text-gray-600">{streamer.location}</span>
+              <span className="text-xs text-gray-600">{streamer.location}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-red-50 rounded-full">
-                <Monitor className="w-4 h-4 text-red-500" />
+            <div className="flex items-center gap-1.5">
+              <div className="p-1 bg-red-50 rounded-full">
+                <Monitor className="w-3 h-3 text-red-500" />
               </div>
-              <span className="text-sm text-gray-600">{streamer.category}</span>
+              <span className="text-xs text-gray-600">{streamer.category}</span>
             </div>
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-2">
+          {/* Buttons - reduced size */}
+          <div className="flex gap-1.5">
             <Button 
-              className={`flex-1 text-xs py-1 text-white border-2 border-black
+              className={`flex-1 text-[10px] sm:text-xs py-0.5 text-white max-w-[85%]
                 ${streamer.platform.toLowerCase() === 'shopee' 
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700' 
-                  : 'bg-gradient-to-r from-purple-800 to-purple-900 hover:from-purple-900 hover:to-purple-950'
+                  ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
+                  : 'bg-gradient-to-r from-purple-800 to-purple-900'
                 }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -556,135 +571,112 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             </Button>
             <Button
               variant="outline"
-              className="px-3 text-red-500 border-red-500 hover:bg-red-50 hover:text-red-500 hover:border-red-500"
+              className="px-2 text-red-500 border-red-500 hover:bg-red-50"
               onClick={handleMessageClick}
             >
-              <Mail className="h-4 w-4" />
+              <Mail className="h-3 w-3" />
             </Button>
           </div>
         </div>
       </div>
 
       <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
           <DialogHeader>
-            <div className="flex items-center space-x-4 mb-6">
+            <div className="flex items-center space-x-3 mb-4">
               <Image
                 src={streamer.image_url}
                 alt={`${streamer.first_name} ${streamer.last_name}`}
-                width={64}
-                height={64}
+                width={48}
+                height={48}
                 className="rounded-full object-cover"
               />
               <div>
-                <DialogTitle className="text-2xl font-semibold mb-1">{streamer.first_name} {streamer.last_name}</DialogTitle>
-                <DialogDescription className="text-base">Select your preferred date and time</DialogDescription>
+                <DialogTitle className="text-lg sm:text-2xl font-semibold mb-0.5">
+                  {streamer.first_name} {streamer.last_name}
+                </DialogTitle>
+                <DialogDescription className="text-sm sm:text-base">
+                  Select your preferred date and time
+                </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <div className="space-y-6 text-base">
-            <div className="flex justify-between items-center">
-              <ChevronLeft 
-                className="w-6 h-6 text-gray-600 cursor-pointer hover:text-red-500 transition-colors" 
-                onClick={handlePreviousWeek}
-              />
-              <span className="text-lg font-medium">
-                {format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, 6), 'MMM d')}
-              </span>
-              <ChevronRight 
-                className="w-6 h-6 text-gray-600 cursor-pointer hover:text-red-500 transition-colors" 
-                onClick={handleNextWeek}
-              />
-            </div>
+          <BookingCalendar 
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            isDayOff={(date) => date < startOfDay(new Date()) || isDayOff(date)}
+          />
 
-            <div className="grid grid-cols-7 gap-2">
-              {weekDays.map((day) => (
-                <Button
-                  key={day.toISOString()}
-                  variant={isSameDay(day, selectedDate || new Date()) ? "default" : "ghost"}
-                  className={`p-2 h-auto flex flex-col ${
-                    isSameDay(day, selectedDate || new Date())
-                      ? 'bg-red-500 text-white hover:bg-red-600'
-                      : 'hover:bg-red-50'
-                  }`}
-                  onClick={() => setSelectedDate(day)}
-                  disabled={day < startOfDay(new Date()) || isDayOff(day)}
-                >
-                  <span className="text-sm">{format(day, 'EEE')}</span>
-                  <span className="text-lg font-bold">{format(day, 'd')}</span>
-                </Button>
+          <div className="h-px bg-gray-200" />
+
+          {timeOptions.length > 0 ? (
+            <div className="space-y-3 sm:space-y-4">
+              {['Morning', 'Afternoon', 'Evening', 'Night'].map((timeOfDay) => (
+                <div key={timeOfDay}>
+                  <h4 className="text-xs sm:text-sm font-semibold mb-2">{timeOfDay}</h4>
+                  <div className="grid grid-cols-4 gap-1 sm:gap-2">
+                    {timeOptions
+                      .filter((hour: string) => {
+                        const hourNum = parseInt(hour.split(':')[0]);
+                        return (
+                          (timeOfDay === 'Night' && (hourNum >= 0 && hourNum < 6)) ||
+                          (timeOfDay === 'Morning' && (hourNum >= 6 && hourNum < 12)) ||
+                          (timeOfDay === 'Afternoon' && (hourNum >= 12 && hourNum < 18)) ||
+                          (timeOfDay === 'Evening' && (hourNum >= 18 && hourNum < 24))
+                        );
+                      })
+                      .map((hour: string) => (
+                        <Button
+                          key={hour}
+                          variant={isHourSelected(hour) ? "default" : "outline"}
+                          className={`text-[10px] sm:text-sm p-1 sm:p-2 h-auto ${
+                            isHourSelected(hour) 
+                              ? 'bg-red-500 text-white hover:bg-red-600' 
+                              : 'hover:bg-red-50'
+                          }`}
+                          onClick={() => handleHourSelection(hour)}
+                          disabled={isHourDisabled(hour)}
+                        >
+                          {hour}
+                        </Button>
+                      ))}
+                  </div>
+                </div>
               ))}
             </div>
-
-            <div className="h-px bg-gray-200" />
-
-            {timeOptions.length > 0 ? (
-              <div className="space-y-4">
-                {['Morning', 'Afternoon', 'Evening', 'Night'].map((timeOfDay) => (
-                  <div key={timeOfDay}>
-                    <h4 className="text-base font-semibold mb-2">{timeOfDay}</h4>
-                    <div className="grid grid-cols-4 gap-2">
-                      {timeOptions
-                        .filter((hour: string) => {
-                          const hourNum = parseInt(hour.split(':')[0]);
-                          return (
-                            (timeOfDay === 'Night' && (hourNum >= 0 && hourNum < 6)) ||
-                            (timeOfDay === 'Morning' && (hourNum >= 6 && hourNum < 12)) ||
-                            (timeOfDay === 'Afternoon' && (hourNum >= 12 && hourNum < 18)) ||
-                            (timeOfDay === 'Evening' && (hourNum >= 18 && hourNum < 24))
-                          );
-                        })
-                        .map((hour: string) => (
-                          <Button
-                            key={hour}
-                            variant={isHourSelected(hour) ? "default" : "outline"}
-                            className={`text-base p-2 h-auto ${
-                              isHourSelected(hour) 
-                                ? 'bg-red-500 text-white hover:bg-red-600' 
-                                : 'hover:bg-red-50'
-                            }`}
-                            onClick={() => handleHourSelection(hour)}
-                            disabled={isHourDisabled(hour)}
-                          >
-                            {hour}
-                          </Button>
-                        ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-gray-500 text-lg">No available slots for this day</div>
-            )}
-
-            {selectedHours.length > 0 && (
-              <div className="text-base font-medium">
-                Selected time: {getSelectedTimeRange()}
-              </div>
-            )}
-            {selectedHours.length === 1 && (
-              <p className="text-red-500 text-base">Minimum booking is 1 hour.</p>
-            )}
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="booking-platform" className="text-right text-base">Platform</Label>
-              <Select onValueChange={setPlatform} value={platform}>
-                <SelectTrigger id="booking-platform" className="col-span-3 h-10 text-base">
-                  <SelectValue placeholder="Select platform" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Shopee">Shopee</SelectItem>
-                  <SelectItem value="TikTok">TikTok</SelectItem>
-                </SelectContent>
-              </Select>
+          ) : (
+            <div className="text-center text-xs sm:text-sm text-gray-500">
+              No available slots for this day
             </div>
+          )}
+
+          {selectedHours.length > 0 && (
+            <div className="text-xs sm:text-sm font-medium">
+              Selected time: {getSelectedTimeRange()}
+            </div>
+          )}
+          {selectedHours.length === 1 && (
+            <p className="text-xs text-red-500">Minimum booking is 1 hour.</p>
+          )}
+
+          <div className="grid grid-cols-4 items-center gap-2 sm:gap-4">
+            <Label htmlFor="booking-platform" className="text-right text-xs sm:text-sm">Platform</Label>
+            <Select onValueChange={setPlatform} value={platform}>
+              <SelectTrigger id="booking-platform" className="col-span-3 h-8 sm:h-10 text-xs sm:text-sm">
+                <SelectValue placeholder="Select platform" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Shopee">Shopee</SelectItem>
+                <SelectItem value="TikTok">TikTok</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="mt-4">
             <Button 
               onClick={handleBooking} 
-              className="w-full h-12 text-base bg-red-500 hover:bg-red-600 text-white"
+              className="w-full h-10 sm:h-12 text-xs sm:text-sm bg-red-500 hover:bg-red-600 text-white"
               disabled={selectedHours.length < 2}
             >
               Proceed to Booking Details
@@ -695,149 +687,141 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
       {/* Profile Modal */}
       <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto border-2 border-red-500 p-6">
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto p-4 sm:p-6">
           <DialogClose className="absolute right-4 top-4 rounded-full bg-red-500 p-1 text-white hover:bg-red-600 transition-colors z-50">
             <X className="h-4 w-4" />
           </DialogClose>
           
-          <style jsx global>{`
-            .dialog-close-button {
-              display: none;
-            }
-          `}</style>
-          
           {extendedProfile && (
             <>
-              {/* Video Section - Only once at the top */}
+              {/* Video Section - smaller height on mobile */}
               {extendedProfile.video_url && (
-                <div className="mb-6">
+                <div className="mb-4 sm:mb-6">
                   <iframe
                     width="100%"
-                    height="315"
+                    height="240" // Reduced from 315
                     src={`https://www.youtube.com/embed/${getYouTubeVideoId(extendedProfile.video_url) || ''}`}
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
-                    className="border-2 border-red-500"
                   ></iframe>
                 </div>
               )}
 
-              <hr className="border-t border-red-200 mb-6" />
+              {/* Thick grey divider - reduced margins */}
+              <div className="h-2 bg-gray-200 -mx-4 sm:-mx-6 my-4" />
 
-              {/* Profile Info Section */}
-              <div className="flex gap-6">
-                {/* Left side - Image with red border */}
+              {/* Profile Info - reduced spacing */}
+              <div className="flex gap-3">
                 <Image
                   src={extendedProfile.image_url}
                   alt={fullName}
-                  width={100}
-                  height={100}
-                  className="object-cover border-2 border-red-500"
+                  width={60} // Reduced from 80
+                  height={60}
+                  className="object-cover border-2 border-red-500 rounded-lg"
                 />
                 
-                {/* Right side - Info */}
                 <div className="flex-1">
-                  <div className="mb-3">
-                    <h2 className="text-xl font-bold">{fullName}</h2>
-                    <p className="text-sm text-foreground/70">{extendedProfile.category}</p>
-                    <div className="mt-1">
+                  <div className="mb-2">
+                    <h2 className="text-base font-bold">{fullName}</h2>
+                    <p className="text-xs text-foreground/70">{extendedProfile.category}</p>
+                    <div className="mt-1 scale-90 origin-left">
                       <RatingStars rating={averageRating} />
                     </div>
                   </div>
 
-                  {/* Contact Info Grid */}
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-2">
-                    <div className="flex items-center gap-2 text-red-500">
-                      <User className="w-4 h-4" />
-                      <span className="text-sm">{extendedProfile.age} Years</span>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+                    <div className="flex items-center gap-1.5 text-red-500">
+                      <User className="w-3.5 h-3.5" />
+                      <span className="text-xs">{extendedProfile.age} Years</span>
                     </div>
-                    <div className="flex items-center gap-2 text-red-500">
-                      <User className="w-4 h-4" />
-                      <span className="text-sm">{extendedProfile.gender}</span>
+                    <div className="flex items-center gap-1.5 text-red-500">
+                      <User className="w-3.5 h-3.5" />
+                      <span className="text-xs">{extendedProfile.gender}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-red-500">
-                      <Clock className="w-4 h-4" />
-                      <span className="text-sm">{extendedProfile.experience}</span>
+                    <div className="flex items-center gap-1.5 text-red-500">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span className="text-xs">{extendedProfile.experience}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-red-500">
-                      <MapPin className="w-4 h-4" />
-                      <span className="text-sm">{extendedProfile.location}</span>
+                    <div className="flex items-center gap-1.5 text-red-500">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span className="text-xs">{extendedProfile.location}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Rest of the content */}
-              <div className="space-y-6 text-sm font-sans mt-6">
-                {/* About Me */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-red-500">About Me</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">{extendedProfile.fullBio}</p>
-                </div>
+              {/* About Me Section */}
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-semibold text-gray-900">About Me</h3>
+                <p className="text-xs text-gray-600 leading-relaxed">{extendedProfile.fullBio}</p>
+              </div>
 
-                {/* Gallery */}
-                <div>
-                  <h3 className="text-sm font-semibold text-red-500 mb-3">Gallery</h3>
-                  <div className="flex space-x-4">
-                    {/* Main Image */}
-                    <div className="relative w-2/3 h-64">
-                      <Image
-                        src={selectedImage || extendedProfile.image_url}
-                        alt="Selected gallery image"
-                        layout="fill"
-                        objectFit="cover"
-                        className="border border-red-500"
-                      />
-                    </div>
+              {/* Thick grey divider */}
+              <div className="h-3 bg-gray-200 -mx-6 my-6" />
 
-                    {/* Thumbnail Gallery */}
-                    <div className="w-1/3 grid grid-cols-2 gap-2 overflow-y-auto max-h-64">
-                      {extendedProfile.gallery.photos.map((photo) => (
-                        <div
-                          key={photo.id}
-                          className={`relative w-full pt-[100%] cursor-pointer overflow-hidden 
-                            ${selectedImage === photo.photo_url ? 'ring-2 ring-red-500' : ''}`}
-                          onClick={() => setSelectedImage(photo.photo_url)}
-                        >
-                          <Image
-                            src={photo.photo_url}
-                            alt={`Gallery photo ${photo.order_number}`}
-                            layout="fill"
-                            objectFit="cover"
-                          />
-                        </div>
-                      ))}
-                    </div>
+              {/* Gallery - smaller height */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-900 mb-2">Gallery</h3>
+                <div className="flex flex-col space-y-2">
+                  {/* Main Image - reduced height */}
+                  <div className="relative w-full h-48 sm:h-64">
+                    <Image
+                      src={selectedImage || extendedProfile.image_url}
+                      alt="Selected gallery image"
+                      layout="fill"
+                      objectFit="cover"
+                      className="rounded-lg"
+                    />
                   </div>
-                </div>
 
-                <hr className="border-t border-gray-200" />
-
-                {/* Testimonials */}
-                <div>
-                  <h3 className="text-sm font-semibold text-red-500 mb-3">Client Testimonials</h3>
-                  <div className="space-y-3">
-                    {extendedProfile.testimonials.map((testimonial, index) => (
-                      <div key={index} className="border border-red-500 p-3 rounded-lg">
-                        <p className="italic text-gray-600">"{testimonial.comment}"</p>
-                        <p className="font-medium mt-1 text-red-500">- {testimonial.client_name}</p>
+                  {/* Thumbnails - reduced gap */}
+                  <div className="grid grid-cols-4 gap-1.5 w-full">
+                    {extendedProfile.gallery.photos.map((photo) => (
+                      <div
+                        key={photo.id}
+                        className={`relative pt-[100%] cursor-pointer overflow-hidden rounded-md
+                          ${selectedImage === photo.photo_url ? 'ring-2 ring-red-500' : ''}`}
+                        onClick={() => setSelectedImage(photo.photo_url)}
+                      >
+                        <Image
+                          src={photo.photo_url}
+                          alt={`Gallery photo ${photo.order_number}`}
+                          layout="fill"
+                          objectFit="cover"
+                        />
                       </div>
                     ))}
                   </div>
                 </div>
+              </div>
 
-                <div className="flex gap-4 mt-6">
-                  <Button 
-                    className="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm"
-                    onClick={() => {
-                      setIsProfileModalOpen(false);
-                      openBookingModal();
-                    }}
-                  >
-                    Book Livestreamer
-                  </Button>
+              {/* Thick grey divider */}
+              <div className="h-3 bg-gray-200 -mx-6 my-6" />
+
+              {/* Testimonials */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-900 mb-2">Client Testimonials</h3>
+                <div className="space-y-2">
+                  {extendedProfile.testimonials.map((testimonial, index) => (
+                    <div key={index} className="border border-red-500 p-2 rounded-lg">
+                      <p className="italic text-xs text-gray-600">"{testimonial.comment}"</p>
+                      <p className="font-medium mt-1 text-xs text-red-500">- {testimonial.client_name}</p>
+                    </div>
+                  ))}
                 </div>
+              </div>
+
+              <div className="flex gap-4 mt-6">
+                <Button 
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm"
+                  onClick={() => {
+                    setIsProfileModalOpen(false);
+                    openBookingModal();
+                  }}
+                >
+                  Book Livestreamer
+                </Button>
               </div>
             </>
           )}
