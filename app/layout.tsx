@@ -3,6 +3,13 @@ import "./globals.css";
 import { Navbar } from "@/components/ui/navbar";
 import { Toaster } from 'react-hot-toast';
 import "react-datepicker/dist/react-datepicker.css";
+import { Inter, Playfair_Display } from 'next/font/google'
+
+const inter = Inter({ subsets: ['latin'] })
+const playfair = Playfair_Display({ 
+  subsets: ['latin'],
+  variable: '--font-playfair'
+})
 
 const defaultUrl = process.env.VERCEL_URL 
   ? `https://liloapp.vercel.app`
@@ -20,10 +27,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="overflow-x-hidden">
-      <body className={`${GeistSans.className} overflow-x-hidden w-full`}>
+    <html lang="en" className={`${inter.className} ${playfair.variable} overflow-x-hidden`}>
+      <body className={`${GeistSans.className} overflow-x-hidden`}>
         <Toaster position="top-center" />
-        <main className="min-h-screen flex flex-col items-center w-full max-w-full overflow-x-hidden">
+        <main className="min-h-screen flex flex-col items-center w-full">
           {children}
         </main>
       </body>
