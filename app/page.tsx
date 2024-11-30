@@ -15,7 +15,8 @@ interface UserData {
 }
 
 interface TutorialSlide {
-  image: string;
+  image?: string;
+  video?: string;
   title: string;
   description: string;
   bullets: string[];
@@ -31,7 +32,7 @@ interface ComparisonItem {
 
 const tutorialSlides: TutorialSlide[] = [
   {
-    image: "/images/1tutor.png",
+    image: "/images/1aa.png",
     title: "Pilih & Verifikasi",
     description: "Pilih streamer yang sesuai dengan kebutuhan Anda. Lakukan verifikasi akun melalui Trollife untuk mendapatkan akses penuh ke platform kami.",
     bullets: [
@@ -41,7 +42,7 @@ const tutorialSlides: TutorialSlide[] = [
     ]
   },
   {
-    image: "/images/1tutor.png",
+    image: "/images/2.png",
     title: "Pilih Paket & Jadwal",
     description: "Tentukan durasi streaming sesuai kebutuhan Anda. Tersedia pilihan paket per jam atau paket khusus dengan harga kompetitif.",
     bullets: [
@@ -51,53 +52,44 @@ const tutorialSlides: TutorialSlide[] = [
     ]
   },
   {
-    image: "/images/1tutor.png",
-    title: "Mulai Streaming",
-    description: "Setelah booking dikonfirmasi, streamer akan melakukan sesi live streaming sesuai jadwal. Nikmati layanan profesional dengan jaminan kualitas.",
-    bullets: [
-      "Platform terpercaya",
-      "Streamer berkualitas",
-      "Dukungan 24/7"
-    ]
-  },
-  {
-    image: "/images/1tutor.png",
-    title: "Analisis Performa",
-    description: "Pantau performa streaming Anda melalui dashboard analitik yang komprehensif. Dapatkan insight mendalam tentang engagement penonton.",
-    bullets: [
-      "Analitik real-time",
-      "Laporan detail",
-      "Rekomendasi peningkatan"  
-    ]
-  },
-  {
-    image: "/images/1tutor.png",
-    title: "Kelola Pembayaran",
-    description: "Kelola semua transaksi dengan mudah melalui sistem pembayaran yang terintegrasi. Lacak pendapatan dan pengeluaran dengan detail.",
+    image: "/images/3.png",
+    title: "Lakukan Pembayaran ",
+    description: "Pembayaran dapat dilakukan melalui QRIS, Gopay, dan BCA Virtual Account.",
     bullets: [
       "Pembayaran aman",
-      "Sistem terintegrasi", 
-      "Laporan keuangan"
+      "Pilihan pembayaran",
     ]
   },
   {
-    image: "/images/1tutor.png",
-    title: "Kembangkan Komunitas",
-    description: "Bangun dan kembangkan komunitas Anda. Fitur interaktif memungkinkan Anda terhubung lebih dekat dengan penggemar.",
+    image: "/images/4.png",
+    title: "Tunggu Streamer Acc Boookingan Kamu",
+    description: "Streamer akan melakukan konfirmasi booking terlebih dahulu sebelum melakukan streaming.",
     bullets: [
-      "Fitur komunitas",
-      "Interaksi real-time",
-      "Engagement tinggi"
+      "Konfirmasi booking",  
     ]
   },
   {
-    image: "/images/1tutor.png",
-    title: "Dukungan 24/7",
-    description: "Tim dukungan kami siap membantu Anda 24/7. Dapatkan bantuan teknis dan konsultasi kapan pun Anda butuhkan.",
+    image: "/images/5aa.png",
+    title: "Setelah Booking Dikonfirmasi, Jadwal Akan Masuk di Jadwal Streaming",
+    description: "Lihat jadwal streaming kamu di dashboard.",
     bullets: [
-      "Dukungan teknis",
-      "Konsultasi pribadi",
-      "Respons cepat"
+      "Konfirmasi booking",
+    ]
+  },
+  {
+    image: "/images/6.png",
+    title: "Saat Waktunya Tiba, Streaming Akan Dimulai",
+    description: "Streamer akan melakukan streaming sesuai jadwal yang sudah diset di dashboard.",
+    bullets: [
+      "Streaming dimulai",
+    ]
+  },
+  {
+    video: "/images/docn.mp4",
+    title: "Produk Kamu akan dijual melalui live streaming",
+    description: "Streamer akan membagikan link produk kamu melalui live streaming.",
+    bullets: [
+      "Produk dijual",
     ]
   }
 ];
@@ -459,7 +451,7 @@ export default function Home() {
                 <div className="aspect-square overflow-hidden rounded-2xl mb-4 bg-gradient-to-br from-blue-100 to-indigo-50 p-1">
                   <div className="relative h-full w-full overflow-hidden rounded-xl">
                     <Image
-                      src="/images/3.png"
+                      src="/images/people2.png"
                       alt="Angela"
                       width={400}
                       height={400}
@@ -479,7 +471,7 @@ export default function Home() {
                 <div className="aspect-square overflow-hidden rounded-2xl mb-4 bg-gradient-to-br from-red-100 to-red-50 p-1">
                   <div className="relative h-full w-full overflow-hidden rounded-xl">
                     <Image
-                      src="/images/1a.png"
+                      src="/images/people1.png"
                       alt="David"
                       width={400}
                       height={400}
@@ -499,7 +491,7 @@ export default function Home() {
                 <div className="aspect-square overflow-hidden rounded-2xl mb-4 bg-gradient-to-br from-red-100 to-red-50 p-1">
                   <div className="relative h-full w-full overflow-hidden rounded-xl">
                     <Image
-                      src="/images/2.png"
+                      src="/images/1people.png"
                       alt="Sarah"
                       width={400}
                       height={400}
@@ -596,16 +588,30 @@ export default function Home() {
                         pointerEvents: position === 0 ? 'auto' : 'none',
                       }}
                     >
-                      <div className="w-[320px] rounded-xl overflow-hidden shadow-lg">
+                      {tutorialSlides[index].video ? (
+                        <div className="w-[320px] rounded-xl overflow-hidden shadow-lg">
+                          <div className="relative h-full w-full overflow-hidden rounded-xl">
+                            <video
+                              autoPlay
+                              loop
+                              muted
+                              playsInline
+                              className="w-full h-[480px] object-cover"
+                            >
+                              <source src={tutorialSlides[index].video} type="video/mp4" />
+                            </video>
+                          </div>
+                        </div>
+                      ) : tutorialSlides[index].image ? (
                         <Image
-                          src={tutorialSlides[index].image}
+                          src={tutorialSlides[index].image!}
                           alt={tutorialSlides[index].title}
                           width={320}
                           height={180}
                           className="w-full h-full object-cover"
                           priority={true}
                         />
-                      </div>
+                      ) : null}
                     </div>
                   );
                 })}
