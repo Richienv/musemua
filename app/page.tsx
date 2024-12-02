@@ -239,7 +239,7 @@ export default function Home() {
                   </div>
                   
                   <div className="space-y-6">
-                    <h1 className="font-serif text-5xl sm:text-6xl md:text-7xl font-medium tracking-tight text-gray-900 leading-[1.1]">
+                    <h1 className="font-serif text-4xl sm:text-6xl md:text-7xl font-medium tracking-tight text-gray-900 leading-[1.1]">
                       Temukan 
                       <br />
                       Streamer
@@ -250,8 +250,8 @@ export default function Home() {
                       </span>
                     </h1>
                     
-                    <p className="text-lg md:text-xl text-gray-600 max-w-xl font-light leading-relaxed">
-                      Platform yang menghubungkan kamu dengan streamer terbaik untuk pengalaman live streaming yang lebih interaktif.
+                    <p className="text-sm sm:text-base md:text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto">
+                      Platform streaming yang dirancang untuk memberikan pengalaman terbaik bagi host dan penonton
                     </p>
                   </div>
 
@@ -273,10 +273,10 @@ export default function Home() {
                   </div>
 
                   {/* Stats */}
-                  <div className="grid grid-cols-3 gap-8 pt-10 border-t border-gray-100">
+                  <div className="grid grid-cols-3 gap-4 sm:gap-8 pt-6 sm:pt-10 border-t border-gray-100">
                     <div className="transform transition-all duration-300 hover:scale-105 hover:text-red-500">
-                      <div className="text-3xl font-serif font-medium text-gray-900">250+</div>
-                      <div className="text-sm text-gray-500 mt-1">Host Aktif</div>
+                      <div className="text-2xl sm:text-3xl font-serif font-medium text-gray-900">250+</div>
+                      <div className="text-xs sm:text-sm text-gray-500 mt-1">Host Aktif</div>
                     </div>
                     <div>
                       <div className="text-3xl font-serif font-medium text-gray-900">10x</div>
@@ -350,14 +350,14 @@ export default function Home() {
           
           <div className="container mx-auto px-4 relative">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-4xl md:text-5xl font-serif font-medium mb-6 leading-tight">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-medium mb-4 sm:mb-6 leading-tight">
                 Temukan Kemudahan
                 <br />
                 <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-transparent bg-clip-text italic">
                   Streaming dengan Salda
                 </span>
               </h2>
-              <p className="text-gray-600 text-lg leading-relaxed">
+              <p className="text-sm sm:text-base md:text-lg text-gray-600 leading-relaxed">
                 Platform streaming yang dirancang untuk memberikan pengalaman terbaik bagi host dan penonton
               </p>
             </div>
@@ -376,47 +376,47 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-12 max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-3 gap-6 sm:gap-12 max-w-6xl mx-auto">
               {/* Feature 1 */}
-              <div className="relative p-6 rounded-2xl bg-white/80 backdrop-blur-sm">
+              <div className="relative p-4 sm:p-6 rounded-2xl bg-white/80 backdrop-blur-sm">
                 <div className="relative z-10">
                   <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
                     <Users className="w-6 h-6 text-blue-600" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-4">
+                  <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
                     Bimbingan One-on-One dari Host Professional
                   </h3>
-                  <p className="text-gray-600 leading-relaxed">
+                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
                     Kami akan mencocokkan Anda dengan host profesional di area Anda, yang akan membimbing Anda dari pertanyaan pertama hingga sesi streaming pertama Anda.
                   </p>
                 </div>
               </div>
 
               {/* Feature 2 */}
-              <div className="relative p-6 rounded-2xl bg-white/80 backdrop-blur-sm">
+              <div className="relative p-4 sm:p-6 rounded-2xl bg-white/80 backdrop-blur-sm">
                 <div className="relative z-10">
                   <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center mb-4">
                     <Star className="w-6 h-6 text-indigo-600" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-4">
+                  <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
                     Host Berpengalaman untuk Streaming Pertama
                   </h3>
-                  <p className="text-gray-600 leading-relaxed">
+                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
                     Untuk streaming pertama Anda, kami menyediakan host berpengalaman yang telah memiliki minimal tiga tahun pengalaman dan track record yang baik.
                   </p>
                 </div>
               </div>
 
               {/* Feature 3 */}
-              <div className="relative p-6 rounded-2xl bg-white/80 backdrop-blur-sm">
+              <div className="relative p-4 sm:p-6 rounded-2xl bg-white/80 backdrop-blur-sm">
                 <div className="relative z-10">
                   <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-4">
                     <Shield className="w-6 h-6 text-purple-600" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-4">
+                  <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
                     Dukungan Khusus dari Salda
                   </h3>
-                  <p className="text-gray-600 leading-relaxed">
+                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
                     Brand baru mendapatkan akses one-tap ke agen Dukungan Komunitas khusus yang dapat membantu dengan segala hal mulai dari masalah akun hingga dukungan teknis.
                   </p>
                 </div>
@@ -432,15 +432,17 @@ export default function Home() {
           
           <div className="container mx-auto px-4 relative">
             <div className="text-center max-w-3xl mx-auto mb-20">
-              <h2 className="text-4xl md:text-5xl font-serif font-medium mb-6 leading-tight">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-medium mb-4 sm:mb-6 leading-tight">
                 Temukan Host Terbaik untuk
                 <br />
                 <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-transparent bg-clip-text italic">
                   Live Streaming Anda
                 </span>
               </h2>
-              <p className="text-gray-600 text-lg leading-relaxed">
-                Bergabung dengan komunitas host profesional kami yang telah terverifikasi dan berpengalaman
+              <p className="text-sm sm:text-base md:text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto">
+                Ikuti panduan
+                <span className="text-blue-600 font-serif italic"> Salda </span>
+                dan mulai perjalanan streaming Anda dengan percaya diri
               </p>
             </div>
 
@@ -509,12 +511,12 @@ export default function Home() {
 
             {/* Subtitle Text */}
             <div className="text-center max-w-3xl mx-auto">
-              <p className="text-lg text-gray-600">
+              <p className="text-sm sm:text-base md:text-lg text-gray-600">
                 Kami telah bermitra dengan ratusan host profesional di seluruh Indonesia. Host kami rata-rata menghasilkan
                 <span className="font-semibold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-transparent bg-clip-text"> Rp50.000.000/bulan</span> dengan minimal
                 <span className="font-semibold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-transparent bg-clip-text"> 20 sesi live streaming</span>.
               </p>
-              <p className="text-sm text-gray-500 mt-4 italic">
+              <p className="text-xs sm:text-sm text-gray-500 mt-4 italic">
                 *Pendapatan rata-rata berdasarkan data internal Salda periode Jan-Des 2023
               </p>
             </div>
@@ -528,7 +530,7 @@ export default function Home() {
           
           <div className="container mx-auto">
             <div className="text-center mb-16 relative">
-              <h2 className="text-4xl md:text-5xl font-serif font-medium mb-6 leading-tight">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-medium mb-4 sm:mb-6 leading-tight">
                 Butuh bantuan untuk
                 <br />
                 <span className="relative inline-block">
@@ -537,9 +539,8 @@ export default function Home() {
                   <div className="absolute -bottom-2 left-0 right-0 h-1 bg-blue-200 transform -rotate-1"></div>
                 </span>
               </h2>
-              <p className="text-gray-600 text-lg leading-relaxed max-w-2xl mx-auto">
+              <p className="text-sm sm:text-base md:text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto">
                 Ikuti panduan
-                {/* Changed text color from red to blue */}
                 <span className="text-blue-600 font-serif italic"> Salda </span>
                 dan mulai perjalanan streaming Anda dengan percaya diri
               </p>
@@ -690,7 +691,7 @@ export default function Home() {
                   <span className="text-xl text-gray-600">untuk Streamer</span>
                 </div>
 
-                <h2 className="text-4xl md:text-5xl font-serif text-center">
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif text-center">
                   Streaming dengan perlindungan
                   <br />
                   <span className="relative">
@@ -704,30 +705,30 @@ export default function Home() {
 
               {/* Enhanced Comparison Table */}
               <div className="bg-white rounded-3xl shadow-2xl shadow-blue-100/50 border border-gray-100">
-                {/* Table Header with gradient */}
-                <div className="grid grid-cols-3 bg-gradient-to-r from-gray-50 via-white to-gray-50 p-8 border-b rounded-t-3xl">
-                  <div className="col-span-1 font-medium text-gray-900 text-lg">Fitur</div>
+                {/* Table Header */}
+                <div className="grid grid-cols-3 bg-gradient-to-r from-gray-50 via-white to-gray-50 p-4 sm:p-8 border-b rounded-t-3xl">
+                  <div className="col-span-1 font-medium text-gray-900 text-sm sm:text-lg">Fitur</div>
                   <div className="text-center">
-                    <div className="font-medium text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 text-lg">
+                    <div className="font-medium text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 text-sm sm:text-lg">
                       Salda
                     </div>
                   </div>
-                  <div className="text-center font-medium text-gray-500 text-lg">Kompetitor</div>
+                  <div className="text-center font-medium text-gray-500 text-sm sm:text-lg">Kompetitor</div>
                 </div>
 
-                {/* Table Body with enhanced interactions */}
+                {/* Table Body */}
                 <div className="divide-y divide-gray-100">
                   {comparisonData.map((item) => (
                     <div 
                       key={item.id} 
-                      className="grid grid-cols-3 p-8 hover:bg-blue-50/5 transition-all duration-300 group"
+                      className="grid grid-cols-3 p-4 sm:p-8 hover:bg-blue-50/5 transition-all duration-300 group"
                     >
-                      <div className="col-span-1 pr-8">
-                        <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                      <div className="col-span-1 pr-4 sm:pr-8">
+                        <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors text-xs sm:text-base">
                           {item.feature}
                         </h3>
                         {item.description && (
-                          <p className="mt-2 text-sm text-gray-500 leading-relaxed">
+                          <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-500 leading-relaxed hidden sm:block">
                             {item.description}
                           </p>
                         )}
@@ -777,7 +778,7 @@ export default function Home() {
             <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto mb-16">
               {/* Left Side - Title */}
               <div>
-                <h2 className="text-4xl md:text-5xl font-serif font-medium leading-tight">
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-medium leading-tight">
                   Pertanyaan Anda,
                   <br />
                   <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-transparent bg-clip-text italic">terjawab</span>
@@ -793,9 +794,9 @@ export default function Home() {
                   >
                     <button 
                       onClick={() => setOpenQuestion(openQuestion === faq.id ? null : faq.id)}
-                      className="w-full text-left p-6 flex items-start justify-between gap-4"
+                      className="w-full text-left p-4 sm:p-6 flex items-start justify-between gap-3 sm:gap-4"
                     >
-                      <span className="text-lg font-medium text-gray-900 group-hover:text-red-500 transition-colors">
+                      <span className="text-base sm:text-lg font-medium text-gray-900 group-hover:text-red-500">
                         {faq.question}
                       </span>
                       <span className={`transform transition-transform duration-300 ${
@@ -807,7 +808,7 @@ export default function Home() {
                     <div className={`overflow-hidden transition-all duration-300 ${
                       openQuestion === faq.id ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                     }`}>
-                      <p className="px-6 pb-6 text-gray-600 leading-relaxed">
+                      <p className="px-4 sm:px-6 pb-4 sm:pb-6 text-sm sm:text-base text-gray-600 leading-relaxed">
                         {faq.answer}
                       </p>
                     </div>
@@ -841,18 +842,14 @@ export default function Home() {
           {/* Content */}
           <div className="container mx-auto px-4 relative">
             <div className="max-w-2xl mx-auto text-center">
-              <div className="bg-white/40 backdrop-blur-md rounded-3xl p-12 shadow-lg border border-white/50">
-                <h3 className="text-4xl md:text-5xl font-serif font-medium mb-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-transparent bg-clip-text">
+              <div className="bg-white/40 backdrop-blur-md rounded-3xl p-6 sm:p-12 shadow-lg border border-white/50">
+                <h3 className="text-3xl sm:text-4xl md:text-5xl font-serif font-medium mb-4 sm:mb-6">
                   Masih ada pertanyaan?
                 </h3>
-                <p className="text-gray-800 text-lg mb-8 leading-relaxed">
+                <p className="text-sm sm:text-base md:text-lg text-gray-800 mb-6 sm:mb-8 leading-relaxed">
                   Dapatkan jawaban dari streamer berpengalaman di dekat Anda.
                 </p>
-                <button className="px-8 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white rounded-full 
-                  transition-all duration-300 
-                  hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20
-                  active:scale-95
-                  border border-white/20">
+                <button className="px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base">
                   Hubungi Streamer
                 </button>
               </div>
