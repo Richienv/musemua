@@ -681,9 +681,9 @@ export default function Home() {
               <div className="flex flex-col items-center justify-center gap-6 mb-16">
                 <div className="flex items-center justify-center gap-3 px-6 py-3 bg-blue-50/50 rounded-full">
                   <Image
-                    src="/images/salda-logo.png"
+                    src="/images/salda-logoB.png"
                     alt="Salda"
-                    width={120}
+                    width={150}
                     height={40}
                     className="h-8 w-auto"
                   />

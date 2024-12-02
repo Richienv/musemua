@@ -21,7 +21,8 @@ interface PaymentDetails {
     endTime: string;
     platform: string;
     specialRequest?: string;
-    subAccountLink?: string;
+    sub_acc_link?: string;
+    sub_acc_pass?: string;
     firstName: string;
     lastName: string;
     price: number;
@@ -43,6 +44,8 @@ export async function createPayment(details: PaymentDetails) {
         platform: details.metadata.platform,
         status: 'payment_pending',
         special_request: details.metadata.specialRequest,
+        sub_acc_link: details.metadata.sub_acc_link,
+        sub_acc_pass: details.metadata.sub_acc_pass,
         price: details.metadata.price,
         client_first_name: details.metadata.firstName,
         client_last_name: details.metadata.lastName,

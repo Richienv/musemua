@@ -498,7 +498,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
               <div className={`px-1.5 py-0.5 rounded-full text-white text-[9px] sm:text-[10px] font-medium
                 ${streamer.platform.toLowerCase() === 'shopee' 
                   ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
-                  : 'bg-gradient-to-r from-purple-800 to-purple-900'
+                  : 'bg-gradient-to-r from-blue-900 to-black text-white'
                 }`}>
                 {streamer.platform}
               </div>
@@ -517,7 +517,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
               <span className="text-xs sm:text-sm text-gray-400 line-through">
                 Rp {Math.round(streamer.price * 1.25).toLocaleString('id-ID')}
               </span>
-              <span className="text-[10px] sm:text-xs font-medium text-red-500">25%</span>
+              <span className="text-[10px] sm:text-xs font-medium text-blue-600">25%</span>
             </div>
           </div>
 
@@ -531,7 +531,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 relative">
               {streamer.bio}
               {streamer.bio.length > 100 && (
-                <span className="font-bold text-red-500 hover:text-red-600 cursor-pointer ml-1 inline-block">
+                <span className="font-bold text-blue-600 hover:text-blue-700 cursor-pointer ml-1 inline-block">
                   Read more
                 </span>
               )}
@@ -541,14 +541,14 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           {/* Location and Category - smaller icons and text */}
           <div className="flex items-center gap-2 mb-3">
             <div className="flex items-center gap-1.5">
-              <div className="p-1 bg-red-50 rounded-full">
-                <MapPin className="w-3 h-3 text-red-500" />
+              <div className="p-1 bg-[#2563eb]/10 rounded-full">
+                <MapPin className="w-3 h-3 text-[#2563eb]" />
               </div>
               <span className="text-xs text-gray-600">{streamer.location}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="p-1 bg-red-50 rounded-full">
-                <Monitor className="w-3 h-3 text-red-500" />
+              <div className="p-1 bg-[#2563eb]/10 rounded-full">
+                <Monitor className="w-3 h-3 text-[#2563eb]" />
               </div>
               <span className="text-xs text-gray-600">{streamer.category}</span>
             </div>
@@ -557,11 +557,8 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           {/* Buttons - reduced size */}
           <div className="flex gap-1.5">
             <Button 
-              className={`flex-1 text-[10px] sm:text-xs py-0.5 text-white max-w-[85%]
-                ${streamer.platform.toLowerCase() === 'shopee' 
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
-                  : 'bg-gradient-to-r from-purple-800 to-purple-900'
-                }`}
+              className="flex-1 text-[10px] sm:text-xs py-0.5 text-white max-w-[85%] 
+                bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87]"
               onClick={(e) => {
                 e.stopPropagation();
                 openBookingModal();
@@ -571,7 +568,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             </Button>
             <Button
               variant="outline"
-              className="px-2 text-red-500 border-red-500 hover:bg-red-50"
+              className="px-2 text-[#2563eb] border-[#2563eb] hover:bg-[#2563eb]/5"
               onClick={handleMessageClick}
             >
               <Mail className="h-3 w-3" />
@@ -606,6 +603,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
             isDayOff={(date) => date < startOfDay(new Date()) || isDayOff(date)}
+            selectedClassName="bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]"
           />
 
           <div className="h-px bg-gray-200" />
@@ -632,8 +630,8 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                           variant={isHourSelected(hour) ? "default" : "outline"}
                           className={`text-[10px] sm:text-sm p-1 sm:p-2 h-auto ${
                             isHourSelected(hour) 
-                              ? 'bg-red-500 text-white hover:bg-red-600' 
-                              : 'hover:bg-red-50'
+                              ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]' 
+                              : 'hover:bg-blue-50'
                           }`}
                           onClick={() => handleHourSelection(hour)}
                           disabled={isHourDisabled(hour)}
@@ -676,7 +674,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           <DialogFooter className="mt-4">
             <Button 
               onClick={handleBooking} 
-              className="w-full h-10 sm:h-12 text-xs sm:text-sm bg-red-500 hover:bg-red-600 text-white"
+              className="w-full h-10 sm:h-12 text-xs sm:text-sm bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white"
               disabled={selectedHours.length < 2}
             >
               Proceed to Booking Details
@@ -688,7 +686,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
       {/* Profile Modal */}
       <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
-          <DialogClose className="absolute right-4 top-4 rounded-full bg-red-500 p-1 text-white hover:bg-red-600 transition-colors z-50">
+          <DialogClose className="absolute right-4 top-4 rounded-full bg-gradient-to-r from-[#1e40af] to-[#6b21a8] p-1 text-white hover:from-[#1e3a8a] hover:to-[#581c87] transition-colors z-50">
             <X className="h-4 w-4" />
           </DialogClose>
           

@@ -4,6 +4,7 @@ import { Navbar } from "@/components/ui/navbar";
 import { Toaster } from 'react-hot-toast';
 import "react-datepicker/dist/react-datepicker.css";
 import { Inter, Playfair_Display } from 'next/font/google'
+import { CSSProperties } from 'react';
 
 const inter = Inter({ subsets: ['latin'] })
 const playfair = Playfair_Display({ 
@@ -18,8 +19,14 @@ const defaultUrl = process.env.VERCEL_URL
 export const metadata = {
   metadataBase: new URL(defaultUrl),
   title: "Salda",
-  description: "The fastest way to build apps with Next.js and Supabase",
+  description: "Temukan streamer terbaik untuk kebutuhan live-selling streaming Anda",
 };
+
+// Define custom properties type
+interface CustomCSSProperties extends CSSProperties {
+  '--primary-gradient': string;
+  '--primary-gradient-hover': string;
+}
 
 export default function RootLayout({
   children,
@@ -28,7 +35,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.className} ${playfair.variable} overflow-x-hidden`}>
-      <body className={`${GeistSans.className} overflow-x-hidden`}>
+      <body className={`${GeistSans.className} overflow-x-hidden`} 
+        style={{
+          '--primary-gradient': 'linear-gradient(to right, #2563eb, #7c3aed)',
+          '--primary-gradient-hover': 'linear-gradient(to right, #1d4ed8, #6d28d9)'
+        } as CustomCSSProperties}>
         <Toaster position="top-center" />
         <main className="min-h-screen flex flex-col items-center w-full">
           {children}

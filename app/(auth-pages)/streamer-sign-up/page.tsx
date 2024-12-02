@@ -96,8 +96,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
           <Image
             src="/images/salda.png"
             alt="Salda Logo"
-            width={120}
-            height={120}
+            width={150}
+            height={150}
             className="brightness-0 invert"
           />
         </div>
@@ -110,8 +110,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             <Image
               src="/images/salda.png"
               alt="Salda Logo"
-              width={90}
-              height={90}
+              width={150}
+              height={150}
             />
           </div>
 

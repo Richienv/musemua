@@ -91,10 +91,10 @@ export function Navbar({ onFilterChange }: NavbarProps) {
             <Link href={dashboardLink} className="flex items-center">
               <div className="p-1.5">
                 <Image
-                  src="/images/salda.png"
+                  src="/images/salda-logoB.png"
                   alt="Salda Logo"
-                  width={68}
-                  height={68}
+                  width={150}
+                  height={150}
                   className="object-contain"
                 />
               </div>
@@ -119,7 +119,7 @@ export function Navbar({ onFilterChange }: NavbarProps) {
                   onBlur={() => setIsSearchFocused(false)}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="bg-red-500 p-1.5 rounded-md shadow-sm">
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-1.5 rounded-md shadow-sm">
                     <Search className="h-4 w-4 text-white" />
                   </div>
                 </div>

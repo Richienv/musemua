@@ -177,12 +177,11 @@ export default function ProtectedPage() {
   };
 
   const carouselImages = [
-    "/images/salda2.png",
-    "/images/salda2.png",
-    "/images/salda2.png",
-    "/images/salda2.png",
-    "/images/salda2.png",
-    // Add more image paths as needed
+    "/images/ads.svg",
+    "/images/ads.svg",
+    "/images/ads.svg",
+    "/images/ads.svg",
+    "/images/ads.svg",
   ];
 
   const settings = {
@@ -301,7 +300,7 @@ export default function ProtectedPage() {
                 <Popover>
                   <PopoverTrigger asChild>
                     <button className="flex items-center justify-center w-[40px] h-[40px] rounded-lg 
-                      bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 
+                      bg-blue-600 hover:bg-blue-700 
                       transition-all duration-200">
                       <DollarSign size={16} className="text-white" />
                     </button>
@@ -367,7 +366,7 @@ export default function ProtectedPage() {
                 <Popover>
                   <PopoverTrigger asChild>
                     <button className="flex items-center justify-center w-[40px] h-[40px] rounded-lg 
-                      bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 
+                      bg-blue-600 hover:bg-blue-700 
                       transition-all duration-200">
                       <MapPin size={16} className="text-white" />
                     </button>
@@ -399,7 +398,7 @@ export default function ProtectedPage() {
                 <AvailabilityFilter 
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
-                  className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+                  className="bg-blue-600 hover:bg-blue-700"
                 />
               </div>
 
@@ -417,7 +416,7 @@ export default function ProtectedPage() {
                   >
                     <div className={`p-1.5 sm:p-2 rounded-full mb-1 
                       ${categoryFilter === category.name 
-                        ? 'text-red-600' 
+                        ? 'text-blue-600' 
                         : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
@@ -425,7 +424,7 @@ export default function ProtectedPage() {
                     </div>
                     <span className={`text-[10px] sm:text-xs whitespace-nowrap ${
                       categoryFilter === category.name 
-                        ? 'font-semibold text-red-600 border-b-2 border-red-600' 
+                        ? 'font-semibold text-blue-600 border-b-2 border-blue-600' 
                         : 'text-gray-600'
                     }`}>
                       {category.name}
@@ -456,6 +455,7 @@ export default function ProtectedPage() {
                     height={400}
                     objectFit="cover"
                     className="rounded-lg w-full"
+                    priority={index === 0}
                   />
                 </div>
               ))}

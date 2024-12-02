@@ -43,9 +43,8 @@ interface Booking {
   price: number;
   special_request?: string | null;
   stream_link?: string | null;
-  sub_account_links?: Array<{
-    link: string;
-  }> | null;
+  sub_acc_link?: string | null;
+  sub_acc_pass?: string | null;
 }
 
 // Add these utility functions at the top of the file
@@ -90,6 +89,7 @@ function SubAccountLink({ link }: { link: string }) {
 }
 
 function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Booking, onStreamStart: () => void, onStreamEnd: () => void }) {
+  console.log('Schedule Card Booking:', booking);
   const [isStartLiveModalOpen, setIsStartLiveModalOpen] = useState(false);
   const [streamLink, setStreamLink] = useState(booking.stream_link || '');
   const [isStarting, setIsStarting] = useState(false);
@@ -206,9 +206,41 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
             {booking.platform}
           </span>
         </div>
+
+        {/* Special Message */}
+        {booking.special_request && (
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
+            <span className="text-xs sm:text-sm text-gray-600">
+              Message: <span className="font-medium">{booking.special_request}</span>
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Stream Actions */}
+      {/* Add Credentials section here - only for accepted bookings */}
+      {booking.status === 'accepted' && booking.platform.toLowerCase() === 'shopee' && (
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <div className="bg-gray-50 p-2 sm:p-3 rounded-lg space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm text-gray-600">Sub Account ID:</span>
+              <span className="text-xs sm:text-sm font-medium">
+                {booking.sub_acc_link}
+              </span>
+            </div>
+            {booking.sub_acc_pass && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs sm:text-sm text-gray-600">Password:</span>
+                <span className="text-xs sm:text-sm font-medium">
+                  {booking.sub_acc_pass}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Stream Actions - update condition */}
       {booking.status === 'live' ? (
         <Button 
           onClick={handleEndStream}
@@ -217,7 +249,7 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
           <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse mr-2" />
           End Stream
         </Button>
-      ) : (
+      ) : booking.status === 'accepted' && (
         <Button
           onClick={() => setIsStartLiveModalOpen(true)}
           className="mt-3 w-full py-1.5 sm:py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-xs sm:text-sm font-medium"
@@ -226,6 +258,48 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
           Start Live
         </Button>
       )}
+
+      {/* Start Live Modal - update to include credentials */}
+      <Dialog open={isStartLiveModalOpen} onOpenChange={setIsStartLiveModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Start Live Stream</DialogTitle>
+            <DialogDescription>
+              Please use these credentials to log in to your streaming platform.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {booking.platform.toLowerCase() === 'shopee' && (
+              <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                <p className="text-sm font-medium">Account Credentials</p>
+                <div className="space-y-1">
+                  <p className="text-sm">ID: {booking.sub_acc_link}</p>
+                  {booking.sub_acc_pass && (
+                    <p className="text-sm">Password: {booking.sub_acc_pass}</p>
+                  )}
+                </div>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Stream Link</Label>
+              <Input
+                placeholder="Enter your stream link"
+                value={streamLink}
+                onChange={(e) => setStreamLink(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleStartLive}
+              disabled={isStarting || !streamLink}
+              className="w-full bg-gradient-to-r from-red-500 to-red-600"
+            >
+              {isStarting ? 'Starting...' : 'Start Stream'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -235,6 +309,9 @@ function UpcomingSchedule({ bookings, onStreamStart, onStreamEnd }: {
   onStreamStart: () => void, 
   onStreamEnd: () => void 
 }) {
+  // Add console.log to debug the data
+  console.log('Upcoming Schedule Bookings:', bookings);
+
   const todayBookings = bookings.filter(booking => isToday(parseISO(booking.start_time)));
   const thisWeekBookings = bookings.filter(booking => isThisWeek(parseISO(booking.start_time)) && !isToday(parseISO(booking.start_time)));
   const thisMonthBookings = bookings.filter(booking => isThisMonth(parseISO(booking.start_time)) && !isThisWeek(parseISO(booking.start_time)));
@@ -263,7 +340,12 @@ function UpcomingSchedule({ bookings, onStreamStart, onStreamEnd }: {
       </TabsList>
       <TabsContent value="today" className="space-y-4">
         {todayBookings.length > 0 ? todayBookings.map(booking => (
-          <ScheduleCard key={booking.id} booking={booking} onStreamStart={onStreamStart} onStreamEnd={onStreamEnd} />
+          <ScheduleCard 
+            key={booking.id} 
+            booking={booking} 
+            onStreamStart={onStreamStart} 
+            onStreamEnd={onStreamEnd}
+          />
         )) : (
           <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
             No bookings for today.
@@ -272,7 +354,12 @@ function UpcomingSchedule({ bookings, onStreamStart, onStreamEnd }: {
       </TabsContent>
       <TabsContent value="week" className="space-y-4">
         {thisWeekBookings.length > 0 ? thisWeekBookings.map(booking => (
-          <ScheduleCard key={booking.id} booking={booking} onStreamStart={onStreamStart} onStreamEnd={onStreamEnd} />
+          <ScheduleCard 
+            key={booking.id} 
+            booking={booking} 
+            onStreamStart={onStreamStart} 
+            onStreamEnd={onStreamEnd}
+          />
         )) : (
           <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
             No bookings for this week.
@@ -281,7 +368,12 @@ function UpcomingSchedule({ bookings, onStreamStart, onStreamEnd }: {
       </TabsContent>
       <TabsContent value="month" className="space-y-4">
         {thisMonthBookings.length > 0 ? thisMonthBookings.map(booking => (
-          <ScheduleCard key={booking.id} booking={booking} onStreamStart={onStreamStart} onStreamEnd={onStreamEnd} />
+          <ScheduleCard 
+            key={booking.id} 
+            booking={booking} 
+            onStreamStart={onStreamStart} 
+            onStreamEnd={onStreamEnd}
+          />
         )) : (
           <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
             No bookings for this month.
@@ -300,7 +392,7 @@ function BookingCard({ booking, onAccept, onReject }: {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 hover:border-gray-200 transition-all duration-200">
       <div className="p-6 space-y-5">
-        {/* Header */}
+        {/* Header section */}
         <div className="flex justify-between items-start">
           <div className="space-y-2">
             <h3 className="font-semibold text-lg">
@@ -351,25 +443,7 @@ function BookingCard({ booking, onAccept, onReject }: {
           </div>
         </div>
 
-        {/* Sub Account Link */}
-        {booking.sub_account_links?.[0] && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
-            <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
-              <LinkIcon className="h-4 w-4" />
-              Sub Account Link
-            </p>
-            <a 
-              href={booking.sub_account_links[0].link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:text-blue-800 break-all"
-            >
-              {booking.sub_account_links[0].link}
-            </a>
-          </div>
-        )}
-
-        {/* Special Request */}
+        {/* Special Request - Keep this section */}
         {booking.special_request && (
           <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
             <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
@@ -385,14 +459,14 @@ function BookingCard({ booking, onAccept, onReject }: {
           <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
             <Button
               onClick={() => onAccept(booking.id)}
-              className="flex-1 text-base bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+              className="flex-1 text-xs sm:text-sm py-2 bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744] text-white"
             >
               Accept
             </Button>
             <Button
               onClick={() => onReject(booking.id)}
               variant="outline"
-              className="flex-1 text-base border-2 border-transparent bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white"
+              className="flex-1 text-xs sm:text-sm py-2 border-2 border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
             >
               Reject
             </Button>
@@ -473,9 +547,10 @@ export default function StreamerDashboard() {
           .from('bookings')
           .select(`
             *,
-            sub_account_links (
-              link
-            )
+            client_first_name,
+            client_last_name,
+            sub_acc_link,
+            sub_acc_pass
           `)
           .eq('streamer_id', streamerData.id)
           .not('status', 'eq', 'payment_pending')
@@ -793,20 +868,30 @@ export default function StreamerDashboard() {
                       )}
 
                       {/* Sub Account Link */}
-                      {booking.sub_account_links?.[0] && (
+                      {booking.sub_acc_link && (
                         <div className="mt-3 p-2 sm:p-3 bg-gray-50 rounded-lg space-y-1">
                           <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-2">
                             <LinkIcon className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-                            Sub Account Link
+                            Sub Account Credentials
                           </p>
-                          <a 
-                            href={booking.sub_account_links[0].link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs sm:text-sm text-[#E23744] hover:text-[#E23744]/80 break-all"
-                          >
-                            {booking.sub_account_links[0].link}
-                          </a>
+                          <div className="space-y-2">
+                            <a 
+                              href={booking.sub_acc_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs sm:text-sm text-[#E23744] hover:text-[#E23744]/80 break-all"
+                            >
+                              {booking.sub_acc_link}
+                            </a>
+                            {booking.sub_acc_pass && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs sm:text-sm text-gray-600">Password:</span>
+                                <span className="text-xs sm:text-sm font-medium">
+                                  {booking.sub_acc_pass}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
 

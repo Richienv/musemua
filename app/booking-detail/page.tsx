@@ -75,6 +75,7 @@ function BookingDetailContent() {
   const [paymentMethod, setPaymentMethod] = useState<string>('qris');
   const [specialRequest, setSpecialRequest] = useState<string>('');
   const [subAccountLink, setSubAccountLink] = useState('');
+  const [subAccountPassword, setSubAccountPassword] = useState('');
   const [selectedHours, setSelectedHours] = useState<string[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [activeSchedule, setActiveSchedule] = useState<any>(null);
@@ -250,7 +251,8 @@ function BookingDetailContent() {
             endTime: addHours(parseISO(`${bookingDetails.date}T${selectedHours[selectedHours.length - 1]}`), 1).toISOString(),
             platform: bookingDetails.platform,
             specialRequest: specialRequest,
-            subAccountLink: subAccountLink,
+            sub_acc_link: subAccountLink,
+            sub_acc_pass: subAccountPassword,
             firstName: user.user_metadata.first_name,
             lastName: user.user_metadata.last_name,
             price: total
@@ -412,14 +414,14 @@ function BookingDetailContent() {
             <h2 className="text-base sm:text-xl mb-4 sm:mb-6">Informasi Pemesanan</h2>
             <div className="space-y-3 sm:space-y-5">
               <div className="flex items-center gap-2 sm:gap-3">
-                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                 <span className="text-sm sm:text-base">
                   {format(new Date(bookingDetails?.date || ''), 'MMMM d, yyyy')}
                 </span>
               </div>
 
               <div className="flex items-center gap-2 sm:gap-3">
-                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                 <span className="text-sm sm:text-base">
                   {selectedHours.length > 0 && (
                     `${selectedHours[0]} - ${format(addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1), 'HH:mm')} (${differenceInHours(
@@ -431,7 +433,7 @@ function BookingDetailContent() {
               </div>
 
               <div className="flex items-center gap-2 sm:gap-3">
-                <Monitor className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
+                <Monitor className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                 <span className="text-sm sm:text-base">{bookingDetails?.platform}</span>
               </div>
             </div>
@@ -451,28 +453,43 @@ function BookingDetailContent() {
           {bookingDetails?.platform.toLowerCase() === 'shopee' ? (
             <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
               <h2 className="text-base sm:text-xl mb-2 flex items-center gap-2">
-                Sub Account Link 
-                <Badge className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 text-[10px] sm:text-xs">
+                Sub Account Details
+                <Badge className={`bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 text-[10px] sm:text-xs`}>
                   Shopee
                 </Badge>
               </h2>
-              <Input 
-                placeholder="Masukkan link sub account Shopee" 
-                className="mt-1 text-xs sm:text-sm"
-                value={subAccountLink}
-                onChange={(e) => setSubAccountLink(e.target.value)}
-              />
+              <div className="space-y-3">
+                <div>
+                  <Label>Sub Account ID</Label>
+                  <Input 
+                    placeholder="Masukkan link sub account Shopee" 
+                    className="mt-1 text-xs sm:text-sm"
+                    value={subAccountLink}
+                    onChange={(e) => setSubAccountLink(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Sub Account Password</Label>
+                  <Input 
+                    type="password"
+                    placeholder="Masukkan password sub account" 
+                    className="mt-1 text-xs sm:text-sm"
+                    value={subAccountPassword}
+                    onChange={(e) => setSubAccountPassword(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
           ) : bookingDetails?.platform.toLowerCase() === 'tiktok' ? (
             <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
               <h2 className="text-base sm:text-xl mb-2 flex items-center gap-2">
                 Nomor Telepon 
-                <Badge className="bg-gradient-to-r from-[#00f2ea] to-[#ff0050] text-white border-0 text-[10px] sm:text-xs">
+                <Badge className={`bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white border-0 text-[10px] sm:text-xs`}>
                   TikTok
                 </Badge>
               </h2>
               <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
+                <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                 <Input 
                   type="tel"
                   placeholder="Masukkan nomor telepon Anda" 
@@ -491,10 +508,20 @@ function BookingDetailContent() {
             <div className="flex items-start gap-2 sm:gap-3">
               <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 flex-shrink-0 mt-1" />
               <div>
-                <h2 className="text-base sm:text-xl mb-2">Kebijakan Pembatalan</h2>
-                <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-                  Pembatalan gratis hingga 24 jam sebelum pemesanan. Setelah itu, biaya 50% akan dikenakan.
-                </p>
+                <h2 className="text-base sm:text-xl mb-2">Penting!</h2>
+                <div className="space-y-2">
+                  <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
+                    Pembatalan gratis hingga 24 jam sebelum pemesanan. Setelah itu, biaya 50% akan dikenakan.
+                  </p>
+                  <div className="mt-3 space-y-2 bg-red-50 p-3 rounded-lg">
+                    <p className="text-xs sm:text-sm text-red-600 font-medium">Pastikan sebelum melanjutkan:</p>
+                    <ul className="list-disc pl-4 text-xs sm:text-sm text-red-600 space-y-1">
+                      <li>Produk sudah dikirim ke alamat streamer sebelum jadwal live</li>
+                      <li>Product guidelines sudah diupdate dan dikomunikasikan</li>
+                      <li>Estimasi pengiriman produk sudah diperhitungkan</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -552,8 +579,8 @@ function BookingDetailContent() {
                 disabled={isLoading}
                 className={`w-full py-3 rounded-lg text-sm transition-all duration-200 ${
                   isLoading 
-                    ? 'bg-gradient-to-r from-red-600 to-red-700 text-white'
-                    : 'bg-white border-2 border-red-500 text-red-500 hover:bg-gradient-to-r hover:from-red-500 hover:to-red-600 hover:text-white'
+                    ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white'
+                    : 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white'
                 }`}
               >
                 {isLoading ? (
