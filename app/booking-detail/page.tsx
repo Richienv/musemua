@@ -452,12 +452,23 @@ function BookingDetailContent() {
 
           {bookingDetails?.platform.toLowerCase() === 'shopee' ? (
             <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
-              <h2 className="text-base sm:text-xl mb-2 flex items-center gap-2">
-                Sub Account Details
-                <Badge className={`bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 text-[10px] sm:text-xs`}>
-                  Shopee
-                </Badge>
-              </h2>
+              <div className="mb-4">
+                <h2 className="text-base sm:text-xl flex items-center gap-2 mb-2">
+                  Sub Account Details
+                  <Badge className={`bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 text-[10px] sm:text-xs`}>
+                    Shopee
+                  </Badge>
+                </h2>
+                <a 
+                  href="https://seller.shopee.co.id/edu/article/6941/Tentang-dan-Akses-Yang-dimiliki-Sub-Akun"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors bg-gray-50 px-2 py-1 rounded-full"
+                >
+                  <Info className="h-3 w-3" />
+                  apa itu sub-account?
+                </a>
+              </div>
               <div className="space-y-3">
                 <div>
                   <Label>Sub Account ID</Label>
@@ -483,7 +494,7 @@ function BookingDetailContent() {
           ) : bookingDetails?.platform.toLowerCase() === 'tiktok' ? (
             <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
               <h2 className="text-base sm:text-xl mb-2 flex items-center gap-2">
-                Nomor Telepon 
+                Login Account (Email/Username/Phone Number)
                 <Badge className={`bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white border-0 text-[10px] sm:text-xs`}>
                   TikTok
                 </Badge>

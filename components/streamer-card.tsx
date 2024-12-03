@@ -728,7 +728,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                       <div
                         key={photo.id}
                         className={`aspect-square relative cursor-pointer overflow-hidden rounded-md bg-gray-100
-                          ${selectedImage === photo.photo_url ? 'ring-2 ring-red-500' : ''}`}
+                          ${selectedImage === photo.photo_url ? 'ring-2 ring-blue-600' : ''}`}
                         onClick={() => setSelectedImage(photo.photo_url)}
                       >
                         <Image
@@ -747,14 +747,14 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
               {/* Thick grey divider */}
               <div className="h-3 bg-gray-200 -mx-6 my-6" />
 
-              {/* Profile Info - reduced spacing */}
+              {/* Profile Info - changed border color from red-500 to blue-600 */}
               <div className="flex gap-3">
                 <Image
                   src={extendedProfile.image_url}
                   alt={fullName}
-                  width={60} // Reduced from 80
+                  width={60}
                   height={60}
-                  className="object-cover border-2 border-red-500 rounded-lg"
+                  className="object-cover border-2 border-blue-600 rounded-lg"
                 />
                 
                 <div className="flex-1">
@@ -766,20 +766,21 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                     </div>
                   </div>
 
+                  {/* Changed text colors from red-500 to blue-600 */}
                   <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
-                    <div className="flex items-center gap-1.5 text-red-500">
+                    <div className="flex items-center gap-1.5 text-blue-600">
                       <User className="w-3.5 h-3.5" />
                       <span className="text-xs">{extendedProfile.age} Years</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-red-500">
+                    <div className="flex items-center gap-1.5 text-blue-600">
                       <User className="w-3.5 h-3.5" />
                       <span className="text-xs">{extendedProfile.gender}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-red-500">
+                    <div className="flex items-center gap-1.5 text-blue-600">
                       <Clock className="w-3.5 h-3.5" />
                       <span className="text-xs">{extendedProfile.experience}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-red-500">
+                    <div className="flex items-center gap-1.5 text-blue-600">
                       <MapPin className="w-3.5 h-3.5" />
                       <span className="text-xs">{extendedProfile.location}</span>
                     </div>
@@ -796,22 +797,23 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
               {/* Thick grey divider */}
               <div className="h-3 bg-gray-200 -mx-6 my-6" />
 
-              {/* Testimonials */}
+              {/* Testimonials - changed border color */}
               <div>
                 <h3 className="text-xs font-semibold text-gray-900 mb-2">Client Testimonials</h3>
                 <div className="space-y-2">
                   {extendedProfile.testimonials.map((testimonial, index) => (
-                    <div key={index} className="border border-red-500 p-2 rounded-lg">
+                    <div key={index} className="border border-blue-600 p-2 rounded-lg">
                       <p className="italic text-xs text-gray-600">"{testimonial.comment}"</p>
-                      <p className="font-medium mt-1 text-xs text-red-500">- {testimonial.client_name}</p>
+                      <p className="font-medium mt-1 text-xs text-blue-600">- {testimonial.client_name}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
+              {/* Book Livestreamer button - changed to blue/purple gradient */}
               <div className="flex gap-4 mt-6">
                 <Button 
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm"
+                  className="flex-1 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white text-sm"
                   onClick={() => {
                     setIsProfileModalOpen(false);
                     openBookingModal();

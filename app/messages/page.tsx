@@ -240,13 +240,13 @@ export default function MessagesPage() {
             <div 
               className={`rounded-lg p-3 max-w-[70%] ${
                 message.sender_id === currentUser?.id 
-                  ? 'bg-red-500 text-white' 
+                  ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-800'
               }`}
             >
               <p className="text-sm">{message.content}</p>
               <p className={`text-xs mt-1 ${
-                message.sender_id === currentUser?.id ? 'text-red-100' : 'text-gray-500'
+                message.sender_id === currentUser?.id ? 'text-blue-100' : 'text-gray-500'
               }`}>
                 {formatMessageTime(message.created_at)}
               </p>
@@ -320,16 +320,18 @@ export default function MessagesPage() {
               </Button>
             ) : (
               <Button 
-                onClick={handleBackNavigation} 
+                onClick={() => router.push('/protected')}
                 variant="ghost" 
                 size="sm" 
-                className="mr-2"
+                className="mr-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Back
               </Button>
             )}
-            <h1 className="text-xl">Messages</h1>
+            <h1 className="text-xl flex items-center gap-2">
+              Messages
+            </h1>
           </div>
         </div>
       </div>
@@ -369,7 +371,7 @@ export default function MessagesPage() {
               </div>
 
               {/* Warning Banner */}
-              <div className="bg-red-50 p-3 text-sm text-red-800 flex items-start border-b border-red-100">
+              <div className="bg-blue-50 p-3 text-sm text-blue-800 flex items-start border-b border-blue-100">
                 <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
                 <p className="flex-1">
                   Hati-hati penipuan! Mohon tidak bertransaksi di luar Salda dan tidak memberikan data pribadi kepada streamer, seperti nomor HP dan alamat. Tetap berinteraksi melalui aplikasi Salda, ya.
@@ -396,7 +398,7 @@ export default function MessagesPage() {
                   <Button 
                     onClick={handleSendMessage} 
                     size="default" 
-                    className="bg-red-500 hover:bg-red-600 flex-shrink-0"
+                    className="bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] flex-shrink-0"
                   >
                     <Send className="h-4 w-4" />
                   </Button>
@@ -405,7 +407,7 @@ export default function MessagesPage() {
             </>
           ) : (
             <div className="h-full flex flex-col">
-              <div className="bg-red-50 p-3 text-sm text-red-800 flex items-start border-b border-red-100">
+              <div className="bg-blue-600 p-3 text-sm text-white flex items-start border-b border-blue-700">
                 <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
                 <p className="flex-1">
                   Hati-hati penipuan! Mohon tidak bertransaksi di luar Salda dan tidak memberikan data pribadi kepada streamer, seperti nomor HP dan alamat. Tetap berinteraksi melalui aplikasi Salda, ya.

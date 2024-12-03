@@ -8,6 +8,15 @@ import { revalidatePath } from "next/cache";
 import { cookies } from 'next/headers';
 import { v4 as uuidv4 } from 'uuid';
 
+// Add this helper function at the top of the file
+function sanitizeFileName(fileName: string): string {
+  // Remove special characters and spaces, replace with underscores
+  return fileName
+    .replace(/[^a-zA-Z0-9.-]/g, '_')
+    .replace(/\s+/g, '_')
+    .toLowerCase();
+}
+
 export async function signUpAction(formData: FormData) {
   const supabase = createClient();
   const email = formData.get("email") as string;
@@ -15,31 +24,16 @@ export async function signUpAction(formData: FormData) {
   const confirmPassword = formData.get("confirm_password") as string;
   const firstName = formData.get("first_name") as string;
   const lastName = formData.get("last_name") as string;
-  const userType = formData.get("user_type") as "client" | "streamer";
-  const username = formData.get("username") as string;
+  const brandName = formData.get("username") as string;
+  const location = formData.get("location") as string;
+  const brandGuidelineFile = formData.get("product_doc") as File;
   const origin = headers().get("origin");
 
   if (password !== confirmPassword) {
     return encodedRedirect("error", "/sign-up", "Passwords do not match");
   }
 
-  // Check if username is available
-  const { data: existingUser, error: usernameCheckError } = await supabase
-    .from("users")
-    .select("username")
-    .eq("username", username)
-    .single();
-
-  if (usernameCheckError && usernameCheckError.code !== "PGRST116") {
-    console.error("Username check error:", usernameCheckError);
-    return encodedRedirect("error", "/sign-up", "Error checking username availability");
-  }
-
-  if (existingUser) {
-    return encodedRedirect("error", "/sign-up", "Username is already taken");
-  }
-
-  // Step 1: Sign up the user
+  // 1. First create the user
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
@@ -47,20 +41,44 @@ export async function signUpAction(formData: FormData) {
       data: {
         first_name: firstName,
         last_name: lastName,
-        user_type: userType,
-        username: username,
+        user_type: 'client',
+        brand_name: brandName,
+        location: location,
       },
       emailRedirectTo: `${origin}/auth/callback`,
     },
   });
 
   if (authError) {
-    console.error(authError.message);
     return encodedRedirect("error", "/sign-up", authError.message);
   }
 
+  // 2. Then upload the file using the new user's session
+  let brandGuidelineUrl = null;
+  if (brandGuidelineFile && authData.user) {
+    const fileName = `${authData.user.id}/${Date.now()}_${sanitizeFileName(brandGuidelineFile.name)}`;
+
+    const { error: uploadError, data } = await supabase.storage
+      .from('brand_guideline')
+      .upload(fileName, brandGuidelineFile, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: brandGuidelineFile.type
+      });
+
+    if (uploadError) {
+      // Clean up: delete the user if file upload fails
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      return encodedRedirect("error", "/sign-up", "Failed to upload brand guideline");
+    }
+
+    brandGuidelineUrl = supabase.storage
+      .from('brand_guideline')
+      .getPublicUrl(fileName).data.publicUrl;
+  }
+
+  // 3. Finally, create the user profile with the file URL
   if (authData.user) {
-    // Step 2: Insert user data into public.users table
     const { error: profileError } = await supabase
       .from("users")
       .insert({
@@ -68,22 +86,22 @@ export async function signUpAction(formData: FormData) {
         email: authData.user.email,
         first_name: firstName,
         last_name: lastName,
-        user_type: userType,
-        username: username,
+        user_type: 'client',
+        brand_name: brandName,
+        brand_guidelines_url: brandGuidelineUrl,
+        location: location,
         profile_picture_url: null,
         bio: null,
       });
 
     if (profileError) {
-      console.error("Profile creation error:", profileError);
-      // Attempt to delete the auth user if profile creation fails
+      // Clean up: delete user and uploaded file if profile creation fails
       await supabase.auth.admin.deleteUser(authData.user.id);
-      return encodedRedirect("error", "/sign-up", "Failed to create user profile: " + profileError.message);
+      return encodedRedirect("error", "/sign-up", "Failed to create user profile");
     }
   }
 
-  revalidatePath("/");
-  return encodedRedirect("success", "/sign-up", "Check your email to confirm your account");
+  return redirect("/sign-in");
 }
 
 export const signInAction = async (formData: FormData) => {
@@ -91,54 +109,37 @@ export const signInAction = async (formData: FormData) => {
   const password = formData.get("password") as string;
   const supabase = createClient();
 
-  // Step 1: Sign in with email and password
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
-    console.error("Sign-in error:", error);
     return encodedRedirect("error", "/sign-in", `Sign-in failed: ${error.message}`);
   }
 
   if (!data.user) {
-    console.error("No user data returned after sign-in");
     return encodedRedirect("error", "/sign-in", "Sign-in failed: No user data returned");
   }
 
-  // Step 2: Fetch user data
+  // Verify user type is 'client'
   const { data: userData, error: userError } = await supabase
     .from('users')
     .select('user_type')
-    .eq('id', data.user.id);
+    .eq('id', data.user.id)
+    .single();
 
-  if (userError) {
-    console.error("Error fetching user data:", userError);
+  if (userError || !userData) {
     await supabase.auth.signOut();
-    return encodedRedirect("error", "/sign-in", `Error fetching user data: ${userError.message}`);
+    return encodedRedirect("error", "/sign-in", "Error verifying user type");
   }
 
-  if (!userData || userData.length === 0) {
-    console.error("No user data found for id:", data.user.id);
+  if (userData.user_type !== 'client') {
     await supabase.auth.signOut();
-    return encodedRedirect("error", "/sign-in", "User data not found in the database");
+    return encodedRedirect("error", "/sign-in", "Please use the streamer login page if you're a streamer");
   }
 
-  if (userData.length > 1) {
-    console.error("Multiple user records found for id:", data.user.id);
-    await supabase.auth.signOut();
-    return encodedRedirect("error", "/sign-in", "Multiple user records found. Please contact support.");
-  }
-
-  const user = userData[0];
-
-  if (user.user_type !== 'client') {
-    await supabase.auth.signOut();
-    return encodedRedirect("error", "/sign-in", "This login is for clients only. Please use the streamer login if you're a streamer.");
-  }
-
-  return redirect("/protected"); // or wherever clients should be redirected
+  return redirect("/protected");
 };
 
 export const signInAsStreamerAction = async (formData: FormData) => {
@@ -155,19 +156,21 @@ export const signInAsStreamerAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-in", error.message);
   }
 
-  // Check if the user is a streamer
+  // Verify user type is 'streamer'
   const { data: userData, error: userError } = await supabase
     .from('users')
     .select('user_type')
     .eq('id', data.user.id)
     .single();
 
-  if (userError) {
-    return encodedRedirect("error", "/sign-in", "Error fetching user data");
+  if (userError || !userData) {
+    await supabase.auth.signOut();
+    return encodedRedirect("error", "/sign-in", "Error verifying user type");
   }
 
   if (userData.user_type !== 'streamer') {
-    return encodedRedirect("error", "/sign-in", "This login is for streamers only. Please use the client login if you're a client.");
+    await supabase.auth.signOut();
+    return encodedRedirect("error", "/sign-in", "Please use the client login page if you're a client");
   }
 
   return redirect("/streamer-dashboard");
@@ -373,7 +376,7 @@ export async function streamerSignUpAction(formData: FormData) {
       data: {
         first_name: firstName,
         last_name: lastName,
-        user_type: "streamer",
+        user_type: 'streamer',
       },
       emailRedirectTo: `${origin}/auth/callback`,
     },
@@ -393,7 +396,7 @@ export async function streamerSignUpAction(formData: FormData) {
         email: authData.user.email,
         first_name: firstName,
         last_name: lastName,
-        user_type: "streamer",
+        user_type: 'streamer',
         profile_picture_url: null,
         bio: bio,
       });

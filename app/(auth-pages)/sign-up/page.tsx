@@ -9,38 +9,62 @@ import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { debounce } from "lodash";
 import Image from "next/image";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertCircle, Upload, Check } from "lucide-react";
+
+interface FileUploadResponse {
+  url: string;
+  error?: string;
+}
+
+const uploadFile = async (file: File): Promise<FileUploadResponse> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return { url: '', error: 'Failed to upload file' };
+  }
+};
 
 export default function Signup({ searchParams }: { searchParams: Message }) {
-  const [username, setUsername] = useState("");
-  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordsMatch, setPasswordsMatch] = useState(true);
-
-  const checkUsername = useCallback(
-    debounce(async (username: string) => {
-      if (username.length < 3) {
-        setUsernameAvailable(null);
-        return;
-      }
-      try {
-        const result = await checkUsernameAvailability(username);
-        setUsernameAvailable(result.available);
-      } catch (error) {
-        console.error('Error checking username:', error);
-        setUsernameAvailable(null);
-      }
-    }, 300),
-    []
-  );
-
-  useEffect(() => {
-    checkUsername(username);
-  }, [username, checkUsername]);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [productDoc, setProductDoc] = useState<File | null>(null);
+  const [docError, setDocError] = useState('');
 
   useEffect(() => {
     setPasswordsMatch(password === confirmPassword);
   }, [password, confirmPassword]);
+
+  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        setDocError('File size should not exceed 5MB');
+        return;
+      }
+      // Check file type
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!allowedTypes.includes(file.type)) {
+        setDocError('Only PDF and DOC/DOCX files are allowed');
+        return;
+      }
+      setProductDoc(file);
+      setDocError('');
+    }
+  };
 
   return (
     <div className="w-full max-w-[480px]">
@@ -89,28 +113,13 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="username" className="text-gray-700">Nama Pengguna</Label>
+              <Label htmlFor="username" className="text-gray-700">Nama Brand</Label>
               <Input 
                 name="username" 
-                placeholder="Pilih nama pengguna" 
+                placeholder="Masukkan nama brand Anda" 
                 required 
-                minLength={3}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
                 className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
               />
-              {username.length >= 3 && (
-                <p className={`text-sm mt-1 ${
-                  usernameAvailable === null ? 'text-gray-500' :
-                  usernameAvailable ? 'text-green-500' : 'text-red-500'
-                }`}>
-                  {usernameAvailable === null
-                    ? 'Memeriksa nama pengguna...'
-                    : usernameAvailable
-                    ? 'Nama pengguna tersedia'
-                    : 'Nama pengguna sudah digunakan'}
-                </p>
-              )}
             </div>
 
             <div className="space-y-1">
@@ -119,6 +128,17 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
                 name="email" 
                 type="email" 
                 placeholder="nama@contoh.com" 
+                required 
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="location" className="text-gray-700">Lokasi</Label>
+              <Input 
+                name="location" 
+                type="text" 
+                placeholder="Contoh: Jakarta, Surabaya, dll" 
                 required 
                 className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
               />
@@ -152,6 +172,79 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
               />
               {!passwordsMatch && (
                 <p className="text-sm text-red-500 mt-1">Kata sandi tidak cocok</p>
+              )}
+            </div>
+
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="terms"
+                checked={acceptedTerms}
+                onCheckedChange={(value) => setAcceptedTerms(value)}
+                className="mt-1"
+              />
+              <div className="grid gap-1.5 leading-none">
+                <label
+                  htmlFor="terms"
+                  className="text-sm text-gray-600 leading-relaxed cursor-pointer"
+                >
+                  Saya menyetujui{" "}
+                  <Link 
+                    href="/terms" 
+                    className="text-blue-600 hover:text-blue-700 font-medium underline"
+                    target="_blank"
+                  >
+                    persyaratan menggunakan aplikasi
+                  </Link>
+                  {" "}dan{" "}
+                  <Link 
+                    href="/privacy-notice" 
+                    className="text-blue-600 hover:text-blue-700 font-medium underline"
+                    target="_blank"
+                  >
+                    privacy agreement
+                  </Link>
+                  {" "}untuk menggunakan aplikasi ini
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="product_doc" className="text-gray-700">Brand Guideline PDF</Label>
+              <div className="relative">
+                <Input
+                  type="file"
+                  name="product_doc"
+                  id="product_doc"
+                  accept="application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={handleDocumentChange}
+                  className="hidden"
+                />
+                <div 
+                  onClick={() => document.getElementById('product_doc')?.click()}
+                  className="cursor-pointer group flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 transition-all duration-200 hover:border-blue-500 hover:bg-blue-50/50"
+                >
+                  <div className="text-center">
+                    <Upload className="mx-auto h-8 w-8 text-gray-400 group-hover:text-blue-500 mb-2 transition-colors" />
+                    <span className="text-sm text-gray-600 group-hover:text-blue-600 transition-colors">
+                      {productDoc ? productDoc.name : 'Click to upload Brand Guidelines'}
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      PDF or DOC up to 5MB
+                    </p>
+                  </div>
+                </div>
+              </div>
+              {productDoc && (
+                <p className="text-sm text-green-600 mt-1 flex items-center gap-1">
+                  <Check className="h-4 w-4" />
+                  File selected: {productDoc.name}
+                </p>
+              )}
+              {docError && (
+                <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {docError}
+                </p>
               )}
             </div>
 

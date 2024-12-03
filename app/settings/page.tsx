@@ -195,7 +195,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen">
-      <Loader2 className="h-8 w-8 animate-spin text-[#000080]" />
+      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
     </div>;
   }
 
@@ -206,7 +206,7 @@ export default function SettingsPage() {
           onClick={handleBackNavigation} 
           variant="outline" 
           size="sm" 
-          className="mr-4 border-red-500 text-red-500 hover:bg-red-50"
+          className="mr-4 border-blue-600 text-blue-600 hover:bg-blue-50"
         >
           <ChevronLeft className="w-4 h-4 mr-1" />
           Back
@@ -230,19 +230,19 @@ export default function SettingsPage() {
                     alt="Profile"
                     width={128}
                     height={128}
-                    className="w-full h-full rounded-full object-cover border-4 border-red-100"
+                    className="w-full h-full rounded-full object-cover border-4 border-blue-100"
                     unoptimized
                   />
                 ) : (
-                  <div className="w-full h-full bg-red-50 rounded-full flex items-center justify-center border-4 border-red-100">
-                    <User className="h-12 w-12 text-red-300" />
+                  <div className="w-full h-full bg-blue-50 rounded-full flex items-center justify-center border-4 border-blue-100">
+                    <User className="h-12 w-12 text-blue-300" />
                   </div>
                 )}
               </div>
               <Button 
                 type="button" 
                 onClick={handleImageClick} 
-                className="mt-2 bg-red-500 hover:bg-red-600 text-white"
+                className="mt-2 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white"
               >
                 <Camera className="mr-2 h-4 w-4" />
                 {imageUrl ? 'Change Image' : 'Upload Image'}
@@ -266,7 +266,7 @@ export default function SettingsPage() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="firstName" className="flex items-center text-sm text-gray-600">
-                    <User className="mr-2 h-4 w-4 text-red-500" />
+                    <User className="mr-2 h-4 w-4 text-blue-600" />
                     First Name
                   </Label>
                   <Input
@@ -275,12 +275,12 @@ export default function SettingsPage() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="Your first name"
-                    className="mt-1 border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                   />
                 </div>
                 <div>
                   <Label htmlFor="lastName" className="flex items-center text-sm text-gray-600">
-                    <User className="mr-2 h-4 w-4 text-red-500" />
+                    <User className="mr-2 h-4 w-4 text-blue-600" />
                     Last Name
                   </Label>
                   <Input
@@ -289,14 +289,14 @@ export default function SettingsPage() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Your last name"
-                    className="mt-1 border-gray-200 focus:border-red-500 focus:ring-red-500"
+                    className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                   />
                 </div>
               </div>
 
               <div>
                 <Label htmlFor="bio" className="flex items-center text-sm text-gray-600">
-                  <FileText className="mr-2 h-4 w-4 text-red-500" />
+                  <FileText className="mr-2 h-4 w-4 text-blue-600" />
                   Bio
                 </Label>
                 <Textarea
@@ -305,7 +305,7 @@ export default function SettingsPage() {
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell us about yourself"
-                  className="mt-1 border-gray-200 focus:border-red-500 focus:ring-red-500 min-h-[100px]"
+                  className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600 min-h-[100px]"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Tip: A good bio helps others understand you better.
@@ -316,7 +316,7 @@ export default function SettingsPage() {
                 <>
                   <div>
                     <Label htmlFor="youtubeUrl" className="flex items-center text-sm text-gray-600">
-                      <Youtube className="mr-2 h-4 w-4 text-red-500" />
+                      <Youtube className="mr-2 h-4 w-4 text-blue-600" />
                       YouTube Video URL
                     </Label>
                     <Input
@@ -325,7 +325,7 @@ export default function SettingsPage() {
                       value={youtubeUrl}
                       onChange={(e) => setYoutubeUrl(e.target.value)}
                       placeholder="https://youtu.be/..."
-                      className="mt-1 border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Add a video to showcase your streaming style.
@@ -333,7 +333,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <Label htmlFor="galleryPhotos" className="flex items-center text-sm text-gray-600">
-                      <Camera className="mr-2 h-4 w-4 text-red-500" />
+                      <Camera className="mr-2 h-4 w-4 text-blue-600" />
                       Gallery Photos (Max 5)
                     </Label>
                     <Input
@@ -343,7 +343,7 @@ export default function SettingsPage() {
                       accept="image/*"
                       multiple
                       onChange={handleGalleryPhotoChange}
-                      className="mt-1 border-gray-200 focus:border-red-500 focus:ring-red-500"
+                      className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                       disabled={galleryPhotos.length + newGalleryPhotos.length >= 5}
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -362,7 +362,7 @@ export default function SettingsPage() {
                           <button
                             type="button"
                             onClick={() => removeGalleryPhoto(index)}
-                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"
+                            className="absolute top-0 right-0 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white rounded-full p-1"
                           >
                             X
                           </button>
@@ -380,7 +380,7 @@ export default function SettingsPage() {
                           <button
                             type="button"
                             onClick={() => removeNewGalleryPhoto(index)}
-                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"
+                            className="absolute top-0 right-0 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white rounded-full p-1"
                           >
                             X
                           </button>
@@ -393,7 +393,7 @@ export default function SettingsPage() {
 
               <Button 
                 type="submit" 
-                className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white h-11"
+                className="w-full bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white h-11"
                 disabled={isLoading}
               >
                 {isLoading ? (
