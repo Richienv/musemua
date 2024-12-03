@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateUserProfile, updateStreamerProfile } from "@/app/actions";
 import { createClient } from "@/utils/supabase/client";
 import Image from 'next/image';
-import { Loader2, User, Mail, FileText, Camera, Youtube, AlertCircle, ChevronLeft } from 'lucide-react';
+import { Loader2, User, Mail, FileText, Camera, Youtube, AlertCircle, ChevronLeft, Upload, MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB in bytes
 
@@ -46,49 +47,29 @@ export default function SettingsPage() {
   const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
   const [newGalleryPhotos, setNewGalleryPhotos] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false); // New state for loading
+  const [location, setLocation] = useState("");
+  const [newBrandGuideline, setNewBrandGuideline] = useState<File | null>(null);
+  const [brandGuidelineUrl, setBrandGuidelineUrl] = useState("");
+  const [brandGuidelineError, setBrandGuidelineError] = useState("");
+  const [brandName, setBrandName] = useState('');
 
   const fetchUserData = async () => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('first_name, last_name, bio, profile_picture_url, user_type')
-        .eq('id', user.id)
+      const { data } = await supabase
+        .from("users")
+        .select("first_name, last_name, brand_name, profile_picture_url, location, brand_guidelines_url")
+        .eq("id", user.id)
         .single();
 
-      if (userData && !userError) {
-        setFirstName(userData.first_name || '');
-        setLastName(userData.last_name || '');
-        setBio(userData.bio || '');
-        setUserType(userData.user_type);
-
-        if (userData.user_type === 'streamer') {
-          const { data: streamerData, error: streamerError } = await supabase
-            .from('streamers')
-            .select('id, image_url, video_url')
-            .eq('user_id', user.id)
-            .single();
-
-          if (streamerData && !streamerError) {
-            setImageUrl(streamerData.image_url || '');
-            setYoutubeUrl(streamerData.video_url || '');
-
-            // Fetch gallery photos
-            const { data: galleryData, error: galleryError } = await supabase
-              .from('streamer_gallery_photos')
-              .select('photo_url')
-              .eq('streamer_id', streamerData.id)
-              .order('order_number');
-
-            if (galleryData && !galleryError) {
-              setGalleryPhotos(galleryData.map(item => item.photo_url));
-            }
-          }
-        } else {
-          setImageUrl(userData.profile_picture_url || '');
-        }
+      if (data) {
+        setFirstName(data.first_name || '');
+        setLastName(data.last_name || '');
+        setBrandName(data.brand_name || '');
+        setLocation(data.location || '');
+        setBrandGuidelineUrl(data.brand_guidelines_url || '');
       }
     }
     setLoading(false);
@@ -101,52 +82,48 @@ export default function SettingsPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    const formData = new FormData(e.currentTarget);
-    
+
     try {
+      const formData = new FormData(e.currentTarget);
+      
+      // Properly handle image upload
       if (selectedImage) {
+        // Remove the Blob creation as we already have a valid File
         formData.append('image', selectedImage);
       }
-      
-      if (userType === 'streamer') {
-        formData.append('youtubeUrl', youtubeUrl);
-        newGalleryPhotos.forEach((photo) => {
-          formData.append('galleryPhoto', photo);
-        });
+
+      // Add other form fields
+      formData.append('firstName', firstName);
+      formData.append('lastName', lastName);
+      formData.append('brandName', brandName);
+      formData.append('location', location);
+
+      if (newBrandGuideline) {
+        formData.append('brand_guideline', newBrandGuideline);
       }
 
-      const result = userType === 'streamer' 
-        ? await updateStreamerProfile(formData)
-        : await updateUserProfile(formData);
+      const result = await updateUserProfile(formData);
 
-      if ('error' in result) {
+      if (result.error) {
         toast.error(result.error);
         return;
       }
 
-      // Show success message
-      toast.success(
-        'message' in result 
-          ? result.message 
-          : 'Profile updated successfully!'
-      );
-
-      // Clear temporary states
-      setPreviewUrl(null);
-      setSelectedImage(null);
-      setNewGalleryPhotos([]);
-
-      // Handle redirect if provided
-      if ('redirect' in result && result.redirect) {
-        router.push(result.redirect);
-      } else {
-        // Fetch updated data if not redirecting
-        await fetchUserData();
+      // Update local state with new image URL
+      if (result.profilePictureUrl) {
+        setImageUrl(result.profilePictureUrl);
+        // Clean up
+        URL.revokeObjectURL(previewUrl || '');
+        setSelectedImage(null);
+        setPreviewUrl(null);
       }
+
+      toast.success('Profil berhasil diperbarui');
+      router.push('/protected');
 
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('An unexpected error occurred. Please try again.');
+      toast.error('Terjadi kesalahan saat memperbarui profil');
     } finally {
       setIsLoading(false);
     }
@@ -163,9 +140,13 @@ export default function SettingsPage() {
         setImageError('Image size exceeds 1MB. Please choose a smaller image.');
         return;
       }
-      setImageError('');
+
+      // Just set the File directly, no need for Blob conversion
       setSelectedImage(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      // Create preview URL
+      const preview = URL.createObjectURL(file);
+      setPreviewUrl(preview);
+      setImageError('');
     }
   };
 
@@ -193,6 +174,23 @@ export default function SettingsPage() {
     }
   };
 
+  const handleBrandGuidelineChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setBrandGuidelineError('File size should not exceed 5MB');
+        return;
+      }
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!allowedTypes.includes(file.type)) {
+        setBrandGuidelineError('Only PDF and DOC/DOCX files are allowed');
+        return;
+      }
+      setNewBrandGuideline(file);
+      setBrandGuidelineError('');
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-screen">
       <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -201,6 +199,7 @@ export default function SettingsPage() {
 
   return (
     <div className="container mx-auto p-4 max-w-2xl">
+      <Toaster position="top-center" />
       <div className="flex items-center mb-6">
         <Button 
           onClick={handleBackNavigation} 
@@ -212,13 +211,13 @@ export default function SettingsPage() {
           Back
         </Button>
         <h1 className="text-xl sm:text-2xl font-semibold">
-          {userType === 'streamer' ? 'Streamer' : 'Client'} Settings
+          {userType === 'streamer' ? 'Pengaturan Streamer' : 'Pengaturan Client'}
         </h1>
       </div>
 
       <Card className="border-0 shadow-lg">
         <CardHeader className="border-b border-gray-100 bg-gray-50/50">
-          <CardTitle className="text-lg sm:text-xl font-semibold">Profile Information</CardTitle>
+          <CardTitle className="text-lg sm:text-xl font-semibold">Informasi Profil</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -267,49 +266,114 @@ export default function SettingsPage() {
                 <div>
                   <Label htmlFor="firstName" className="flex items-center text-sm text-gray-600">
                     <User className="mr-2 h-4 w-4 text-blue-600" />
-                    First Name
+                    Nama Depan
                   </Label>
                   <Input
                     id="firstName"
                     name="firstName"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Your first name"
+                    placeholder="Masukkan nama depan"
                     className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                   />
                 </div>
                 <div>
                   <Label htmlFor="lastName" className="flex items-center text-sm text-gray-600">
                     <User className="mr-2 h-4 w-4 text-blue-600" />
-                    Last Name
+                    Nama Belakang
                   </Label>
                   <Input
                     id="lastName"
                     name="lastName"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Your last name"
+                    placeholder="Masukkan nama belakang"
                     className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                   />
                 </div>
               </div>
 
               <div>
-                <Label htmlFor="bio" className="flex items-center text-sm text-gray-600">
+                <Label htmlFor="brandName" className="flex items-center text-sm text-gray-600">
                   <FileText className="mr-2 h-4 w-4 text-blue-600" />
-                  Bio
+                  Nama Brand
                 </Label>
-                <Textarea
-                  id="bio"
-                  name="bio"
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Tell us about yourself"
-                  className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600 min-h-[100px]"
+                <Input
+                  id="brandName"
+                  name="brandName"
+                  value={brandName}
+                  onChange={(e) => setBrandName(e.target.value)}
+                  placeholder="Masukkan nama brand Anda"
+                  className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Tip: A good bio helps others understand you better.
-                </p>
+                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-xs text-yellow-700 flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    Perhatian: Perubahan nama brand hanya dapat dilakukan setiap 2 minggu sekali untuk menghindari kebingungan
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="location" className="flex items-center text-sm text-gray-600">
+                  <MapPin className="mr-2 h-4 w-4 text-blue-600" />
+                  Lokasi
+                </Label>
+                <Input
+                  id="location"
+                  name="location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Contoh: Jakarta, Surabaya, dll"
+                  className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="brand_guideline" className="flex items-center text-sm text-gray-600">
+                  <FileText className="mr-2 h-4 w-4 text-blue-600" />
+                  Brand Guideline
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="file"
+                    id="brand_guideline"
+                    name="brand_guideline"
+                    onChange={handleBrandGuidelineChange}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx"
+                  />
+                  <div 
+                    onClick={() => document.getElementById('brand_guideline')?.click()}
+                    className="cursor-pointer group flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 transition-all duration-200 hover:border-blue-500 hover:bg-blue-50/50"
+                  >
+                    <div className="text-center">
+                      <Upload className="mx-auto h-8 w-8 text-gray-400 group-hover:text-blue-500 mb-2 transition-colors" />
+                      <span className="text-sm text-gray-600 group-hover:text-blue-600 transition-colors">
+                        {newBrandGuideline ? newBrandGuideline.name : 'Klik untuk memperbarui Brand Guidelines'}
+                      </span>
+                      {brandGuidelineUrl && (
+                        <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+                          <p className="font-medium text-sm text-blue-600">Brand Guideline Saat Ini:</p>
+                          <p className="text-sm text-blue-500 truncate">
+                            {brandGuidelineUrl.split('/').pop()}
+                          </p>
+                        </div>
+                      )}
+                      {!brandGuidelineUrl && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Belum ada file yang diunggah
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {brandGuidelineError && (
+                  <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    {brandGuidelineError}
+                  </p>
+                )}
               </div>
 
               {userType === 'streamer' && (
@@ -399,10 +463,10 @@ export default function SettingsPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving Changes...
+                    Menyimpan Perubahan...
                   </>
                 ) : (
-                  'Save Changes'
+                  'Simpan Perubahan'
                 )}
               </Button>
             </div>

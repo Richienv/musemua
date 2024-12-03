@@ -179,7 +179,7 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
               <Checkbox
                 id="terms"
                 checked={acceptedTerms}
-                onCheckedChange={(value) => setAcceptedTerms(value)}
+                onCheckedChange={(checked: boolean) => setAcceptedTerms(checked)}
                 className="mt-1"
               />
               <div className="grid gap-1.5 leading-none">
