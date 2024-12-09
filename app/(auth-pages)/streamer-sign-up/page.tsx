@@ -140,11 +140,12 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
     <div className="w-full max-w-[480px]">
       <div className="mb-8 flex justify-center lg:hidden">
         <Image
-          src="/images/salda.png"
+          src="/images/salda-logoB.png"
           alt="Salda Logo"
           width={150}
           height={150}
-          className="brightness-0 invert"
+          priority
+          className="w-auto h-auto"
         />
       </div>
 
@@ -206,7 +207,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                   name="first_name" 
                   placeholder="Masukkan nama depan" 
                   required 
-                  className="h-11 bg-gray-50 border-gray-200 focus:bg-white"
+                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
               <div className="space-y-1">
@@ -215,7 +217,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                   name="last_name" 
                   placeholder="Masukkan nama belakang" 
                   required 
-                  className="h-11 bg-gray-50 border-gray-200 focus:bg-white"
+                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
             </div>
@@ -227,7 +230,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                 type="email" 
                 placeholder="nama@contoh.com" 
                 required 
-                className="h-11 bg-gray-50 border-gray-200 focus:bg-white"
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -238,7 +242,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                 type="password" 
                 placeholder="Buat kata sandi" 
                 required 
-                className="h-11 bg-gray-50 border-gray-200 focus:bg-white"
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -249,7 +254,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                 type="password" 
                 placeholder="Konfirmasi kata sandi" 
                 required 
-                className="h-11 bg-gray-50 border-gray-200 focus:bg-white"
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -288,8 +294,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
               <div className="space-y-1">
                 <Label htmlFor="location" className="text-gray-700">Lokasi</Label>
                 <Select name="location" required>
-                  <SelectTrigger className="h-11 bg-gray-50 border-gray-200 focus:bg-white">
-                    <SelectValue placeholder="Pilih kota" />
+                  <SelectTrigger className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base">
+                    <SelectValue placeholder="Pilih kota" style={{ fontSize: '16px' }} />
                   </SelectTrigger>
                   <SelectContent>
                     {indonesiaCities.map((city) => (
@@ -308,7 +314,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                     inputMode="numeric"
                     value={price}
                     onChange={handlePriceChange}
-                    className="pl-12 h-11 bg-gray-50 border-gray-200 focus:bg-white"
+                    className="pl-12 h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                    style={{ fontSize: '16px' }}
                     placeholder="5.000"
                     required
                   />
@@ -322,7 +329,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
               <Textarea 
                 name="bio" 
                 placeholder="Ceritakan tentang dirimu" 
-                className="min-h-[100px] bg-gray-50 border-gray-200 focus:bg-white"
+                className="min-h-[100px] bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -335,7 +343,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                 placeholder="https://youtu.be/..."
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}
-                className="h-11 bg-gray-50 border-gray-200 focus:bg-white"
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -363,7 +372,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                 multiple
                 onChange={handleGalleryImageChange}
                 ref={galleryInputRef}
-                className="h-11 bg-gray-50 border-gray-200 focus:bg-white"
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
               <div className="grid grid-cols-5 gap-2 mt-2">
                 {galleryPreviews.map((preview, index) => (
