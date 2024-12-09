@@ -271,6 +271,7 @@ export async function checkUsernameAvailability(username: string) {
 
 export async function updateUserProfile(formData: FormData) {
   try {
+    const cookieStore = cookies();
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -278,123 +279,51 @@ export async function updateUserProfile(formData: FormData) {
       return { error: 'Not authenticated' };
     }
 
-    // Get all form data first
     const firstName = formData.get('firstName') as string;
     const lastName = formData.get('lastName') as string;
-    const brandName = formData.get('brandName') as string;
-    const location = formData.get('location') as string;
+    const bio = formData.get('bio') as string;
     const image = formData.get('image') as File;
-    const brandGuidelineFile = formData.get('brand_guideline') as File;
 
     let profilePictureUrl = null;
-    let brandGuidelineUrl = null;
-
-    // Handle profile picture upload
     if (image && image.size > 0) {
-      try {
-        const fileName = `${Date.now()}_${sanitizeFileName(image.name)}`;
+      const fileExt = image.name.split('.').pop() || 'jpg'; // Default to jpg if no extension
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `profile_picture/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('profile_picture')
-          .upload(fileName, image, {
-            cacheControl: '3600',
-            upsert: true,
-            contentType: image.type
-          });
+      // Create blob with proper type
+      const blob = new Blob([image], { type: image.type });
 
-        if (uploadError) {
-          console.error('Upload error details:', uploadError);
-          throw uploadError;
-        }
+      const { error: uploadError } = await supabase.storage
+        .from('profile_picture')
+        .upload(filePath, blob, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: image.type // Explicitly set content type
+        });
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('profile_picture')
-          .getPublicUrl(fileName);
-
-        profilePictureUrl = publicUrl;
-
-      } catch (uploadError) {
-        console.error('Image upload error:', uploadError);
-        return { error: 'Failed to upload profile picture. Please try again.' };
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        return { error: 'Failed to upload profile image' };
       }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile_picture')
+        .getPublicUrl(filePath);
+
+      profilePictureUrl = publicUrl;
     }
 
-    // Handle brand guideline upload
-    if (brandGuidelineFile && brandGuidelineFile.size > 0) {
-      try {
-        const fileName = `${user.id}/${Date.now()}_${sanitizeFileName(brandGuidelineFile.name)}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('brand_guideline')
-          .upload(fileName, brandGuidelineFile, {
-            cacheControl: '3600',
-            upsert: true,
-            contentType: brandGuidelineFile.type
-          });
-
-        if (uploadError) {
-          console.error('Brand guideline upload error:', uploadError);
-          return { error: 'Failed to upload brand guideline' };
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('brand_guideline')
-          .getPublicUrl(fileName);
-
-        brandGuidelineUrl = publicUrl;
-      } catch (error) {
-        console.error('Brand guideline upload error:', error);
-        // Continue with profile update even if guideline upload fails
-      }
-    }
-
-    // Check last brand name update if brand name is being changed
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('brand_name, brand_name_updated_at')
-      .eq('id', user.id)
-      .single();
-
-    if (userError) {
-      return { error: 'Failed to fetch user data' };
-    }
-
-    // Only check brand name update time if the name is actually changing
-    if (userData?.brand_name !== brandName && userData?.brand_name_updated_at) {
-      const lastUpdate = new Date(userData.brand_name_updated_at);
-      const twoWeeksAgo = new Date();
-      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-
-      if (lastUpdate > twoWeeksAgo) {
-        return { error: 'Nama brand hanya dapat diubah setiap 2 minggu sekali' };
-      }
-    }
-
-    // Prepare update data
     const updateData: any = {
       first_name: firstName,
       last_name: lastName,
-      brand_name: brandName,
-      location: location,
+      bio: bio,
       updated_at: new Date().toISOString(),
     };
 
-    // Add profile picture URL if uploaded
     if (profilePictureUrl) {
       updateData.profile_picture_url = profilePictureUrl;
     }
 
-    // Add brand guideline URL if uploaded
-    if (brandGuidelineUrl) {
-      updateData.brand_guidelines_url = brandGuidelineUrl;
-    }
-
-    // Update brand name timestamp if changed
-    if (userData?.brand_name !== brandName) {
-      updateData.brand_name_updated_at = new Date().toISOString();
-    }
-
-    // Update user profile
     const { error: updateError } = await supabase
       .from('users')
       .update(updateData)
@@ -405,8 +334,8 @@ export async function updateUserProfile(formData: FormData) {
     }
 
     return { 
-      success: true,
-      profilePictureUrl
+      success: true, 
+      profilePictureUrl: profilePictureUrl || undefined 
     };
 
   } catch (error) {
@@ -548,11 +477,11 @@ export async function streamerSignUpAction(formData: FormData) {
       await Promise.all(galleryPromises);
     }
 
-    return encodedRedirect("success", "/sign-in?type=streamer", "Account created successfully! Please sign in.");
+    return encodedRedirect("success", "/sign-in?type=streamer", "Akun berhasil dibuat! Silakan masuk.");
     
   } catch (error) {
     console.error('Streamer signup error:', error);
-    return encodedRedirect("error", "/streamer-sign-up", "An unexpected error occurred");
+    return encodedRedirect("error", "/streamer-sign-up", "Terjadi kesalahan yang tidak diharapkan");
   }
 }
 
