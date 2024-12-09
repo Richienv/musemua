@@ -1,15 +1,13 @@
-export default async function Layout({
+export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative min-h-screen w-full bg-gradient-to-br from-gray-800/80 to-gray-900/80">
-      <div className="absolute inset-0 bg-[url('/images/bg-sign-in.png')] bg-cover bg-center mix-blend-overlay opacity-70" />
-      <div className="absolute inset-0 bg-black/20" />
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8">
-        {children}
-      </div>
-    </div>
+    <main className="min-h-screen w-full flex items-center justify-center relative p-6">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-blue-100 -z-10" />
+      <div className="absolute inset-0 bg-grid-black/[0.02] -z-10" />
+      {children}
+    </main>
   );
 }

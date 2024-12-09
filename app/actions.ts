@@ -346,138 +346,143 @@ export async function updateUserProfile(formData: FormData) {
 
 export async function streamerSignUpAction(formData: FormData) {
   const supabase = createClient();
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const confirmPassword = formData.get("confirm_password") as string;
-  const firstName = formData.get("first_name") as string;
-  const lastName = formData.get("last_name") as string;
-  const platform = formData.get("platform") as string;
-  const category = formData.get("category") as string;
-  const bio = formData.get("bio") as string;
-  const image = formData.get("image") as File | null;
-  const priceString = formData.get("price") as string;
-  const price = priceString ? parseInt(priceString, 10) : 0;
-  const location = formData.get("location") as string;
-  const origin = headers().get("origin");
-
-  if (password !== confirmPassword) {
-    return encodedRedirect("error", "/streamer-sign-up", "Passwords do not match");
-  }
-
-  if (price < 0) {
-    return encodedRedirect("error", "/streamer-sign-up", "Price must be 0 or greater");
-  }
-
-  // Sign up the user
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        first_name: firstName,
-        last_name: lastName,
-        user_type: 'streamer',
+  
+  try {
+    // Start a Supabase transaction
+    const { data: { session }, error: authError } = await supabase.auth.signUp({
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+      options: {
+        data: {
+          first_name: formData.get("first_name") as string,
+          last_name: formData.get("last_name") as string,
+          user_type: 'streamer',
+        },
       },
-      emailRedirectTo: `${origin}/auth/callback`,
-    },
-  });
+    });
 
-  if (authError) {
-    console.error(authError.message);
-    return encodedRedirect("error", "/streamer-sign-up", authError.message);
-  }
+    if (authError) {
+      console.error('Auth error:', authError);
+      return encodedRedirect("error", "/streamer-sign-up", authError.message);
+    }
 
-  if (authData.user) {
-    // Insert user data into public.users table
-    const { error: profileError } = await supabase
-      .from("users")
-      .insert({
-        id: authData.user.id,
-        email: authData.user.email,
-        first_name: firstName,
-        last_name: lastName,
-        user_type: 'streamer',
-        profile_picture_url: null,
-        bio: bio,
-      });
-
-    if (profileError) {
-      console.error("Profile creation error:", profileError);
-      await supabase.auth.admin.deleteUser(authData.user.id);
-      return encodedRedirect("error", "/streamer-sign-up", "Failed to create user profile: " + profileError.message);
+    if (!session?.user) {
+      return encodedRedirect("error", "/streamer-sign-up", "Failed to create user account");
     }
 
     // Handle image upload
     let imageUrl = null;
-    if (image) {
+    const image = formData.get("image") as File;
+    if (image && image.size > 0) {
       const fileExt = image.name.split('.').pop();
-      const fileName = `${authData.user.id}/${Date.now()}.${fileExt}`;
+      const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
+      
       const { error: uploadError } = await supabase.storage
         .from('profile_picture')
-        .upload(fileName, image);
+        .upload(fileName, image, {
+          cacheControl: '3600',
+          upsert: true
+        });
 
       if (uploadError) {
-        console.error("Error uploading profile picture:", uploadError);
-      } else {
-        const { data: urlData } = supabase.storage
-          .from('profile_picture')
-          .getPublicUrl(fileName);
-        imageUrl = urlData.publicUrl;
+        console.error('Image upload error:', uploadError);
+        await supabase.auth.admin.deleteUser(session.user.id);
+        return encodedRedirect("error", "/streamer-sign-up", "Failed to upload profile image");
       }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile_picture')
+        .getPublicUrl(fileName);
+      
+      imageUrl = publicUrl;
     }
 
-    try {
-      // Create streamer profile
-      const { data: streamerData, error: streamerError } = await supabase
-        .from('streamers')
-        .insert({
-          user_id: authData.user.id,
-          first_name: firstName,
-          last_name: lastName,
-          platform,
-          category,
-          price,
-          image_url: imageUrl,
-          bio,
-          location,
-          video_url: formData.get('video_url') as string,
-          rating: 0, // Add a default rating of 0 for new streamers
-        })
-        .select()
-        .single();
+    // Create user profile
+    const { error: profileError } = await supabase
+      .from("users")
+      .insert({
+        id: session.user.id,
+        email: session.user.email,
+        first_name: formData.get("first_name") as string,
+        last_name: formData.get("last_name") as string,
+        user_type: 'streamer',
+        profile_picture_url: imageUrl,
+        bio: formData.get("bio") as string,
+        location: formData.get("location") as string,
+      });
 
-      if (streamerError) throw streamerError;
+    if (profileError) {
+      console.error('Profile creation error:', profileError);
+      await supabase.auth.admin.deleteUser(session.user.id);
+      return encodedRedirect("error", "/streamer-sign-up", `Failed to create user profile: ${profileError.message}`);
+    }
 
-      // Handle gallery photos
-      const galleryPhotos = formData.getAll('gallery');
-      for (let i = 0; i < galleryPhotos.length; i++) {
-        const photo = galleryPhotos[i] as File;
-        const photoPath = `gallery/${authData.user.id}/${Date.now()}_${photo.name}`;
+    // Create streamer profile
+    const { data: streamerData, error: streamerError } = await supabase
+      .from('streamers')
+      .insert({
+        user_id: session.user.id,
+        first_name: formData.get("first_name") as string,
+        last_name: formData.get("last_name") as string,
+        platform: formData.get("platform") as string,
+        category: formData.get("category") as string,
+        price: parseInt((formData.get("price") as string)?.replace(/\./g, '') || "0", 10),
+        image_url: imageUrl,
+        bio: formData.get("bio") as string,
+        location: formData.get("location") as string,
+        video_url: formData.get("video_url") as string,
+        rating: 0,
+      })
+      .select()
+      .single();
+
+    if (streamerError) {
+      console.error('Streamer profile creation error:', streamerError);
+      await supabase.auth.admin.deleteUser(session.user.id);
+      return encodedRedirect("error", "/streamer-sign-up", `Failed to create streamer profile: ${streamerError.message}`);
+    }
+
+    // Handle gallery photos if any
+    const galleryFiles = formData.getAll("gallery") as File[];
+    if (galleryFiles.length > 0 && streamerData) {
+      const galleryPromises = galleryFiles.map(async (file, index) => {
+        if (file.size === 0) return null;
+
+        const fileExt = file.name.split('.').pop();
+        const fileName = `gallery/${session.user.id}/${Date.now()}_${index}.${fileExt}`;
+        
         const { error: uploadError } = await supabase.storage
           .from('gallery_images')
-          .upload(photoPath, photo);
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
 
-        if (uploadError) throw uploadError;
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('gallery_images')
+            .getPublicUrl(fileName);
 
-        const { data: photoData } = supabase.storage
-          .from('gallery_images')
-          .getPublicUrl(photoPath);
+          return supabase
+            .from('streamer_gallery_photos')
+            .insert({
+              streamer_id: streamerData.id,
+              photo_url: publicUrl,
+              order_number: index + 1,
+            });
+        }
+        return null;
+      });
 
-        await supabase.from('streamer_gallery_photos').insert({
-          streamer_id: streamerData.id,
-          photo_url: photoData.publicUrl,
-          order_number: i + 1,
-        });
-      }
-    } catch (error: any) {
-      console.error('Error creating streamer profile:', error);
-      await supabase.auth.admin.deleteUser(authData.user.id);
-      return encodedRedirect("error", "/streamer-sign-up", "Failed to create streamer profile: " + error.message);
+      await Promise.all(galleryPromises);
     }
-  }
 
-  revalidatePath("/");
-  return redirect("/streamer-dashboard");
+    return encodedRedirect("success", "/sign-in?type=streamer", "Account created successfully! Please sign in.");
+    
+  } catch (error) {
+    console.error('Streamer signup error:', error);
+    return encodedRedirect("error", "/streamer-sign-up", "An unexpected error occurred");
+  }
 }
 
 export async function updateStreamerProfile(formData: FormData) {

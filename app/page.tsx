@@ -32,7 +32,7 @@ interface ComparisonItem {
 
 const tutorialSlides: TutorialSlide[] = [
   {
-    image: "/images/1aa.png",
+    image: "/images/saldatutor1.png",
     title: "Pilih & Verifikasi",
     description: "Pilih streamer yang sesuai dengan kebutuhan Anda. Lakukan verifikasi akun melalui Trollife untuk mendapatkan akses penuh ke platform kami.",
     bullets: [
@@ -42,7 +42,7 @@ const tutorialSlides: TutorialSlide[] = [
     ]
   },
   {
-    image: "/images/2.png",
+    image: "/images/saldatutor2.png",
     title: "Pilih Paket & Jadwal",
     description: "Tentukan durasi streaming sesuai kebutuhan Anda. Tersedia pilihan paket per jam atau paket khusus dengan harga kompetitif.",
     bullets: [
@@ -52,7 +52,7 @@ const tutorialSlides: TutorialSlide[] = [
     ]
   },
   {
-    image: "/images/3.png",
+    image: "/images/saldatutor3.png",
     title: "Lakukan Pembayaran ",
     description: "Pembayaran dapat dilakukan melalui QRIS, Gopay, dan BCA Virtual Account.",
     bullets: [
@@ -61,7 +61,7 @@ const tutorialSlides: TutorialSlide[] = [
     ]
   },
   {
-    image: "/images/4.png",
+    image: "/images/saldatutor4.png",
     title: "Tunggu Streamer Acc Boookingan Kamu",
     description: "Streamer akan melakukan konfirmasi booking terlebih dahulu sebelum melakukan streaming.",
     bullets: [
@@ -69,7 +69,7 @@ const tutorialSlides: TutorialSlide[] = [
     ]
   },
   {
-    image: "/images/5aa.png",
+    image: "/images/saldatutor5.png",
     title: "Setelah Booking Dikonfirmasi, Jadwal Akan Masuk di Jadwal Streaming",
     description: "Lihat jadwal streaming kamu di dashboard.",
     bullets: [
@@ -77,7 +77,7 @@ const tutorialSlides: TutorialSlide[] = [
     ]
   },
   {
-    image: "/images/6.png",
+    image: "/images/saldatutor6.png",
     title: "Saat Waktunya Tiba, Streaming Akan Dimulai",
     description: "Streamer akan melakukan streaming sesuai jadwal yang sudah diset di dashboard.",
     bullets: [
