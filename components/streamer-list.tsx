@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { StreamerCard } from './streamer-card';
 import { Search } from 'lucide-react';
+import type { Streamer } from './streamer-card';
 
 interface StreamerListProps {
   initialStreamers: Streamer[];
