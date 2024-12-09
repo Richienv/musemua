@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { StreamerCard, Streamer } from './streamer-card';
+import { useState, useEffect, Suspense } from 'react';
+import { StreamerCard, StreamerCardSkeleton } from './streamer-card';
 import { Search } from 'lucide-react'; // Import the Search icon from lucide-react
 
 interface StreamerListProps {
@@ -14,7 +14,9 @@ export function StreamerList({ initialStreamers, filter, className }: StreamerLi
   return (
     <div className={className}>
       {initialStreamers.map((streamer) => (
-        <StreamerCard key={streamer.id} streamer={streamer} />
+        <Suspense key={streamer.id} fallback={<StreamerCardSkeleton />}>
+          <StreamerCard streamer={streamer} />
+        </Suspense>
       ))}
     </div>
   );

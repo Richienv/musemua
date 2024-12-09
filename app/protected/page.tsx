@@ -171,57 +171,78 @@ export default function ProtectedPage() {
       </Suspense>
 
       {/* Main Content */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Carousel */}
-          <Suspense fallback={
-            <div className="w-full h-[400px] bg-gray-100 animate-pulse rounded-lg mb-6 md:mb-10" />
-          }>
-            <div className="w-full mb-6 md:mb-10">
-              <Slider {...settings}>
-                {carouselImages.map((image, index: number) => (
-                  <div key={index} className="outline-none px-1">
-                    <Image
-                      src={image}
-                      alt={`Carousel image ${index + 1}`}
-                      width={1200}
-                      height={400}
-                      objectFit="cover"
-                      className="rounded-lg w-full"
-                      priority={index === 0}
-                      loading={index === 0 ? "eager" : "lazy"}
-                    />
-                  </div>
-                ))}
-              </Slider>
-            </div>
-          </Suspense>
-          
-          <hr className="border-t border-gray-200 my-6 md:my-8" />
-
-          {/* Headings */}
-          <h2 className="text-2xl md:text-3xl mb-2 text-gray-800 first-letter:text-3xl md:first-letter:text-4xl px-2 md:px-0">
-            Salda Top Streamer
-          </h2>
-          
-          <hr className="border-t border-gray-200 my-4 md:my-5" />
-
-          {/* StreamerList */}
-          <div className="px-2 md:px-4 lg:px-6">
+      <Suspense fallback={<MainContentSkeleton />}>
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Carousel */}
             <Suspense fallback={
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-[400px] bg-gray-100 animate-pulse rounded-lg" />
-                ))}
-              </div>
+              <div className="w-full h-[400px] bg-gray-100 animate-pulse rounded-lg mb-6 md:mb-10" />
             }>
-              <StreamerList 
-                initialStreamers={filteredStreamers} 
-                filter={filter} 
-                className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
-              />
+              <div className="w-full mb-6 md:mb-10">
+                <Slider {...settings}>
+                  {carouselImages.map((image, index: number) => (
+                    <div key={index} className="outline-none px-1">
+                      <Image
+                        src={image}
+                        alt={`Carousel image ${index + 1}`}
+                        width={1200}
+                        height={400}
+                        objectFit="cover"
+                        className="rounded-lg w-full"
+                        priority={index === 0}
+                        loading={index === 0 ? "eager" : "lazy"}
+                      />
+                    </div>
+                  ))}
+                </Slider>
+              </div>
             </Suspense>
+            
+            <hr className="border-t border-gray-200 my-6 md:my-8" />
+
+            {/* Headings */}
+            <h2 className="text-2xl md:text-3xl mb-2 text-gray-800 first-letter:text-3xl md:first-letter:text-4xl px-2 md:px-0">
+              Salda Top Streamer
+            </h2>
+            
+            <hr className="border-t border-gray-200 my-4 md:my-5" />
+
+            {/* StreamerList */}
+            <div className="px-2 md:px-4 lg:px-6">
+              <Suspense fallback={
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-[400px] bg-gray-100 animate-pulse rounded-lg" />
+                  ))}
+                </div>
+              }>
+                <StreamerList 
+                  initialStreamers={filteredStreamers} 
+                  filter={filter} 
+                  className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
+                />
+              </Suspense>
+            </div>
           </div>
+        </div>
+      </Suspense>
+    </div>
+  );
+}
+
+// Skeleton component for main content
+function MainContentSkeleton() {
+  return (
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="w-full h-[400px] bg-gray-100 animate-pulse rounded-lg mb-6 md:mb-10"></div>
+        <hr className="border-t border-gray-200 my-6 md:my-8" />
+        <div className="h-8 bg-gray-200 animate-pulse rounded mb-4"></div>
+        <hr className="border-t border-gray-200 my-4 md:my-5" />
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-[400px] bg-gray-100 animate-pulse rounded-lg" />
+          ))}
         </div>
       </div>
     </div>
