@@ -19,19 +19,20 @@ function sanitizeFileName(fileName: string): string {
 
 export async function signUpAction(formData: FormData) {
   const supabase = createClient();
+  
+  // Get basic info
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const confirmPassword = formData.get("confirm_password") as string;
   const firstName = formData.get("first_name") as string;
   const lastName = formData.get("last_name") as string;
-  const brandName = formData.get("username") as string;
   const location = formData.get("location") as string;
-  const brandGuidelineFile = formData.get("product_doc") as File;
+  
+  // Get brand info
+  const brandName = formData.get("brand_name") as string;
+  const brandDescription = formData.get("brand_description") as string;
+  const brandGuidelineFile = formData.get("brand_doc") as File;
+  
   const origin = headers().get("origin");
-
-  if (password !== confirmPassword) {
-    return encodedRedirect("error", "/sign-up", "Passwords do not match");
-  }
 
   // 1. First create the user
   const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -53,9 +54,9 @@ export async function signUpAction(formData: FormData) {
     return encodedRedirect("error", "/sign-up", authError.message);
   }
 
-  // 2. Then upload the file using the new user's session
+  // 2. Then upload the brand guidelines file if provided
   let brandGuidelineUrl = null;
-  if (brandGuidelineFile && authData.user) {
+  if (brandGuidelineFile && authData.user && brandGuidelineFile.size > 0) {
     const fileName = `${authData.user.id}/${Date.now()}_${sanitizeFileName(brandGuidelineFile.name)}`;
 
     const { error: uploadError, data } = await supabase.storage
@@ -77,7 +78,7 @@ export async function signUpAction(formData: FormData) {
       .getPublicUrl(fileName).data.publicUrl;
   }
 
-  // 3. Finally, create the user profile with the file URL
+  // 3. Finally, create the user profile with all the information
   if (authData.user) {
     const { error: profileError } = await supabase
       .from("users")
@@ -88,10 +89,13 @@ export async function signUpAction(formData: FormData) {
         last_name: lastName,
         user_type: 'client',
         brand_name: brandName,
+        brand_description: brandDescription, // Add the brand description
         brand_guidelines_url: brandGuidelineUrl,
         location: location,
         profile_picture_url: null,
         bio: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
 
     if (profileError) {
@@ -101,7 +105,7 @@ export async function signUpAction(formData: FormData) {
     }
   }
 
-  return redirect("/sign-in");
+  return redirect("/sign-in?success=Account created successfully! Please sign in.");
 }
 
 export const signInAction = async (formData: FormData) => {
@@ -366,7 +370,7 @@ export async function streamerSignUpAction(formData: FormData) {
     const platformString = platforms.join(',');
     const categoryString = categories.join(',');
 
-    // 1. First create the user
+    // 1. First create the user in Auth
     const { data: { user }, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -390,21 +394,18 @@ export async function streamerSignUpAction(formData: FormData) {
     if (imageFile && imageFile.size > 0) {
       const filePath = `${user.id}/${Date.now()}_${sanitizeFileName(imageFile.name)}`;
       
-      // Using the correct storage bucket name
       const { data: imageData, error: imageError } = await supabase.storage
-        .from('profile_picture') // Changed from 'profile_images' to 'profile_picture'
+        .from('profile_picture')
         .upload(filePath, imageFile, {
-          contentType: imageFile.type // Explicitly set content type
+          contentType: imageFile.type
         });
 
       if (imageError) {
         console.error('Image upload error:', imageError);
-        // Delete the created user if image upload fails
         await supabase.auth.admin.deleteUser(user.id);
         throw new Error('Failed to upload profile image');
       }
 
-      // Get the public URL for the uploaded image
       const { data: { publicUrl } } = supabase.storage
         .from('profile_picture')
         .getPublicUrl(imageData.path);
@@ -412,7 +413,29 @@ export async function streamerSignUpAction(formData: FormData) {
       imageUrl = publicUrl;
     }
 
-    // 3. Create streamer profile
+    // 3. Create user record in users table
+    const { error: userError } = await supabase
+      .from('users')
+      .insert({
+        id: user.id,
+        email: email,
+        first_name: firstName,
+        last_name: lastName,
+        user_type: 'streamer',
+        profile_picture_url: imageUrl,
+        bio: bio,
+        location: city,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+    if (userError) {
+      console.error('User profile creation error:', userError);
+      await supabase.auth.admin.deleteUser(user.id);
+      throw new Error(`Failed to create user profile: ${userError.message}`);
+    }
+
+    // 4. Create streamer profile
     const { error: streamerError } = await supabase
       .from('streamers')
       .insert({
@@ -437,7 +460,7 @@ export async function streamerSignUpAction(formData: FormData) {
       throw new Error(`Failed to create streamer profile: ${streamerError.message}`);
     }
 
-    // 4. Handle gallery images
+    // 5. Handle gallery images
     const galleryFiles = formData.getAll("gallery") as File[];
     if (galleryFiles.length > 0) {
       for (const file of galleryFiles) {

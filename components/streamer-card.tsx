@@ -49,7 +49,9 @@ export interface Streamer {
   first_name: string;
   last_name: string;
   platform: string;
+  platforms?: string[];
   category: string;
+  categories?: string[];
   rating: number;
   price: number;
   image_url: string;
@@ -489,18 +491,25 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
         {/* Content Container - reduced padding and font sizes */}
         <div className="p-3 sm:p-4 pt-2 sm:pt-3 bg-white/95 rounded-b-xl transition-all duration-300 group-hover:bg-white">
-          {/* Name and Platform */}
+          {/* Name and Platforms */}
           <div className="flex items-center justify-between gap-1 mb-1">
             <div className="flex items-center gap-1.5">
               <h3 className="text-sm sm:text-base text-foreground">
                 {formatName(streamer.first_name, streamer.last_name)}
               </h3>
-              <div className={`px-1.5 py-0.5 rounded-full text-white text-[9px] sm:text-[10px] font-medium
-                ${streamer.platform.toLowerCase() === 'shopee' 
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
-                  : 'bg-gradient-to-r from-blue-900 to-black text-white'
-                }`}>
-                {streamer.platform}
+              <div className="flex gap-1">
+                {(streamer.platforms || [streamer.platform]).map((platform, index) => (
+                  <div
+                    key={platform}
+                    className={`px-1.5 py-0.5 rounded-full text-white text-[9px] sm:text-[10px] font-medium
+                      ${platform.toLowerCase() === 'shopee' 
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
+                        : 'bg-gradient-to-r from-blue-900 to-black text-white'
+                      }`}
+                  >
+                    {platform}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -538,20 +547,22 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             </p>
           </div>
 
-          {/* Location and Category - smaller icons and text */}
-          <div className="flex items-center gap-2 mb-3">
+          {/* Location and Categories */}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
             <div className="flex items-center gap-1.5">
               <div className="p-1 bg-[#2563eb]/10 rounded-full">
                 <MapPin className="w-3 h-3 text-[#2563eb]" />
               </div>
               <span className="text-xs text-gray-600">{streamer.location}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="p-1 bg-[#2563eb]/10 rounded-full">
-                <Monitor className="w-3 h-3 text-[#2563eb]" />
+            {(streamer.categories || [streamer.category]).map((category, index) => (
+              <div key={category} className="flex items-center gap-1.5">
+                <div className="p-1 bg-[#2563eb]/10 rounded-full">
+                  <Monitor className="w-3 h-3 text-[#2563eb]" />
+                </div>
+                <span className="text-xs text-gray-600">{category}</span>
               </div>
-              <span className="text-xs text-gray-600">{streamer.category}</span>
-            </div>
+            ))}
           </div>
 
           {/* Buttons - reduced size */}

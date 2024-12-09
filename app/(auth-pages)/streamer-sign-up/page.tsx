@@ -10,7 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link";
 import { useState, useRef } from "react";
 import Image from "next/image";
-import { Info } from 'lucide-react';
+import { Info, ArrowLeft, ArrowRight } from 'lucide-react';
+import { StreamerCard, Streamer } from "@/components/streamer-card";
+import { motion } from "framer-motion";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const platforms = ["TikTok", "Shopee"];
 const categories = ["Fashion", "Technology", "Beauty", "Gaming", "Cooking", "Fitness", "Music", "Others"];
@@ -30,17 +33,138 @@ const indonesiaCities = [
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+interface FormData {
+  basicInfo: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    city: string;
+    full_address: string;
+  };
+  security: {
+    password: string;
+    confirm_password: string;
+  };
+  profile: {
+    image: File | null;
+    platforms: string[];
+    categories: string[];
+    price: string;
+    bio: string;
+    video_url: string;
+    gallery: File[];
+  };
+}
+
 export default function StreamerSignUp({ searchParams }: { searchParams: Message }) {
+  const [currentStep, setCurrentStep] = useState(1);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [formData, setFormData] = useState<FormData>({
+    basicInfo: {
+      first_name: '',
+      last_name: '',
+      email: '',
+      city: '',
+      full_address: '',
+    },
+    security: {
+      password: '',
+      confirm_password: '',
+    },
+    profile: {
+      image: null,
+      platforms: [],
+      categories: [],
+      price: '',
+      bio: '',
+      video_url: '',
+      gallery: [],
+    }
+  });
+
+  // Keep existing state variables that are still needed
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [price, setPrice] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  const updateFormData = (step: string, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [step]: {
+        ...prev[step as keyof FormData],
+        [field]: value
+      }
+    }));
+  };
+
+  const validateStep = (step: number): boolean => {
+    setError(null);
+    
+    switch (step) {
+      case 1: // Basic Info
+        const { first_name, last_name, email, city, full_address } = formData.basicInfo;
+        if (!first_name || !last_name || !email || !city || !full_address) {
+          setError('Please fill in all required fields');
+          return false;
+        }
+        if (!email.includes('@')) {
+          setError('Please enter a valid email address');
+          return false;
+        }
+        break;
+        
+      case 2: // Security
+        const { password, confirm_password } = formData.security;
+        if (!password || !confirm_password) {
+          setError('Please fill in all required fields');
+          return false;
+        }
+        if (password !== confirm_password) {
+          setError('Passwords do not match');
+          return false;
+        }
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters long');
+          return false;
+        }
+        break;
+        
+      case 3: // Profile
+        const { image, platforms, categories, price } = formData.profile;
+        if (!image) {
+          setError('Please upload a profile image');
+          return false;
+        }
+        if (platforms.length === 0) {
+          setError('Please select at least one platform');
+          return false;
+        }
+        if (categories.length === 0) {
+          setError('Please select at least one category');
+          return false;
+        }
+        if (!price) {
+          setError('Please enter your price per hour');
+          return false;
+        }
+        break;
+    }
+    
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, 4));
+    }
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
 
   const validateFile = (file: File, type: 'image' | 'gallery'): string | null => {
     if (!file || file.size === 0) {
@@ -58,45 +182,62 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
     return null;
   };
 
-  const handleSignUp = async (formData: FormData) => {
+  const handleSignUp = async () => {
     try {
       setError(null);
       setIsSigningUp(true);
 
-      // Validate image
-      const imageFile = formData.get('image') as File;
-      const imageError = validateFile(imageFile, 'image');
+      // Create a new FormData instance for submission
+      const submitFormData = new window.FormData();
+
+      // Add basic info
+      submitFormData.append('first_name', formData.basicInfo.first_name);
+      submitFormData.append('last_name', formData.basicInfo.last_name);
+      submitFormData.append('email', formData.basicInfo.email);
+      submitFormData.append('city', formData.basicInfo.city);
+      submitFormData.append('full_address', formData.basicInfo.full_address);
+
+      // Add security info
+      submitFormData.append('password', formData.security.password);
+
+      // Validate and add profile image
+      if (!formData.profile.image) {
+        setError('Please upload a profile image');
+        return;
+      }
+      const imageError = validateFile(formData.profile.image, 'image');
       if (imageError) {
         setError(imageError);
         return;
       }
+      submitFormData.append('image', formData.profile.image);
 
-      // Add multiple platforms and categories to formData
-      formData.delete('platforms'); // Remove any existing platforms
-      selectedPlatforms.forEach(platform => {
-        formData.append('platforms', platform);
+      // Add platforms
+      formData.profile.platforms.forEach(platform => {
+        submitFormData.append('platforms', platform);
       });
 
-      formData.delete('categories'); // Remove any existing categories
-      selectedCategories.forEach(category => {
-        formData.append('categories', category);
+      // Add categories
+      formData.profile.categories.forEach(category => {
+        submitFormData.append('categories', category);
       });
 
-      // Validate gallery images
-      const galleryFiles = formData.getAll('gallery') as File[];
-      for (const file of galleryFiles) {
+      // Add gallery images
+      formData.profile.gallery.forEach((file, index) => {
         const galleryError = validateFile(file, 'gallery');
         if (galleryError) {
           setError(galleryError);
           return;
         }
-      }
+        submitFormData.append('gallery', file);
+      });
 
-      // Ensure price is properly formatted
-      formData.set('price', price.replace(/\./g, ''));
-      formData.set('video_url', videoUrl);
+      // Add other profile fields
+      submitFormData.append('price', formData.profile.price.replace(/\./g, ''));
+      submitFormData.append('bio', formData.profile.bio);
+      submitFormData.append('video_url', formData.profile.video_url);
 
-      const result = await streamerSignUpAction(formData);
+      const result = await streamerSignUpAction(submitFormData);
       
       // If we get here, signup was successful
       window.location.href = '/sign-in?success=Account created successfully! Please sign in.';
@@ -152,13 +293,472 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, '');
     const formattedValue = formatPrice(rawValue);
-    setPrice(formattedValue);
+    updateFormData('profile', 'price', formattedValue);
   };
 
   const getYouTubeVideoId = (url: string): string | null => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const renderStepIndicator = () => {
+    return (
+      <div className="flex items-center justify-center mb-8">
+        {[1, 2, 3, 4].map((step) => (
+          <div key={step} className="flex items-center">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                step === currentStep
+                  ? 'bg-red-600 text-white'
+                  : step < currentStep
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-200 text-gray-600'
+              }`}
+            >
+              {step < currentStep ? '✓' : step}
+            </div>
+            {step < 4 && (
+              <div
+                className={`w-12 h-1 ${
+                  step < currentStep ? 'bg-green-500' : 'bg-gray-200'
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderBasicInfo = () => {
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <Label htmlFor="first_name" className="text-gray-700">Nama Depan</Label>
+            <Input 
+              name="first_name"
+              value={formData.basicInfo.first_name}
+              onChange={(e) => updateFormData('basicInfo', 'first_name', e.target.value)}
+              placeholder="John" 
+              required 
+              className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="last_name" className="text-gray-700">Nama Belakang</Label>
+            <Input 
+              name="last_name"
+              value={formData.basicInfo.last_name}
+              onChange={(e) => updateFormData('basicInfo', 'last_name', e.target.value)}
+              placeholder="Smith" 
+              required 
+              className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="email" className="text-gray-700">Alamat Email</Label>
+          <Input 
+            name="email"
+            type="email"
+            value={formData.basicInfo.email}
+            onChange={(e) => updateFormData('basicInfo', 'email', e.target.value)}
+            placeholder="nama@contoh.com" 
+            required 
+            className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="city" className="text-gray-700">Kota</Label>
+          <Select 
+            value={formData.basicInfo.city}
+            onValueChange={(value) => updateFormData('basicInfo', 'city', value)}
+          >
+            <SelectTrigger className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base">
+              <SelectValue placeholder="Pilih kota" />
+            </SelectTrigger>
+            <SelectContent>
+              {indonesiaCities.map((city) => (
+                <SelectItem key={city} value={city}>
+                  {city}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="full_address" className="text-gray-700">Alamat Lengkap</Label>
+          <Textarea 
+            name="full_address"
+            value={formData.basicInfo.full_address}
+            onChange={(e) => updateFormData('basicInfo', 'full_address', e.target.value)}
+            placeholder="Masukkan alamat lengkap Anda" 
+            required
+            className="min-h-[80px] bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const renderSecurity = () => {
+    return (
+      <div className="space-y-5">
+        <div className="space-y-1">
+          <Label htmlFor="password" className="text-gray-700">Kata Sandi</Label>
+          <Input
+            type="password"
+            name="password"
+            value={formData.security.password}
+            onChange={(e) => updateFormData('security', 'password', e.target.value)}
+            placeholder="Buat kata sandi"
+            minLength={6}
+            required
+            className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="confirm_password" className="text-gray-700">Konfirmasi Kata Sandi</Label>
+          <Input
+            type="password"
+            name="confirm_password"
+            value={formData.security.confirm_password}
+            onChange={(e) => updateFormData('security', 'confirm_password', e.target.value)}
+            placeholder="Konfirmasi kata sandi"
+            minLength={6}
+            required
+            className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const renderProfile = () => {
+    return (
+      <div className="space-y-5">
+        {/* Profile Image Upload */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-32 h-32 rounded-full overflow-hidden mb-3 border-2 border-gray-100 shadow-lg">
+            {imagePreview ? (
+              <Image 
+                src={imagePreview} 
+                alt="Profile preview" 
+                width={128} 
+                height={128} 
+                className="w-full h-full object-cover" 
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-50 flex items-center justify-center">
+                <span className="text-gray-400">Upload Photo</span>
+              </div>
+            )}
+          </div>
+          <Label 
+            htmlFor="image" 
+            className="cursor-pointer text-red-600 hover:text-red-700 font-medium"
+          >
+            {imagePreview ? "Change Profile Photo" : "Upload Profile Photo"}
+          </Label>
+          <Input 
+            id="image"
+            name="image" 
+            type="file" 
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => {
+              handleImageChange(e);
+              if (e.target.files?.[0]) {
+                updateFormData('profile', 'image', e.target.files[0]);
+              }
+            }}
+            ref={fileInputRef}
+            className="hidden"
+            required
+          />
+        </div>
+
+        {/* Platforms */}
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <Label className="text-gray-700">Platform</Label>
+            <p className="text-xs text-gray-500 italic flex items-center gap-1.5">
+              <svg 
+                className="w-4 h-4 text-blue-500" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" 
+                />
+              </svg>
+              Pilih satu atau lebih platform yang Anda gunakan secara aktif untuk live streaming
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {platforms.map((platform) => (
+              <div
+                key={platform}
+                onClick={() => {
+                  const newPlatforms = formData.profile.platforms.includes(platform)
+                    ? formData.profile.platforms.filter(p => p !== platform)
+                    : [...formData.profile.platforms, platform];
+                  updateFormData('profile', 'platforms', newPlatforms);
+                }}
+                className={`cursor-pointer p-3 rounded-lg border transition-all duration-200 
+                  ${formData.profile.platforms.includes(platform)
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                    : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50/50'
+                  }
+                  group flex items-center justify-between`}
+              >
+                <span className="text-sm font-medium">{platform}</span>
+                <div className={`
+                  transition-transform duration-200 transform
+                  ${formData.profile.platforms.includes(platform) 
+                    ? 'scale-100 opacity-100' 
+                    : 'scale-0 opacity-0 group-hover:scale-90 group-hover:opacity-50'}
+                `}>
+                  <svg 
+                    className="w-5 h-5 text-blue-500" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M5 13l4 4L19 7" 
+                    />
+                  </svg>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Categories */}
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <Label className="text-gray-700">Kategori</Label>
+            <p className="text-xs text-gray-500 italic flex items-center gap-1.5">
+              <svg 
+                className="w-4 h-4 text-blue-500" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                />
+              </svg>
+              Pilih kategori yang sesuai dengan konten dan keahlian Anda (bisa lebih dari satu)
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {categories.map((category) => (
+              <div
+                key={category}
+                onClick={() => {
+                  const newCategories = formData.profile.categories.includes(category)
+                    ? formData.profile.categories.filter(c => c !== category)
+                    : [...formData.profile.categories, category];
+                  updateFormData('profile', 'categories', newCategories);
+                }}
+                className={`cursor-pointer p-3 rounded-lg border transition-all duration-200 
+                  ${formData.profile.categories.includes(category)
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                    : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50/50'
+                  }
+                  group flex items-center justify-between`}
+              >
+                <span className="text-sm font-medium">{category}</span>
+                <div className={`
+                  transition-transform duration-200 transform
+                  ${formData.profile.categories.includes(category) 
+                    ? 'scale-100 opacity-100' 
+                    : 'scale-0 opacity-0 group-hover:scale-90 group-hover:opacity-50'}
+                `}>
+                  <svg 
+                    className="w-5 h-5 text-blue-500" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M5 13l4 4L19 7" 
+                    />
+                  </svg>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Price */}
+        <div className="space-y-1">
+          <Label htmlFor="price" className="text-gray-700">Harga (per jam)</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">Rp.</span>
+            <Input
+              name="price"
+              type="text"
+              inputMode="numeric"
+              value={formData.profile.price}
+              onChange={handlePriceChange}
+              className="pl-12 h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+              placeholder="5.000"
+              required
+            />
+          </div>
+        </div>
+
+        {/* Bio */}
+        <div className="space-y-1">
+          <Label htmlFor="bio" className="text-gray-700">Bio Profile</Label>
+          <Textarea 
+            name="bio"
+            value={formData.profile.bio}
+            onChange={(e) => updateFormData('profile', 'bio', e.target.value)}
+            placeholder="Ceritakan tentang dirimu"
+            className="min-h-[100px] bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const renderPreview = () => {
+    const previewStreamer: Streamer = {
+      id: 0,
+      user_id: '',
+      first_name: formData.basicInfo.first_name,
+      last_name: formData.basicInfo.last_name,
+      platform: formData.profile.platforms[0],
+      platforms: formData.profile.platforms,
+      category: formData.profile.categories[0],
+      categories: formData.profile.categories,
+      rating: 0,
+      price: parseInt(formData.profile.price.replace(/\./g, '')),
+      image_url: imagePreview || '/images/default-avatar.png',
+      bio: formData.profile.bio,
+      location: formData.basicInfo.city,
+      video_url: formData.profile.video_url,
+      availableTimeSlots: [],
+    };
+
+    return (
+      <div className="space-y-8">
+        {/* Congratulations Message */}
+        <div className="text-center space-y-3 mb-8">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Selamat! 🎉
+          </h2>
+          <p className="text-gray-600">
+            Anda selangkah lagi menjadi host di platform kami. 
+            Mari kita lihat bagaimana profil Anda akan tampil untuk client.
+          </p>
+        </div>
+
+        {/* Card Preview Container with 3D effect */}
+        <motion.div 
+          className="relative w-full max-w-md mx-auto perspective-1000"
+          initial={{ rotateX: 25, scale: 0.9 }}
+          animate={{ 
+            rotateX: 0, 
+            scale: 1,
+            transition: { duration: 0.6, ease: "easeOut" }
+          }}
+          whileHover={{ 
+            scale: 1.02,
+            rotateY: 5,
+            transition: { duration: 0.2 }
+          }}
+        >
+          {/* Glowing effect behind the card */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-xl rounded-3xl transform -translate-y-4"></div>
+          
+          {/* Card container with enhanced styling */}
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 transform hover:translate-y-[-2px] transition-transform duration-300">
+            <StreamerCard streamer={previewStreamer} />
+          </div>
+        </motion.div>
+
+        {/* Additional Information with enhanced styling */}
+        <div className="mt-12 space-y-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+            <h4 className="font-semibold text-blue-700 mb-3">Informasi Tambahan</h4>
+            <div className="text-sm text-blue-600 space-y-2">
+              <p>Platform: {formData.profile.platforms.join(', ')}</p>
+              <p>Kategori: {formData.profile.categories.join(', ')}</p>
+              <p>Alamat: {formData.basicInfo.full_address}</p>
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+            <h4 className="font-semibold text-yellow-700 flex items-center gap-2 mb-3">
+              <Info className="w-4 h-4" />
+              Catatan Penting
+            </h4>
+            <ul className="text-sm text-yellow-600 space-y-2 list-disc list-inside">
+              <li>Rating Anda akan dimulai dari 0 dan akan meningkat seiring dengan ulasan yang Anda terima</li>
+              <li>Jadwal ketersediaan dapat diatur setelah pendaftaran</li>
+              <li>Foto tambahan dapat ditambahkan ke galeri nanti</li>
+            </ul>
+          </div>
+
+          {/* Terms and Conditions Checkbox */}
+          <div className="flex items-start space-x-2 mt-6">
+            <Checkbox
+              id="terms"
+              checked={acceptedTerms}
+              onCheckedChange={(checked: boolean) => setAcceptedTerms(checked)}
+              className="mt-1"
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="terms"
+                className="text-sm text-gray-600 leading-relaxed cursor-pointer"
+              >
+                Saya menyetujui{" "}
+                <Link 
+                  href="/terms" 
+                  className="text-blue-600 hover:text-blue-700 font-medium underline"
+                  target="_blank"
+                >
+                  persyaratan menggunakan aplikasi
+                </Link>
+                {" "}dan{" "}
+                <Link 
+                  href="/privacy-notice" 
+                  className="text-blue-600 hover:text-blue-700 font-medium underline"
+                  target="_blank"
+                >
+                  privacy agreement
+                </Link>
+                {" "}untuk menggunakan aplikasi ini
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -188,313 +788,13 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             </p>
           </div>
 
+          {renderStepIndicator()}
+
           <form className="space-y-6">
-            {/* Profile Image Upload */}
-            <div className="flex flex-col items-center mb-8">
-              <div className="w-32 h-32 rounded-full overflow-hidden mb-3 border-2 border-gray-100 shadow-lg">
-                {imagePreview ? (
-                  <Image 
-                    src={imagePreview} 
-                    alt="Profile preview" 
-                    width={128} 
-                    height={128} 
-                    className="w-full h-full object-cover" 
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-50 flex items-center justify-center">
-                    <span className="text-gray-400">Upload Photo</span>
-                  </div>
-                )}
-              </div>
-              <Label 
-                htmlFor="image" 
-                className="cursor-pointer text-red-600 hover:text-red-700 font-medium"
-              >
-                {imagePreview ? "Change Profile Photo" : "Upload Profile Photo"}
-              </Label>
-              <Input 
-                id="image"
-                name="image" 
-                type="file" 
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleImageChange}
-                ref={fileInputRef}
-                className="hidden"
-                required
-              />
-            </div>
-
-            {/* Basic Information */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="first_name" className="text-gray-700">Nama Depan</Label>
-                <Input 
-                  name="first_name" 
-                  placeholder="John" 
-                  required 
-                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-                  style={{ fontSize: '16px' }}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="last_name" className="text-gray-700">Nama Belakang</Label>
-                <Input 
-                  name="last_name" 
-                  placeholder="Smith" 
-                  required 
-                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-                  style={{ fontSize: '16px' }}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="email" className="text-gray-700">Alamat Email</Label>
-              <Input 
-                name="email" 
-                type="email" 
-                placeholder="nama@contoh.com" 
-                required 
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-                style={{ fontSize: '16px' }}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="password" className="text-gray-700">Kata Sandi</Label>
-              <Input 
-                name="password" 
-                type="password" 
-                placeholder="Buat kata sandi" 
-                required 
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-                style={{ fontSize: '16px' }}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="confirm_password" className="text-gray-700">Konfirmasi Kata Sandi</Label>
-              <Input 
-                name="confirm_password" 
-                type="password" 
-                placeholder="Konfirmasi kata sandi" 
-                required 
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-                style={{ fontSize: '16px' }}
-              />
-            </div>
-
-            {/* Platform and Category */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Label htmlFor="platforms" className="text-gray-700 text-sm">Platform</Label>
-                <div className="group relative">
-                  <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
-                    Pilih platform yang Anda gunakan untuk live streaming
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {platforms.map((platform) => (
-                  <div
-                    key={platform}
-                    onClick={() => {
-                      setSelectedPlatforms(prev => 
-                        prev.includes(platform)
-                          ? prev.filter(p => p !== platform)
-                          : [...prev, platform]
-                      );
-                    }}
-                    className={`cursor-pointer p-2 rounded-lg border transition-all duration-200 text-sm ${
-                      selectedPlatforms.includes(platform)
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50/50'
-                    }`}
-                  >
-                    {platform}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Label htmlFor="categories" className="text-gray-700 text-sm">Kategori</Label>
-                <div className="group relative">
-                  <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
-                    Pilih kategori konten yang Anda buat
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {categories.map((category) => (
-                  <div
-                    key={category}
-                    onClick={() => {
-                      setSelectedCategories(prev => 
-                        prev.includes(category)
-                          ? prev.filter(c => c !== category)
-                          : [...prev, category]
-                      );
-                    }}
-                    className={`cursor-pointer p-2 rounded-lg border transition-all duration-200 text-sm ${
-                      selectedCategories.includes(category)
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50/50'
-                    }`}
-                  >
-                    {category}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Location and Address */}
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Label htmlFor="city" className="text-gray-700 text-sm">Kota</Label>
-                  <div className="group relative">
-                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                    <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
-                      Pilih kota tempat Anda akan melakukan live streaming
-                    </div>
-                  </div>
-                </div>
-                <Select name="city" required>
-                  <SelectTrigger className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base">
-                    <SelectValue placeholder="Pilih kota" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {indonesiaCities.map((city) => (
-                      <SelectItem key={city} value={city}>
-                        {city}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Label htmlFor="full_address" className="text-gray-700 text-sm">Alamat Lengkap</Label>
-                  <div className="group relative">
-                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                    <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
-                      Masukkan alamat lengkap Anda
-                    </div>
-                  </div>
-                </div>
-                <Textarea 
-                  name="full_address" 
-                  placeholder="Masukkan alamat lengkap Anda" 
-                  required
-                  className="min-h-[80px] bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
-                  style={{ fontSize: '14px' }}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="price" className="text-gray-700">Harga (per jam)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">Rp.</span>
-                <Input
-                  name="price"
-                  type="text"
-                  inputMode="numeric"
-                  value={price}
-                  onChange={handlePriceChange}
-                  className="pl-12 h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-                  style={{ fontSize: '16px' }}
-                  placeholder="5.000"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Biodata */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Label htmlFor="bio" className="text-gray-700 text-sm">Bio Profile</Label>
-                <div className="group relative">
-                  <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
-                    Ceritakan keunikan dan keahlian khusus Anda sebagai host, serta pengalaman yang membuat Anda berbeda dari yang lain
-                  </div>
-                </div>
-              </div>
-              <Textarea 
-                name="bio" 
-                placeholder="Ceritakan tentang dirimu" 
-                className="min-h-[100px] bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
-                style={{ fontSize: '14px' }}
-              />
-            </div>
-
-            {/* Video Portfolio Section with enhanced description label */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Label htmlFor="video_url" className="text-gray-700">Video Portfolio Host</Label>
-                <div className="group relative">
-                  <Info className="h-4 w-4 text-blue-400 cursor-help" />
-                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-64 shadow-lg z-10">
-                    Upload video hosting test Anda dengan durasi 1-2 menit sebagai portfolio untuk client
-                  </div>
-                </div>
-              </div>
-              <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md p-3 mb-2 shadow-md">
-                Silakan upload video hosting test Anda dengan durasi 1-2 menit. Video ini akan menjadi portfolio Anda untuk ditampilkan kepada client.
-              </div>
-              <Input
-                name="video_url"
-                type="url"
-                placeholder="https://youtu.be/..."
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
-                style={{ fontSize: '14px' }}
-              />
-            </div>
-
-            {videoUrl && getYouTubeVideoId(videoUrl) && (
-              <div className="rounded-lg overflow-hidden shadow-sm">
-                <iframe
-                  width="100%"
-                  height="200"
-                  src={`https://www.youtube.com/embed/${getYouTubeVideoId(videoUrl)}`}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </div>
-            )}
-
-            {/* Gallery */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Label htmlFor="gallery" className="text-gray-700 text-sm">Tambahan Foto Pendukung</Label>
-                <div className="group relative">
-                  <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
-                    Upload foto tambahan yang mendukung profil Anda (maksimal 5 foto)
-                  </div>
-                </div>
-              </div>
-              <Input
-                id="gallery"
-                name="gallery"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleGalleryImageChange}
-                ref={galleryInputRef}
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
-                style={{ fontSize: '14px' }}
-              />
-            </div>
+            {currentStep === 1 && renderBasicInfo()}
+            {currentStep === 2 && renderSecurity()}
+            {currentStep === 3 && renderProfile()}
+            {currentStep === 4 && renderPreview()}
 
             {error && (
               <div className="p-3 rounded-lg bg-red-50 border border-red-200">
@@ -502,21 +802,38 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
               </div>
             )}
 
-            <Button 
-              type="submit"
-              onClick={(e) => {
-                e.preventDefault();
-                const form = e.currentTarget.closest('form');
-                if (form) {
-                  const formData = new FormData(form);
-                  handleSignUp(formData);
-                }
-              }}
-              disabled={isSigningUp}
-              className="w-full h-11 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white transition-all duration-200"
-            >
-              {isSigningUp ? "Creating Account..." : "Create Streamer Account"}
-            </Button>
+            <div className="flex gap-3">
+              {currentStep > 1 && (
+                <Button
+                  type="button"
+                  onClick={handlePrevious}
+                  className="flex-1 h-11 bg-gray-100 hover:bg-gray-200 text-gray-700"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Previous
+                </Button>
+              )}
+              
+              <Button
+                type="button"
+                onClick={currentStep === 4 ? handleSignUp : handleNext}
+                disabled={currentStep === 4 && !acceptedTerms}
+                className={`flex-1 h-11 bg-gradient-to-r from-red-600 to-red-500 
+                  ${currentStep === 4 && !acceptedTerms 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'hover:from-red-700 hover:to-red-600'
+                  } text-white`}
+              >
+                {currentStep === 4 ? (
+                  isSigningUp ? "Membuat Akun..." : "Buat Akun"
+                ) : (
+                  <>
+                    Lanjut
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
 
             <FormMessage message={searchParams} />
           </form>
