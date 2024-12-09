@@ -407,20 +407,22 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
 
       const submitFormData = new FormData();
       
-      // Add all form data
+      // Add basic info
       Object.entries(formData.basicInfo).forEach(([key, value]) => {
         submitFormData.append(key, value);
       });
       
+      // Add password
       submitFormData.append('password', formData.security.password);
       
-      Object.entries(formData.brandInfo).forEach(([key, value]) => {
-        if (value instanceof File) {
-          submitFormData.append(key, value);
-        } else {
-          submitFormData.append(key, value);
-        }
-      });
+      // Add brand info
+      submitFormData.append('brand_name', formData.brandInfo.brand_name);
+      submitFormData.append('brand_description', formData.brandInfo.brand_description);
+      
+      // Add brand doc if exists
+      if (formData.brandInfo.brand_doc) {
+        submitFormData.append('brand_doc', formData.brandInfo.brand_doc);
+      }
 
       await signUpAction(submitFormData);
       window.location.href = '/sign-in?success=Account created successfully! Please sign in.';
