@@ -28,14 +28,15 @@ export default function Login({ searchParams }: { searchParams: Message }) {
 
   return (
     <div className="w-full max-w-[420px]">
-      {/* Logo for mobile */}
+      {/* Updated Logo for mobile */}
       <div className="mb-8 flex justify-center lg:hidden">
         <Image
-          src="/images/salda.png"
+          src="/images/salda-logoB.png"
           alt="Salda Logo"
           width={150}
           height={150}
-          className="brightness-0 invert"
+          priority
+          className="w-auto h-auto"
         />
       </div>
 
@@ -60,7 +61,8 @@ export default function Login({ searchParams }: { searchParams: Message }) {
                   name="email" 
                   placeholder="nama@contoh.com" 
                   required 
-                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -79,7 +81,8 @@ export default function Login({ searchParams }: { searchParams: Message }) {
                   name="password"
                   placeholder="Masukkan kata sandi"
                   required
-                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -143,7 +146,8 @@ export default function Login({ searchParams }: { searchParams: Message }) {
                   name="email" 
                   placeholder="nama@contoh.com" 
                   required 
-                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -162,7 +166,8 @@ export default function Login({ searchParams }: { searchParams: Message }) {
                   name="password"
                   placeholder="Masukkan kata sandi"
                   required
-                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 

@@ -70,11 +70,12 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
     <div className="w-full max-w-[480px]">
       <div className="mb-8 flex justify-center lg:hidden">
         <Image
-          src="/images/salda.png"
+          src="/images/salda-logoB.png"
           alt="Salda Logo"
           width={150}
           height={150}
-          className="brightness-0 invert"
+          priority
+          className="w-auto h-auto"
         />
       </div>
 
@@ -98,7 +99,8 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
                   name="first_name" 
                   placeholder="Masukkan nama depan" 
                   required 
-                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
               <div className="space-y-1">
@@ -107,7 +109,8 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
                   name="last_name" 
                   placeholder="Masukkan nama belakang" 
                   required 
-                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                  className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
             </div>
@@ -118,7 +121,8 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
                 name="username" 
                 placeholder="Masukkan nama brand Anda" 
                 required 
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -129,7 +133,8 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
                 type="email" 
                 placeholder="nama@contoh.com" 
                 required 
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -140,7 +145,8 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
                 type="text" 
                 placeholder="Contoh: Jakarta, Surabaya, dll" 
                 required 
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -154,7 +160,8 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -168,7 +175,8 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white"
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                style={{ fontSize: '16px' }}
               />
               {!passwordsMatch && (
                 <p className="text-sm text-red-500 mt-1">Kata sandi tidak cocok</p>
