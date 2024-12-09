@@ -830,7 +830,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   );
 }
 
-function StreamerCardSkeleton() {
+export function StreamerCardSkeleton() {
   return (
     <div className="group relative bg-transparent w-full font-sans cursor-pointer">
       <div className="relative w-full h-44 sm:h-52 rounded-xl overflow-hidden bg-gray-200 animate-pulse"></div>
