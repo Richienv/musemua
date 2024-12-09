@@ -10,10 +10,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link";
 import { useState, useRef } from "react";
 import Image from "next/image";
+import { Info } from 'lucide-react';
 
 const platforms = ["TikTok", "Shopee"];
 const categories = ["Fashion", "Technology", "Beauty", "Gaming", "Cooking", "Fitness", "Music", "Others"];
-const indonesiaCities = ["Jakarta", "Surabaya", "Bandung", "Medan", "Semarang", "Makassar", "Palembang", "Tangerang"];
+const indonesiaCities = [
+  "Jakarta", 
+  "Surabaya", 
+  "Bandung", 
+  "Medan", 
+  "Semarang", 
+  "Makassar", 
+  "Palembang", 
+  "Tangerang",
+  "Malang",  // Added new city
+  "Bali"     // Added new city
+];
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -27,6 +39,8 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const validateFile = (file: File, type: 'image' | 'gallery'): string | null => {
     if (!file || file.size === 0) {
@@ -56,6 +70,17 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         setError(imageError);
         return;
       }
+
+      // Add multiple platforms and categories to formData
+      formData.delete('platforms'); // Remove any existing platforms
+      selectedPlatforms.forEach(platform => {
+        formData.append('platforms', platform);
+      });
+
+      formData.delete('categories'); // Remove any existing categories
+      selectedCategories.forEach(category => {
+        formData.append('categories', category);
+      });
 
       // Validate gallery images
       const galleryFiles = formData.getAll('gallery') as File[];
@@ -205,7 +230,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                 <Label htmlFor="first_name" className="text-gray-700">Nama Depan</Label>
                 <Input 
                   name="first_name" 
-                  placeholder="Masukkan nama depan" 
+                  placeholder="John" 
                   required 
                   className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
                   style={{ fontSize: '16px' }}
@@ -215,7 +240,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                 <Label htmlFor="last_name" className="text-gray-700">Nama Belakang</Label>
                 <Input 
                   name="last_name" 
-                  placeholder="Masukkan nama belakang" 
+                  placeholder="Smith" 
                   required 
                   className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
                   style={{ fontSize: '16px' }}
@@ -260,91 +285,177 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             </div>
 
             {/* Platform and Category */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="platform" className="text-gray-700">Platform</Label>
-                <Select name="platform">
-                  <SelectTrigger className="h-11 bg-gray-50 border-gray-200 focus:bg-white">
-                    <SelectValue placeholder="Pilih platform" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {platforms.map((platform) => (
-                      <SelectItem key={platform} value={platform}>{platform}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="platforms" className="text-gray-700 text-sm">Platform</Label>
+                <div className="group relative">
+                  <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
+                    Pilih platform yang Anda gunakan untuk live streaming
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="category" className="text-gray-700">Kategori</Label>
-                <Select name="category">
-                  <SelectTrigger className="h-11 bg-gray-50 border-gray-200 focus:bg-white">
-                    <SelectValue placeholder="Pilih kategori" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-2">
+                {platforms.map((platform) => (
+                  <div
+                    key={platform}
+                    onClick={() => {
+                      setSelectedPlatforms(prev => 
+                        prev.includes(platform)
+                          ? prev.filter(p => p !== platform)
+                          : [...prev, platform]
+                      );
+                    }}
+                    className={`cursor-pointer p-2 rounded-lg border transition-all duration-200 text-sm ${
+                      selectedPlatforms.includes(platform)
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50/50'
+                    }`}
+                  >
+                    {platform}
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Location and Price */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="categories" className="text-gray-700 text-sm">Kategori</Label>
+                <div className="group relative">
+                  <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
+                    Pilih kategori konten yang Anda buat
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {categories.map((category) => (
+                  <div
+                    key={category}
+                    onClick={() => {
+                      setSelectedCategories(prev => 
+                        prev.includes(category)
+                          ? prev.filter(c => c !== category)
+                          : [...prev, category]
+                      );
+                    }}
+                    className={`cursor-pointer p-2 rounded-lg border transition-all duration-200 text-sm ${
+                      selectedCategories.includes(category)
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50/50'
+                    }`}
+                  >
+                    {category}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Location and Address */}
+            <div className="space-y-4">
               <div className="space-y-1">
-                <Label htmlFor="location" className="text-gray-700">Lokasi</Label>
-                <Select name="location" required>
+                <div className="flex items-center gap-2 mb-1">
+                  <Label htmlFor="city" className="text-gray-700 text-sm">Kota</Label>
+                  <div className="group relative">
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                    <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
+                      Pilih kota tempat Anda akan melakukan live streaming
+                    </div>
+                  </div>
+                </div>
+                <Select name="city" required>
                   <SelectTrigger className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base">
-                    <SelectValue placeholder="Pilih kota" style={{ fontSize: '16px' }} />
+                    <SelectValue placeholder="Pilih kota" />
                   </SelectTrigger>
                   <SelectContent>
                     {indonesiaCities.map((city) => (
-                      <SelectItem key={city} value={city}>{city}</SelectItem>
+                      <SelectItem key={city} value={city}>
+                        {city}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-1">
-                <Label htmlFor="price" className="text-gray-700">Harga (per jam)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">Rp.</span>
-                  <Input
-                    name="price"
-                    type="text"
-                    inputMode="numeric"
-                    value={price}
-                    onChange={handlePriceChange}
-                    className="pl-12 h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-                    style={{ fontSize: '16px' }}
-                    placeholder="5.000"
-                    required
-                  />
+                <div className="flex items-center gap-2 mb-1">
+                  <Label htmlFor="full_address" className="text-gray-700 text-sm">Alamat Lengkap</Label>
+                  <div className="group relative">
+                    <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                    <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
+                      Masukkan alamat lengkap Anda
+                    </div>
+                  </div>
                 </div>
+                <Textarea 
+                  name="full_address" 
+                  placeholder="Masukkan alamat lengkap Anda" 
+                  required
+                  className="min-h-[80px] bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
+                  style={{ fontSize: '14px' }}
+                />
               </div>
             </div>
 
-            {/* Bio */}
             <div className="space-y-1">
-              <Label htmlFor="bio" className="text-gray-700">Biodata</Label>
+              <Label htmlFor="price" className="text-gray-700">Harga (per jam)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">Rp.</span>
+                <Input
+                  name="price"
+                  type="text"
+                  inputMode="numeric"
+                  value={price}
+                  onChange={handlePriceChange}
+                  className="pl-12 h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+                  style={{ fontSize: '16px' }}
+                  placeholder="5.000"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Biodata */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="bio" className="text-gray-700 text-sm">Bio Profile</Label>
+                <div className="group relative">
+                  <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
+                    Ceritakan keunikan dan keahlian khusus Anda sebagai host, serta pengalaman yang membuat Anda berbeda dari yang lain
+                  </div>
+                </div>
+              </div>
               <Textarea 
                 name="bio" 
                 placeholder="Ceritakan tentang dirimu" 
-                className="min-h-[100px] bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-                style={{ fontSize: '16px' }}
+                className="min-h-[100px] bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
+                style={{ fontSize: '14px' }}
               />
             </div>
 
-            {/* Video URL */}
+            {/* Video Portfolio Section with enhanced description label */}
             <div className="space-y-1">
-              <Label htmlFor="video_url" className="text-gray-700">URL Video YouTube</Label>
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="video_url" className="text-gray-700">Video Portfolio Host</Label>
+                <div className="group relative">
+                  <Info className="h-4 w-4 text-blue-400 cursor-help" />
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-64 shadow-lg z-10">
+                    Upload video hosting test Anda dengan durasi 1-2 menit sebagai portfolio untuk client
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md p-3 mb-2 shadow-md">
+                Silakan upload video hosting test Anda dengan durasi 1-2 menit. Video ini akan menjadi portfolio Anda untuk ditampilkan kepada client.
+              </div>
               <Input
                 name="video_url"
                 type="url"
                 placeholder="https://youtu.be/..."
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-                style={{ fontSize: '16px' }}
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
+                style={{ fontSize: '14px' }}
               />
             </div>
 
@@ -362,8 +473,16 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             )}
 
             {/* Gallery */}
-            <div className="space-y-2">
-              <Label htmlFor="gallery" className="text-gray-700">Foto Galeri (Maks 5)</Label>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="gallery" className="text-gray-700 text-sm">Tambahan Foto Pendukung</Label>
+                <div className="group relative">
+                  <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded-lg w-48">
+                    Upload foto tambahan yang mendukung profil Anda (maksimal 5 foto)
+                  </div>
+                </div>
+              </div>
               <Input
                 id="gallery"
                 name="gallery"
@@ -372,24 +491,9 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                 multiple
                 onChange={handleGalleryImageChange}
                 ref={galleryInputRef}
-                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-                style={{ fontSize: '16px' }}
+                className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
+                style={{ fontSize: '14px' }}
               />
-              <div className="grid grid-cols-5 gap-2 mt-2">
-                {galleryPreviews.map((preview, index) => (
-                  preview && (
-                    <div key={index} className="relative rounded-lg overflow-hidden shadow-sm">
-                      <Image
-                        src={preview}
-                        alt={`Gallery preview ${index + 1}`}
-                        width={100}
-                        height={100}
-                        className="w-full h-24 object-cover"
-                      />
-                    </div>
-                  )
-                ))}
-              </div>
             </div>
 
             {error && (
