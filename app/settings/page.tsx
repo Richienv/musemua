@@ -29,6 +29,29 @@ interface UserProfileResponse {
   error?: string;
 }
 
+// First, add proper interfaces for the data types
+interface StreamerProfile {
+  first_name: string;
+  last_name: string;
+  profile_picture_url: string | null;
+  location: string;
+  platform: string;
+  category: string;
+  price: number;
+  video_url: string | null;
+  bio: string | null;
+  gallery_photos: string[];
+  image_url: string | null;
+}
+
+interface UserProfile {
+  first_name: string;
+  last_name: string;
+  profile_picture_url: string | null;
+  location: string;
+  brand_guidelines_url: string | null;
+}
+
 // Create a separate component for the settings content
 function SettingsContent() {
   const router = useRouter();
@@ -75,42 +98,32 @@ function SettingsContent() {
           price,
           video_url,
           bio,
-          gallery_photos
+          gallery_photos,
+          image_url
         `)
         .eq("user_id", user.id)
         .single();
 
       if (streamerData && type === 'streamer') {
         setUserType('streamer');
-        // Fetch streamer specific data
-        const { data: streamerProfile } = await supabase
-          .from("streamers")
-          .select(`
-            first_name,
-            last_name,
-            brand_name,
-            profile_picture_url,
-            location,
-            brand_guidelines_url,
-            youtube_video_url,
-            gallery_photos
-          `)
-          .eq("user_id", user.id)
-          .single();
-
-        if (streamerProfile) {
-          setFirstName(streamerProfile.first_name || '');
-          setLastName(streamerProfile.last_name || '');
-          setLocation(streamerProfile.location || '');
-          setBrandGuidelineUrl(streamerProfile.brand_guidelines_url || '');
-          setYoutubeVideoUrl(streamerProfile.video_url || '');
-          setGalleryPhotos(streamerProfile.gallery_photos || []);
-        }
+        setPlatform(streamerData.platform || '');
+        setFirstName(streamerData.first_name || '');
+        setLastName(streamerData.last_name || '');
+        setLocation(streamerData.location || '');
+        setYoutubeVideoUrl(streamerData.video_url || '');
+        setGalleryPhotos(streamerData.gallery_photos || []);
+        setImageUrl(streamerData.image_url || '');
       } else {
         // Regular user data fetch
         const { data } = await supabase
           .from("users")
-          .select("first_name, last_name, brand_name, profile_picture_url, location, brand_guidelines_url")
+          .select(`
+            first_name,
+            last_name,
+            profile_picture_url,
+            location,
+            brand_guidelines_url
+          `)
           .eq("id", user.id)
           .single();
 
@@ -119,6 +132,7 @@ function SettingsContent() {
           setLastName(data.last_name || '');
           setLocation(data.location || '');
           setBrandGuidelineUrl(data.brand_guidelines_url || '');
+          setImageUrl(data.profile_picture_url || '');
         }
       }
     }
@@ -152,6 +166,7 @@ function SettingsContent() {
       // Add streamer-specific fields if user is a streamer
       if (userType === 'streamer') {
         formData.append('youtubeVideoUrl', youtubeVideoUrl);
+        formData.append('platform', platform); // Add platform to form data
         
         // Append new gallery photos
         newGalleryPhotos.forEach((photo, index) => {
