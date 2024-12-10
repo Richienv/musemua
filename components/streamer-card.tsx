@@ -410,18 +410,45 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
   const handleHourSelection = (hour: string) => {
     setSelectedHours((prevSelected) => {
+      const hourNum = parseInt(hour);
+      
+      // If clicking on an already selected hour
       if (prevSelected.includes(hour)) {
-        return prevSelected.filter((h) => h !== hour);
-      } else {
-        const newSelected = [...prevSelected, hour].sort();
-        if (newSelected.length > 1) {
-          const start = newSelected[0];
-          const end = newSelected[newSelected.length - 1];
-          return Array.from({ length: parseInt(end) - parseInt(start) + 1 }, (_, i) => 
-            `${(parseInt(start) + i).toString().padStart(2, '0')}:00`
+        const newSelected = prevSelected.filter(h => h !== hour);
+        
+        // After deselection, ensure remaining hours are continuous
+        if (newSelected.length > 0) {
+          const selectedHourNums = newSelected.map(h => parseInt(h));
+          const minHour = Math.min(...selectedHourNums);
+          const maxHour = Math.max(...selectedHourNums);
+          
+          // Create an array of all hours between min and max
+          return Array.from(
+            { length: maxHour - minHour + 1 }, 
+            (_, i) => `${(minHour + i).toString().padStart(2, '0')}:00`
           );
         }
         return newSelected;
+      } else {
+        // If no hours are selected yet, just select this hour
+        if (prevSelected.length === 0) {
+          return [hour];
+        }
+        
+        // Get the first and last selected hours
+        const selectedHourNums = prevSelected.map(h => parseInt(h));
+        const minHour = Math.min(...selectedHourNums);
+        const maxHour = Math.max(...selectedHourNums);
+        
+        // Only allow selection if it's consecutive (either one hour before first or one hour after last)
+        if (hourNum === maxHour + 1 || hourNum === minHour - 1) {
+          const newSelected = [...prevSelected, hour];
+          // Sort numerically to ensure correct order
+          return newSelected.sort((a, b) => parseInt(a) - parseInt(b));
+        }
+        
+        // If clicking a new starting hour, reset selection to just this hour
+        return [hour];
       }
     });
   };
@@ -430,10 +457,29 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
   const isHourDisabled = (hour: string) => {
     if (!selectedDate) return true;
+    
+    const hourNum = parseInt(hour);
     const selectedDateTime = new Date(selectedDate);
-    selectedDateTime.setHours(parseInt(hour), 0, 0, 0);
+    selectedDateTime.setHours(hourNum, 0, 0, 0);
     const now = new Date();
-    return isBefore(selectedDateTime, now) || !isSlotAvailable(selectedDate, parseInt(hour));
+
+    // Basic time validation
+    if (isBefore(selectedDateTime, now)) return true;
+    
+    // Check if slot is available in schedule
+    if (!isSlotAvailable(selectedDate, hourNum)) return true;
+    
+    // If no hours selected, all available hours are enabled
+    if (selectedHours.length === 0) return false;
+    
+    // Get the first and last selected hours
+    const selectedHourNums = selectedHours.map(h => parseInt(h));
+    const minHour = Math.min(...selectedHourNums);
+    const maxHour = Math.max(...selectedHourNums);
+    
+    // Only enable hours that would maintain continuity
+    // Either one hour before the first selected hour or one hour after the last selected hour
+    return hourNum !== maxHour + 1 && hourNum !== minHour - 1;
   };
 
   const isDayOff = (date: Date) => daysOff.includes(format(date, 'yyyy-MM-dd'));
@@ -627,7 +673,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
               />
               <div>
                 <DialogTitle className="text-lg sm:text-2xl font-semibold mb-0.5">
-                  {streamer.first_name} {streamer.last_name}
+                  {formatName(streamer.first_name, streamer.last_name)}
                 </DialogTitle>
                 <DialogDescription className="text-sm sm:text-base">
                   Select your preferred date and time
@@ -796,7 +842,9 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                 
                 <div className="flex-1">
                   <div className="mb-2">
-                    <h2 className="text-base font-bold">{fullName}</h2>
+                    <h2 className="text-base font-bold">
+                      {formatName(streamer.first_name, streamer.last_name)}
+                    </h2>
                     <p className="text-xs text-foreground/70">{extendedProfile.category}</p>
                     <div className="mt-1 scale-90 origin-left">
                       <RatingStars rating={averageRating} />
