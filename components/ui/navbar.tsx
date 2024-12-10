@@ -23,6 +23,7 @@ interface UserData {
   user_type: 'streamer' | 'client';
   profile_picture_url: string | null;
   streamer_id?: number;
+  image_url?: string | null;
 }
 
 interface ProfileButtonProps {
@@ -71,6 +72,7 @@ export function Navbar({ onFilterChange }: NavbarProps) {
 
             if (userBasicData.user_type === 'streamer') {
               setDashboardLink("/streamer-dashboard");
+              
               // Get streamer-specific data including image
               const { data: streamerData, error: streamerError } = await supabase
                 .from('streamers')
@@ -84,7 +86,7 @@ export function Navbar({ onFilterChange }: NavbarProps) {
               if (streamerError) throw streamerError;
 
               if (streamerData) {
-                // Important: For streamers, prioritize streamer's image_url
+                // Now this won't cause TypeScript errors
                 finalUserData = {
                   ...finalUserData,
                   profile_picture_url: streamerData.image_url || userBasicData.profile_picture_url,
@@ -92,7 +94,6 @@ export function Navbar({ onFilterChange }: NavbarProps) {
                   streamer_id: streamerData.id
                 };
                 
-                // Add debugging
                 console.log('Streamer Data:', {
                   streamerData,
                   finalUserData,
