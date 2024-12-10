@@ -140,7 +140,6 @@ export default function SettingsPage() {
         formData.append('brand_guideline', newBrandGuideline);
       }
 
-      let result;
       // Add streamer-specific fields if user is a streamer
       if (userType === 'streamer') {
         formData.append('youtubeVideoUrl', youtubeVideoUrl);
@@ -153,23 +152,33 @@ export default function SettingsPage() {
         // Append existing gallery photos
         formData.append('existingGalleryPhotos', JSON.stringify(galleryPhotos));
 
-        result = await updateStreamerProfile(formData);
+        const result = await updateStreamerProfile(formData);
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+
+        // Update local state with new image URL for streamer
+        if (result.imageUrl) {
+          setImageUrl(result.imageUrl);
+          URL.revokeObjectURL(previewUrl || '');
+          setSelectedImage(null);
+          setPreviewUrl(null);
+        }
       } else {
-        result = await updateUserProfile(formData);
-      }
+        const result = await updateUserProfile(formData);
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
 
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-
-      // Update local state with new image URL
-      if (result.imageUrl || result.profilePictureUrl) {
-        setImageUrl(result.imageUrl || result.profilePictureUrl || '');
-        // Clean up
-        URL.revokeObjectURL(previewUrl || '');
-        setSelectedImage(null);
-        setPreviewUrl(null);
+        // Update local state with new image URL for user
+        if (result.profilePictureUrl) {
+          setImageUrl(result.profilePictureUrl);
+          URL.revokeObjectURL(previewUrl || '');
+          setSelectedImage(null);
+          setPreviewUrl(null);
+        }
       }
 
       toast.success('Profil berhasil diperbarui');
