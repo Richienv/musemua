@@ -52,10 +52,10 @@ function SettingsContent() {
   const [newBrandGuideline, setNewBrandGuideline] = useState<File | null>(null);
   const [brandGuidelineUrl, setBrandGuidelineUrl] = useState("");
   const [brandGuidelineError, setBrandGuidelineError] = useState("");
-  const [brandName, setBrandName] = useState('');
   const [youtubeVideoUrl, setYoutubeVideoUrl] = useState('');
   const [galleryError, setGalleryError] = useState('');
   const maxGalleryPhotos = 5;
+  const [platform, setPlatform] = useState('');
 
   const fetchUserData = async () => {
     const supabase = createClient();
@@ -65,7 +65,18 @@ function SettingsContent() {
       // First check if user is a streamer
       const { data: streamerData } = await supabase
         .from("streamers")
-        .select("*")
+        .select(`
+          first_name,
+          last_name,
+          profile_picture_url,
+          location,
+          platform,
+          category,
+          price,
+          video_url,
+          bio,
+          gallery_photos
+        `)
         .eq("user_id", user.id)
         .single();
 
@@ -90,10 +101,9 @@ function SettingsContent() {
         if (streamerProfile) {
           setFirstName(streamerProfile.first_name || '');
           setLastName(streamerProfile.last_name || '');
-          setBrandName(streamerProfile.brand_name || '');
           setLocation(streamerProfile.location || '');
           setBrandGuidelineUrl(streamerProfile.brand_guidelines_url || '');
-          setYoutubeVideoUrl(streamerProfile.youtube_video_url || '');
+          setYoutubeVideoUrl(streamerProfile.video_url || '');
           setGalleryPhotos(streamerProfile.gallery_photos || []);
         }
       } else {
@@ -107,7 +117,6 @@ function SettingsContent() {
         if (data) {
           setFirstName(data.first_name || '');
           setLastName(data.last_name || '');
-          setBrandName(data.brand_name || '');
           setLocation(data.location || '');
           setBrandGuidelineUrl(data.brand_guidelines_url || '');
         }
@@ -134,7 +143,6 @@ function SettingsContent() {
       // Add common form fields
       formData.append('firstName', firstName);
       formData.append('lastName', lastName);
-      formData.append('brandName', brandName);
       formData.append('location', location);
 
       if (newBrandGuideline) {
@@ -361,27 +369,6 @@ function SettingsContent() {
                     placeholder="Masukkan nama belakang"
                     className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                   />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="brandName" className="flex items-center text-sm text-gray-600">
-                  <FileText className="mr-2 h-4 w-4 text-blue-600" />
-                  Nama Brand
-                </Label>
-                <Input
-                  id="brandName"
-                  name="brandName"
-                  value={brandName}
-                  onChange={(e) => setBrandName(e.target.value)}
-                  placeholder="Masukkan nama brand Anda"
-                  className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
-                />
-                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-xs text-yellow-700 flex items-center gap-1">
-                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                    Perhatian: Perubahan nama brand hanya dapat dilakukan setiap 2 minggu sekali untuk menghindari kebingungan
-                  </p>
                 </div>
               </div>
 
