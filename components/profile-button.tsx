@@ -1,117 +1,104 @@
 "use client";
 
-import { useCallback } from 'react';
-import Image from 'next/image';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import Link from 'next/link';
-import { signOut } from "@/app/actions";
-import { LogOut, User, Calendar, Settings, LayoutDashboard } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { signOutAction } from "@/app/actions";
+import Image from "next/image";
+import { useRouter, usePathname } from 'next/navigation';
+import { LayoutDashboard, Settings, LogOut } from 'lucide-react';
 
-interface ExtendedUser {
+interface UserData {
   id: string;
-  email?: string;
-  first_name?: string;
-  last_name?: string;
-  profile_picture_url?: string;
-  user_type?: string;
+  email: string;
+  first_name: string;
+  user_type: 'streamer' | 'client';
+  profile_picture_url: string | null;
+  image_url?: string | null;  // For streamer profile pictures
+  streamer_id?: number;
 }
 
 interface ProfileButtonProps {
-  user: ExtendedUser | null;
+  user: UserData;
   showNameOnMobile?: boolean;
 }
 
 export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const isStreamerDashboard = pathname === '/streamer-dashboard';
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await signOut();
-      router.push('/sign-in');
-    } catch (error) {
-      console.error('Logout error:', error);
+  const handleSignOut = async () => {
+    await signOutAction();
+    router.push('/sign-in');
+  };
+
+  const getDashboardLink = () => {
+    return user?.user_type === 'streamer' ? '/streamer-dashboard' : '/protected';
+  };
+
+  const getSettingsLink = () => {
+    return user?.user_type === 'streamer' ? '/settings?type=streamer' : '/settings';
+  };
+
+  // Get the correct profile picture URL based on user type
+  const getProfilePictureUrl = () => {
+    if (!user) return null;
+    
+    if (user.user_type === 'streamer') {
+      // For streamers, prefer image_url if available, fallback to profile_picture_url
+      return user.image_url || user.profile_picture_url;
     }
-  }, [router]);
+    // For other users, use profile_picture_url
+    return user.profile_picture_url;
+  };
 
-  if (!user) {
-    return (
-      <Link href="/sign-in" className="flex items-center space-x-2 text-xs text-gray-700 hover:text-gray-900">
-        <User className="w-4 h-4" />
-        <span>Sign In</span>
-      </Link>
-    );
-  }
+  // Add console.log to debug
+  const profilePictureUrl = getProfilePictureUrl();
+  console.log('User Data:', user);
+  console.log('Profile Picture URL:', profilePictureUrl);
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <button className="flex items-center gap-2">
-          <div className="relative w-8 h-8 rounded-full overflow-hidden">
-            {user?.profile_picture_url ? (
-              <Image
-                src={user.profile_picture_url}
-                alt="Profile"
-                layout="fill"
-                objectFit="cover"
-              />
-            ) : (
-              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                <User className="w-4 h-4 text-gray-500" />
-              </div>
-            )}
-          </div>
-          {showNameOnMobile && (
-            <span className="hidden sm:block text-sm font-medium">
-              {user?.first_name} {user?.last_name}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+          {profilePictureUrl ? (
+            <Image
+              src={profilePictureUrl}
+              alt={`${user?.first_name}'s profile picture`}
+              className="h-8 w-8 rounded-full object-cover"
+              width={32}
+              height={32}
+              unoptimized
+            />
+          ) : (
+            <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+              {user?.first_name?.charAt(0) || 'U'}
             </span>
           )}
-        </button>
-      </DropdownMenu.Trigger>
-
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content 
-          className="min-w-[200px] bg-white rounded-md border border-gray-100 p-1.5 mt-2 z-[100]"
-          sideOffset={5}
-          align="end"
-        >
-          {user.user_type === 'client' && (
-            <DropdownMenu.Item className="outline-none">
-              <Link href="/client-bookings" 
-                className="flex items-center space-x-2 px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
-                <Calendar className="w-4 h-4" />
-                <span>My Bookings</span>
-              </Link>
-            </DropdownMenu.Item>
-          )}
-          {user.user_type === 'streamer' && (
-            <DropdownMenu.Item className="outline-none">
-              <Link href="/streamer-dashboard" 
-                className="flex items-center space-x-2 px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Dashboard</span>
-              </Link>
-            </DropdownMenu.Item>
-          )}
-          <DropdownMenu.Item className="outline-none">
-            <Link href="/settings" 
-              className="flex items-center space-x-2 px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
-              <Settings className="w-4 h-4" />
-              <span>Settings</span>
-            </Link>
-          </DropdownMenu.Item>
-          <DropdownMenu.Separator className="h-px bg-gray-100 my-1" />
-          <DropdownMenu.Item className="outline-none">
-            <button 
-              onClick={handleLogout} 
-              className="flex items-center space-x-2 px-2 py-1.5 text-sm text-red-500 hover:bg-red-50 rounded-md transition-colors w-full"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Log out</span>
-            </button>
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuItem onClick={() => router.push(getDashboardLink())} className="cursor-pointer">
+          <LayoutDashboard className="mr-2 h-4 w-4" />
+          <span>Dashboard</span>
+        </DropdownMenuItem>
+        {/* Only show Settings option if not on streamer dashboard */}
+        {!isStreamerDashboard && (
+          <DropdownMenuItem onClick={() => router.push(getSettingsLink())} className="cursor-pointer">
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Settings</span>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

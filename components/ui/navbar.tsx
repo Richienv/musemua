@@ -16,9 +16,19 @@ interface NavbarProps {
   onFilterChange?: (value: string) => void;
 }
 
+interface UserData {
+  id: string;
+  email: string;
+  first_name: string;
+  user_type: 'streamer' | 'client';
+  profile_picture_url: string | null;
+  image_url?: string | null;
+  streamer_id?: number;
+}
+
 export function Navbar({ onFilterChange }: NavbarProps) {
   const [user, setUser] = useState<any>(null);
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [dashboardLink, setDashboardLink] = useState("/");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [userType, setUserType] = useState<'streamer' | 'client' | null>(null);
@@ -45,8 +55,13 @@ export function Navbar({ onFilterChange }: NavbarProps) {
           .single();
 
         if (userBasicData) {
-          setUserType(userBasicData.user_type);
-          setUserData(userBasicData);
+          let finalUserData: UserData = {
+            ...userBasicData,
+            image_url: null,
+            streamer_id: undefined
+          };
+          
+          setUserType(userBasicData.user_type as 'streamer' | 'client');
 
           if (userBasicData.user_type === 'streamer') {
             setDashboardLink("/streamer-dashboard");
@@ -61,19 +76,17 @@ export function Navbar({ onFilterChange }: NavbarProps) {
               .single();
             
             if (streamerData) {
-              setUserData((prevData: { 
-                profile_picture_url?: string | null;
-                streamer_id?: number;
-                [key: string]: any; 
-              }) => ({ 
-                ...prevData, 
-                profile_picture_url: streamerData.image_url,
+              finalUserData = {
+                ...finalUserData,
+                image_url: streamerData.image_url,
                 streamer_id: streamerData.id
-              }));
+              };
             }
-          } else if (userBasicData.user_type === 'client') {
+          } else {
             setDashboardLink("/protected");
           }
+
+          setUserData(finalUserData);
         }
       }
     };
@@ -150,12 +163,14 @@ export function Navbar({ onFilterChange }: NavbarProps) {
             <div className="sm:hidden">
               <ProfileButton user={userData} showNameOnMobile={false} />
             </div>
-            <Link
-              href={getSettingsUrl(userData?.user_type || '')}
-              className="text-sm font-medium text-gray-700 hover:text-gray-800"
-            >
-              Settings
-            </Link>
+            {!isStreamerDashboard && (
+              <Link
+                href={getSettingsUrl(userData?.user_type || '')}
+                className="text-sm font-medium text-gray-700 hover:text-gray-800"
+              >
+                Settings
+              </Link>
+            )}
           </div>
         </div>
       </div>
