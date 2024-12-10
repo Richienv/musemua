@@ -18,12 +18,12 @@ interface UserData {
   first_name: string;
   user_type: 'streamer' | 'client';
   profile_picture_url: string | null;
-  image_url?: string | null;  // For streamer profile pictures
+  image_url?: string | null;
   streamer_id?: number;
 }
 
 interface ProfileButtonProps {
-  user: UserData;
+  user: UserData | null;
   showNameOnMobile?: boolean;
 }
 
@@ -45,22 +45,18 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
     return user?.user_type === 'streamer' ? '/settings?type=streamer' : '/settings';
   };
 
-  // Get the correct profile picture URL based on user type
   const getProfilePictureUrl = () => {
     if (!user) return null;
     
     if (user.user_type === 'streamer') {
-      // For streamers, prefer image_url if available, fallback to profile_picture_url
       return user.image_url || user.profile_picture_url;
     }
-    // For other users, use profile_picture_url
     return user.profile_picture_url;
   };
 
-  // Add console.log to debug
   const profilePictureUrl = getProfilePictureUrl();
-  console.log('User Data:', user);
-  console.log('Profile Picture URL:', profilePictureUrl);
+
+  if (!user) return null;
 
   return (
     <DropdownMenu>
@@ -69,7 +65,7 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
           {profilePictureUrl ? (
             <Image
               src={profilePictureUrl}
-              alt={`${user?.first_name}'s profile picture`}
+              alt={`${user.first_name}'s profile picture`}
               className="h-8 w-8 rounded-full object-cover"
               width={32}
               height={32}
@@ -77,7 +73,7 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
             />
           ) : (
             <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-              {user?.first_name?.charAt(0) || 'U'}
+              {user.first_name.charAt(0) || 'U'}
             </span>
           )}
         </Button>

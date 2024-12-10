@@ -26,6 +26,11 @@ interface UserData {
   streamer_id?: number;
 }
 
+interface ProfileButtonProps {
+  user: UserData | null;
+  showNameOnMobile?: boolean;
+}
+
 export function Navbar({ onFilterChange }: NavbarProps) {
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -163,9 +168,9 @@ export function Navbar({ onFilterChange }: NavbarProps) {
             <div className="sm:hidden">
               <ProfileButton user={userData} showNameOnMobile={false} />
             </div>
-            {!isStreamerDashboard && (
+            {!isStreamerDashboard && userData && (
               <Link
-                href={getSettingsUrl(userData?.user_type || '')}
+                href={getSettingsUrl(userData.user_type)}
                 className="text-sm font-medium text-gray-700 hover:text-gray-800"
               >
                 Settings
