@@ -281,7 +281,6 @@ export async function checkUsernameAvailability(username: string) {
 
 export async function updateUserProfile(formData: FormData) {
   try {
-    const cookieStore = cookies();
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -291,24 +290,29 @@ export async function updateUserProfile(formData: FormData) {
 
     const firstName = formData.get('firstName') as string;
     const lastName = formData.get('lastName') as string;
-    const bio = formData.get('bio') as string;
+    const location = formData.get('location') as string;
     const image = formData.get('image') as File;
 
-    let profilePictureUrl = null;
+    // First update the users table
+    const updateData: any = {
+      first_name: firstName,
+      last_name: lastName,
+      location: location,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Handle profile picture upload if present
     if (image && image.size > 0) {
-      const fileExt = image.name.split('.').pop() || 'jpg'; // Default to jpg if no extension
-      const fileName = `${uuidv4()}.${fileExt}`;
+      const fileExt = image.name.split('.').pop() || 'jpg';
+      const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
       const filePath = `profile_picture/${fileName}`;
 
-      // Create blob with proper type
-      const blob = new Blob([image], { type: image.type });
-
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('profile_picture')
-        .upload(filePath, blob, {
+        .upload(filePath, image, {
           cacheControl: '3600',
           upsert: true,
-          contentType: image.type // Explicitly set content type
+          contentType: image.type
         });
 
       if (uploadError) {
@@ -320,32 +324,49 @@ export async function updateUserProfile(formData: FormData) {
         .from('profile_picture')
         .getPublicUrl(filePath);
 
-      profilePictureUrl = publicUrl;
+      updateData.profile_picture_url = publicUrl;
     }
 
-    const updateData: any = {
-      first_name: firstName,
-      last_name: lastName,
-      bio: bio,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (profilePictureUrl) {
-      updateData.profile_picture_url = profilePictureUrl;
-    }
-
-    const { error: updateError } = await supabase
+    // Update users table
+    const { error: userUpdateError } = await supabase
       .from('users')
       .update(updateData)
       .eq('id', user.id);
 
-    if (updateError) {
-      return { error: 'Failed to update profile' };
+    if (userUpdateError) {
+      console.error('User update error:', userUpdateError);
+      return { error: 'Failed to update user profile' };
+    }
+
+    // If user is a streamer, also update streamers table
+    const { data: streamerData } = await supabase
+      .from('streamers')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (streamerData) {
+      const streamerUpdateData = {
+        first_name: firstName,
+        last_name: lastName,
+        location: location,
+        ...(updateData.profile_picture_url && { image_url: updateData.profile_picture_url })
+      };
+
+      const { error: streamerUpdateError } = await supabase
+        .from('streamers')
+        .update(streamerUpdateData)
+        .eq('user_id', user.id);
+
+      if (streamerUpdateError) {
+        console.error('Streamer update error:', streamerUpdateError);
+        return { error: 'Failed to update streamer profile' };
+      }
     }
 
     return { 
       success: true, 
-      profilePictureUrl: profilePictureUrl || undefined 
+      profilePictureUrl: updateData.profile_picture_url 
     };
 
   } catch (error) {
@@ -497,113 +518,144 @@ export async function updateStreamerProfile(formData: FormData): Promise<Streame
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: 'User not authenticated' };
+      return { success: false, error: 'Not authenticated' };
     }
 
-    // Get existing streamer data first
-    const { data: existingData } = await supabase
-      .from('streamers')
-      .select('platform, category')
-      .eq('user_id', user.id)
-      .single();
-
     // Handle profile picture upload if present
-    let profilePictureUrl;
+    let imageUrl;
     const image = formData.get('image') as File;
-    if (image) {
-      const { data: uploadData, error: uploadError } = await supabase.storage
+    if (image && image.size > 0) {
+      const fileName = `${user.id}/${Date.now()}_${image.name}`;
+      const filePath = `profile_picture/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
         .from('profile_picture')
-        .upload(`${user.id}/${Date.now()}_${image.name}`, image, {
+        .upload(filePath, image, {
           cacheControl: '3600',
           upsert: true,
           contentType: image.type
         });
 
       if (uploadError) throw uploadError;
-      profilePictureUrl = supabase.storage
+      imageUrl = supabase.storage
         .from('profile_picture')
-        .getPublicUrl(uploadData.path).data.publicUrl;
+        .getPublicUrl(filePath).data.publicUrl;
     }
 
-    // Handle gallery photos upload
-    const galleryUrls: string[] = [];
-    const existingGalleryPhotos = JSON.parse(formData.get('existingGalleryPhotos') as string || '[]');
+    // Update streamer profile basic info
+    const updateData = {
+      first_name: formData.get('firstName'),
+      last_name: formData.get('lastName'),
+      location: formData.get('location'),
+      video_url: formData.get('youtubeVideoUrl'),
+      platform: formData.get('platform'),
+      ...(imageUrl && { image_url: imageUrl }),
+    };
+
+    const { error: updateError } = await supabase
+      .from('streamers')
+      .update(updateData)
+      .eq('user_id', user.id);
+
+    if (updateError) throw updateError;
+
+    // Get streamer ID first
+    const { data: streamerData, error: streamerError } = await supabase
+      .from('streamers')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (streamerError) throw streamerError;
+
+    // Handle gallery photos
+    const existingPhotos = JSON.parse(formData.get('existingGalleryPhotos') as string || '[]');
     
+    // First, delete existing gallery photos from storage
+    const { data: existingFiles, error: listError } = await supabase.storage
+      .from('gallery_images')
+      .list(`streamers/${user.id}`);
+
+    if (!listError && existingFiles) {
+      for (const file of existingFiles) {
+        await supabase.storage
+          .from('gallery_images')
+          .remove([`streamers/${user.id}/${file.name}`]);
+      }
+    }
+
+    // Delete existing gallery photo records
+    await supabase
+      .from('streamer_gallery_photos')
+      .delete()
+      .eq('streamer_id', streamerData.id);
+
     // Upload new gallery photos
-    for (let i = 0; formData.get(`galleryPhoto${i}`); i++) {
-      const photo = formData.get(`galleryPhoto${i}`) as File;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+    const newGalleryUrls = [];
+    const galleryFiles = formData.getAll('gallery') as File[];
+    
+    console.log('Gallery files to upload:', galleryFiles); // Debug log
+
+    for (const photo of galleryFiles) {
+      const fileName = `streamers/${user.id}/${Date.now()}_${photo.name}`;
+      
+      console.log('Uploading file:', fileName); // Debug log
+      
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('gallery_images')
-        .upload(`${user.id}/${Date.now()}_${photo.name}`, photo, {
+        .upload(fileName, photo, {
           cacheControl: '3600',
           upsert: true,
           contentType: photo.type
         });
 
-      if (uploadError) throw uploadError;
-      galleryUrls.push(
-        supabase.storage
-          .from('gallery_images')
-          .getPublicUrl(uploadData.path).data.publicUrl
-      );
+      if (uploadError) {
+        console.error('Gallery upload error:', uploadError);
+        continue;
+      }
+
+      console.log('Upload successful:', uploadData); // Debug log
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('gallery_images')
+        .getPublicUrl(fileName);
+      
+      newGalleryUrls.push(publicUrl);
     }
 
-    // Combine existing and new gallery photos
-    const allGalleryPhotos = [...existingGalleryPhotos, ...galleryUrls];
+    console.log('New gallery URLs:', newGalleryUrls); // Debug log
 
-    // Update streamer profile according to schema
-    const { error: updateError } = await supabase
-      .from('streamers')
-      .update({
-        first_name: formData.get('firstName'),
-        last_name: formData.get('lastName'),
-        location: formData.get('location'),
-        full_address: formData.get('full_address'),
-        image_url: profilePictureUrl,
-        video_url: formData.get('youtubeVideoUrl') || undefined,
-        bio: formData.get('bio'),
-        platform: formData.get('platform') || existingData?.platform,
-        category: formData.get('category') || existingData?.category,
-      })
-      .eq('user_id', user.id);
+    // Insert all gallery photos
+    const allPhotos = [...existingPhotos, ...newGalleryUrls];
+    const galleryInserts = allPhotos.map((photo_url, index) => ({
+      streamer_id: streamerData.id,
+      photo_url,
+      order_number: index + 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }));
 
-    if (updateError) throw updateError;
-
-    // Also update gallery photos in a separate table
-    if (allGalleryPhotos.length > 0) {
-      // First delete existing gallery photos
-      await supabase
-        .from('streamer_gallery_photos')
-        .delete()
-        .eq('streamer_id', user.id);
-
-      // Then insert new ones
-      const galleryInserts = allGalleryPhotos.map((photo_url, index) => ({
-        streamer_id: user.id,
-        photo_url,
-        order_number: index + 1,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }));
-
+    if (galleryInserts.length > 0) {
+      console.log('Inserting gallery records:', galleryInserts); // Debug log
+      
       const { error: galleryError } = await supabase
         .from('streamer_gallery_photos')
         .insert(galleryInserts);
 
-      if (galleryError) throw galleryError;
+      if (galleryError) {
+        console.error('Gallery insert error:', galleryError);
+        throw galleryError;
+      }
     }
 
     return {
       success: true,
-      imageUrl: profilePictureUrl
+      imageUrl: imageUrl
     };
 
   } catch (error) {
     console.error('Error updating streamer profile:', error);
-    return {
-      success: false,
-      error: 'Failed to update profile'
-    };
+    return { success: false, error: 'Failed to update profile' };
   }
 }
 

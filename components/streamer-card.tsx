@@ -131,6 +131,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
     const supabase = createClient();
     
+    // Subscribe to both ratings and profile changes
     const ratingSubscription = supabase
       .channel('public:streamer_ratings')
       .on('postgres_changes', 
@@ -141,8 +142,20 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
       )
       .subscribe();
 
+    // Add subscription for streamer profile changes
+    const profileSubscription = supabase
+      .channel('public:streamers')
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'streamers', filter: `id=eq.${streamer.id}` },
+        () => {
+          fetchExtendedProfile();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(ratingSubscription);
+      supabase.removeChannel(profileSubscription);
     };
   }, [streamer.id]);
 
@@ -180,71 +193,66 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   const fetchExtendedProfile = async () => {
     const supabase = createClient();
     
-    // Fetch streamer data including video_url
-    const { data: streamerData, error: streamerError } = await supabase
-      .from('streamers')
-      .select('*')
-      .eq('id', streamer.id)
-      .single();
+    try {
+      // Fetch streamer data including video_url
+      const { data: streamerData, error: streamerError } = await supabase
+        .from('streamers')
+        .select('*')
+        .eq('id', streamer.id)
+        .single();
 
-    if (streamerError) {
-      console.error('Error fetching streamer data:', streamerError);
+      if (streamerError) {
+        console.error('Error fetching streamer data:', streamerError);
+        return;
+      }
+
+      // Fetch average rating
+      const { data: ratingData, error: ratingError } = await supabase
+        .rpc('get_streamer_average_rating', { streamer_id_param: streamer.id });
+
+      if (ratingError) {
+        console.error('Error fetching average rating:', ratingError);
+      }
+
+      // Fetch gallery photos
+      const { data: galleryPhotos, error: galleryError } = await supabase
+        .from('streamer_gallery_photos')
+        .select('*')
+        .eq('streamer_id', streamer.id)
+        .order('order_number');
+
+      if (galleryError) {
+        console.error('Error fetching gallery photos:', galleryError);
+      }
+
+      // Fetch testimonials
+      const { data: testimonials, error: testimonialsError } = await supabase
+        .from('testimonials')
+        .select('*')
+        .eq('streamer_id', streamer.id);
+
+      if (testimonialsError) {
+        console.error('Error fetching testimonials:', testimonialsError);
+      }
+
+      setExtendedProfile({
+        ...streamer,
+        ...streamerData,
+        video_url: streamerData?.video_url, // Explicitly set video_url
+        rating: ratingData ? parseFloat(ratingData) : streamer.rating,
+        age: 28,
+        gender: "Female",
+        experience: "5 years",
+        fullBio: streamerData?.bio || streamer.bio,
+        gallery: {
+          photos: galleryPhotos || [],
+        },
+        testimonials: testimonials || [],
+      });
+
+    } catch (error) {
+      console.error('Error fetching extended profile:', error);
     }
-
-    // Fetch average rating
-    const { data: ratingData, error: ratingError } = await supabase
-      .rpc('get_streamer_average_rating', { streamer_id_param: streamer.id });
-
-    if (ratingError) {
-      console.error('Error fetching average rating:', ratingError);
-    } else if (ratingData !== null) {
-      setAverageRating(parseFloat(ratingData));
-    }
-
-    // Fetch gallery photos
-    const { data: galleryPhotos, error: galleryError } = await supabase
-      .from('streamer_gallery_photos')
-      .select('*')
-      .eq('streamer_id', streamer.id)
-      .order('order_number');
-
-    if (galleryError) {
-      console.error('Error fetching gallery photos:', galleryError);
-    }
-
-    // Fetch testimonials
-    const { data: testimonials, error: testimonialsError } = await supabase
-      .from('testimonials')
-      .select('*')
-      .eq('streamer_id', streamer.id);
-
-    if (testimonialsError) {
-      console.error('Error fetching testimonials:', testimonialsError);
-    }
-
-    console.log("Fetched video_url:", streamerData?.video_url);
-
-    setExtendedProfile({
-      ...streamer,
-      ...streamerData,
-      rating: ratingData ? parseFloat(ratingData) : streamer.rating,
-      age: 28, // You might want to fetch this from the database as well
-      gender: "Female", // You might want to fetch this from the database as well
-      experience: "5 years", // You might want to fetch this from the database as well
-      fullBio: streamerData?.bio || streamer.bio,
-      gallery: {
-        photos: galleryPhotos || [],
-      },
-      testimonials: testimonials || [],
-    });
-
-    console.log("Extended Profile:", {
-      ...streamer,
-      ...streamerData,
-      rating: ratingData ? parseFloat(ratingData) : streamer.rating,
-      gallery: { photos: galleryPhotos || [] },
-      testimonials: testimonials || [],
-    });
   };
 
   const fetchActiveSchedule = async () => {
@@ -556,8 +564,8 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           {/* Bio Preview - reduced margins */}
           <div className="mt-2 mb-2 min-h-[2.5rem]">
             <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 relative">
-              {streamer.bio}
-              {streamer.bio.length > 100 && (
+              {streamer.bio || 'No bio available'}
+              {streamer.bio && streamer.bio.length > 100 && (
                 <span className="font-bold text-blue-600 hover:text-blue-700 cursor-pointer ml-1 inline-block">
                   Read more
                 </span>

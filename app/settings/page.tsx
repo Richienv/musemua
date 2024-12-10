@@ -29,6 +29,14 @@ interface UserProfileResponse {
   error?: string;
 }
 
+// Update the type for the updateUserProfile function response
+type UpdateProfileResponse = {
+  success: boolean;
+  error?: string;
+  imageUrl?: string;
+  profilePictureUrl?: string;
+};
+
 // First, add proper interfaces for the data types
 interface StreamerProfile {
   first_name: string;
@@ -52,6 +60,29 @@ interface UserProfile {
   brand_guidelines_url: string | null;
 }
 
+// Add these interfaces at the top of the file
+interface StreamerData {
+  first_name: string;
+  last_name: string;
+  profile_picture_url: string | null;
+  location: string;
+  platform: string;
+  category: string;
+  price: number;
+  video_url: string | null;
+  bio: string | null;
+  gallery_photos: string[];
+  image_url: string | null;
+}
+
+interface UserData {
+  first_name: string;
+  last_name: string;
+  profile_picture_url: string | null;
+  location: string;
+  brand_guidelines_url: string | null;
+}
+
 // Create a separate component for the settings content
 function SettingsContent() {
   const router = useRouter();
@@ -60,7 +91,7 @@ function SettingsContent() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [bio, setBio] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState<string | null>('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,38 +115,64 @@ function SettingsContent() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (user) {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
       // First check if user is a streamer
-      const { data: streamerData } = await supabase
+      const { data: streamerData, error: streamerError } = await supabase
         .from("streamers")
         .select(`
+          id,
           first_name,
           last_name,
-          profile_picture_url,
+          image_url,
           location,
           platform,
           category,
           price,
           video_url,
-          bio,
-          gallery_photos,
-          image_url
+          bio
         `)
         .eq("user_id", user.id)
         .single();
 
+      if (streamerError && !streamerError.message.includes('No rows found')) {
+        console.error('Error fetching streamer data:', streamerError);
+        toast.error('Failed to fetch profile data');
+        return;
+      }
+
       if (streamerData && type === 'streamer') {
+        console.log('Updating streamer data:', streamerData);
         setUserType('streamer');
+
+        // Fetch gallery photos using streamer.id instead of user.id
+        const { data: galleryData, error: galleryError } = await supabase
+          .from('streamer_gallery_photos')
+          .select('photo_url')
+          .eq('streamer_id', streamerData.id)
+          .order('order_number');
+
+        if (galleryError) {
+          console.error('Error fetching gallery photos:', galleryError);
+        }
+
+        // Update all form fields with streamer data
         setPlatform(streamerData.platform || '');
         setFirstName(streamerData.first_name || '');
         setLastName(streamerData.last_name || '');
         setLocation(streamerData.location || '');
         setYoutubeVideoUrl(streamerData.video_url || '');
-        setGalleryPhotos(streamerData.gallery_photos || []);
         setImageUrl(streamerData.image_url || '');
+        setBio(streamerData.bio || '');
+        // Set gallery photos if available
+        setGalleryPhotos(galleryData?.map(item => item.photo_url) || []);
       } else {
         // Regular user data fetch
-        const { data } = await supabase
+        const { data: userData, error: userError } = await supabase
           .from("users")
           .select(`
             first_name,
@@ -127,90 +184,89 @@ function SettingsContent() {
           .eq("id", user.id)
           .single();
 
-        if (data) {
-          setFirstName(data.first_name || '');
-          setLastName(data.last_name || '');
-          setLocation(data.location || '');
-          setBrandGuidelineUrl(data.brand_guidelines_url || '');
-          setImageUrl(data.profile_picture_url || '');
+        if (userError) {
+          console.error('Error fetching user data:', userError);
+          toast.error('Failed to fetch user data');
+          return;
+        }
+
+        if (userData) {
+          console.log('Updating user data:', userData);
+          setFirstName(userData.first_name || '');
+          setLastName(userData.last_name || '');
+          setLocation(userData.location || '');
+          setBrandGuidelineUrl(userData.brand_guidelines_url || '');
+          setImageUrl(userData.profile_picture_url || '');
         }
       }
+    } catch (error) {
+      console.error('Error in fetchUserData:', error);
+      toast.error('Failed to fetch profile data');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
+    if (type) {
+      fetchUserData();
+    }
+  }, [type]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const formData = new FormData(e.currentTarget);
+      const formData = new FormData();
+      formData.append('firstName', firstName);
+      formData.append('lastName', lastName);
+      formData.append('location', location);
       
+      if (type === 'streamer') {
+        formData.append('youtubeVideoUrl', youtubeVideoUrl);
+        formData.append('platform', platform);
+        
+        console.log('New gallery photos to upload:', newGalleryPhotos); // Debug log
+        
+        // Add gallery photos
+        newGalleryPhotos.forEach((photo) => {
+          formData.append('gallery', photo);
+        });
+        
+        // Add existing gallery photos
+        formData.append('existingGalleryPhotos', JSON.stringify(galleryPhotos));
+      }
+
       if (selectedImage) {
         formData.append('image', selectedImage);
       }
 
-      // Add common form fields
-      formData.append('firstName', firstName);
-      formData.append('lastName', lastName);
-      formData.append('location', location);
+      const result = type === 'streamer' 
+        ? await updateStreamerProfile(formData)
+        : await updateUserProfile(formData);
 
-      if (newBrandGuideline) {
-        formData.append('brand_guideline', newBrandGuideline);
+      if (result.error) {
+        toast.error(result.error);
+        return;
       }
 
-      // Add streamer-specific fields if user is a streamer
-      if (userType === 'streamer') {
-        formData.append('youtubeVideoUrl', youtubeVideoUrl);
-        formData.append('platform', platform); // Add platform to form data
-        
-        // Append new gallery photos
-        newGalleryPhotos.forEach((photo, index) => {
-          formData.append(`galleryPhoto${index}`, photo);
-        });
-        
-        // Append existing gallery photos
-        formData.append('existingGalleryPhotos', JSON.stringify(galleryPhotos));
-
-        const result = await updateStreamerProfile(formData);
-        if (result.error) {
-          toast.error(result.error);
-          return;
+      const newImageUrl = type === 'streamer' ? result.imageUrl : result.profilePictureUrl;
+      if (newImageUrl) {
+        setImageUrl(newImageUrl);
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
         }
-
-        // Update local state with new image URL for streamer
-        if (result.imageUrl) {
-          setImageUrl(result.imageUrl);
-          URL.revokeObjectURL(previewUrl || '');
-          setSelectedImage(null);
-          setPreviewUrl(null);
-        }
-      } else {
-        const result = await updateUserProfile(formData);
-        if (result.error) {
-          toast.error(result.error);
-          return;
-        }
-
-        // Update local state with new image URL for user
-        if (result.profilePictureUrl) {
-          setImageUrl(result.profilePictureUrl);
-          URL.revokeObjectURL(previewUrl || '');
-          setSelectedImage(null);
-          setPreviewUrl(null);
-        }
+        setPreviewUrl(null);
+        setSelectedImage(null);
       }
 
-      toast.success('Profil berhasil diperbarui');
-      router.push(userType === 'streamer' ? '/streamer-dashboard' : '/protected');
+      toast.success('Profile successfully updated');
+      await fetchUserData();
 
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('Terjadi kesalahan saat memperbarui profil');
+      toast.error('Failed to update profile');
     } finally {
       setIsLoading(false);
     }
@@ -285,12 +341,6 @@ function SettingsContent() {
     }
   };
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen">
-      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-    </div>;
-  }
-
   return (
     <div className="container mx-auto p-4 max-w-2xl">
       <Toaster position="top-center" />
@@ -314,240 +364,256 @@ function SettingsContent() {
           <CardTitle className="text-lg sm:text-xl font-semibold">Informasi Profil</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex flex-col items-center mb-6">
-              <div className="relative w-28 h-28 sm:w-32 sm:h-32 mb-2">
-                {previewUrl || imageUrl ? (
-                  <Image
-                    src={previewUrl || imageUrl}
-                    alt="Profile"
-                    width={128}
-                    height={128}
-                    className="w-full h-full rounded-full object-cover border-4 border-blue-100"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="w-full h-full bg-blue-50 rounded-full flex items-center justify-center border-4 border-blue-100">
-                    <User className="h-12 w-12 text-blue-300" />
-                  </div>
-                )}
-              </div>
-              <Button 
-                type="button" 
-                onClick={handleImageClick} 
-                className="mt-2 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white"
-              >
-                <Camera className="mr-2 h-4 w-4" />
-                {imageUrl ? 'Change Image' : 'Upload Image'}
-              </Button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImageChange}
-                className="hidden"
-                accept="image/*"
-              />
-              {imageError && (
-                <p className="text-red-500 text-xs mt-2 flex items-center">
-                  <AlertCircle className="mr-1 h-4 w-4" />
-                  {imageError}
-                </p>
-              )}
+          {loading ? (
+            <div className="flex justify-center items-center h-screen">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
             </div>
-
-            <div className="grid gap-6">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="firstName" className="flex items-center text-sm text-gray-600">
-                    <User className="mr-2 h-4 w-4 text-blue-600" />
-                    Nama Depan
-                  </Label>
-                  <Input
-                    id="firstName"
-                    name="firstName"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Masukkan nama depan"
-                    className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lastName" className="flex items-center text-sm text-gray-600">
-                    <User className="mr-2 h-4 w-4 text-blue-600" />
-                    Nama Belakang
-                  </Label>
-                  <Input
-                    id="lastName"
-                    name="lastName"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Masukkan nama belakang"
-                    className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="location" className="flex items-center text-sm text-gray-600">
-                  <MapPin className="mr-2 h-4 w-4 text-blue-600" />
-                  Lokasi
-                </Label>
-                <Input
-                  id="location"
-                  name="location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Contoh: Jakarta, Surabaya, dll"
-                  className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
-                />
-              </div>
-
-              {/* Brand Guidelines - Only show for clients */}
-              {type !== 'streamer' && (
-                <div className="space-y-1">
-                  <Label htmlFor="brand_guideline" className="flex items-center text-sm text-gray-600">
-                    <FileText className="mr-2 h-4 w-4 text-blue-600" />
-                    Brand Guideline
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type="file"
-                      id="brand_guideline"
-                      name="brand_guideline"
-                      onChange={handleBrandGuidelineChange}
-                      className="hidden"
-                      accept=".pdf,.doc,.docx"
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="flex flex-col items-center mb-6">
+                <div className="relative w-28 h-28 sm:w-32 sm:h-32 mb-2">
+                  {(previewUrl || imageUrl) ? (
+                    <Image
+                      src={previewUrl || imageUrl || ''}
+                      alt="Profile"
+                      width={128}
+                      height={128}
+                      className="w-full h-full rounded-full object-cover border-4 border-blue-100"
+                      unoptimized
                     />
-                    <div 
-                      onClick={() => document.getElementById('brand_guideline')?.click()}
-                      className="cursor-pointer group flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 transition-all duration-200 hover:border-blue-500 hover:bg-blue-50/50"
-                    >
-                      <div className="text-center">
-                        <Upload className="mx-auto h-8 w-8 text-gray-400 group-hover:text-blue-500 mb-2 transition-colors" />
-                        <span className="text-sm text-gray-600 group-hover:text-blue-600 transition-colors">
-                          {newBrandGuideline ? newBrandGuideline.name : 'Klik untuk memperbarui Brand Guidelines'}
-                        </span>
-                        {brandGuidelineUrl && (
-                          <div className="mt-3 p-2 bg-blue-50 rounded-lg">
-                            <p className="font-medium text-sm text-blue-600">Brand Guideline Saat Ini:</p>
-                            <p className="text-sm text-blue-500 truncate">
-                              {brandGuidelineUrl.split('/').pop()}
-                            </p>
-                          </div>
-                        )}
-                        {!brandGuidelineUrl && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Belum ada file yang diunggah
-                          </p>
-                        )}
-                      </div>
+                  ) : (
+                    <div className="w-full h-full bg-blue-50 rounded-full flex items-center justify-center border-4 border-blue-100">
+                      <User className="h-12 w-12 text-blue-300" />
                     </div>
-                  </div>
-                  {brandGuidelineError && (
-                    <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-4 w-4" />
-                      {brandGuidelineError}
-                    </p>
                   )}
                 </div>
-              )}
+                <Button 
+                  type="button" 
+                  onClick={handleImageClick} 
+                  className="mt-2 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white"
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  {imageUrl ? 'Change Image' : 'Upload Image'}
+                </Button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageChange}
+                  className="hidden"
+                  accept="image/*"
+                />
+                {imageError && (
+                  <p className="text-red-500 text-xs mt-2 flex items-center">
+                    <AlertCircle className="mr-1 h-4 w-4" />
+                    {imageError}
+                  </p>
+                )}
+              </div>
 
-              {/* Streamer-specific fields */}
-              {type === 'streamer' && (
-                <>
-                  <div className="space-y-1">
-                    <Label htmlFor="youtubeVideoUrl" className="flex items-center text-sm text-gray-600">
-                      <Youtube className="mr-2 h-4 w-4 text-blue-600" />
-                      Video YouTube
+              <div className="grid gap-6">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="firstName" className="flex items-center text-sm text-gray-600">
+                      <User className="mr-2 h-4 w-4 text-blue-600" />
+                      Nama Depan
                     </Label>
                     <Input
-                      id="youtubeVideoUrl"
-                      value={youtubeVideoUrl}
-                      onChange={(e) => setYoutubeVideoUrl(e.target.value)}
-                      placeholder="https://youtube.com/watch?v=..."
+                      id="firstName"
+                      name="firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
                       className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Tambahkan video untuk menunjukkan gaya streaming Anda
+                      Nama depan saat ini: {firstName || 'Belum diatur'}
                     </p>
                   </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="galleryPhotos" className="flex items-center text-sm text-gray-600">
-                      <Camera className="mr-2 h-4 w-4 text-blue-600" />
-                      Foto Galeri (Maks. 5)
+                  <div>
+                    <Label htmlFor="lastName" className="flex items-center text-sm text-gray-600">
+                      <User className="mr-2 h-4 w-4 text-blue-600" />
+                      Nama Belakang
                     </Label>
                     <Input
-                      type="file"
-                      id="galleryPhotos"
-                      onChange={handleGalleryPhotoChange}
-                      accept="image/*"
-                      multiple
-                      className="mt-1"
-                      disabled={galleryPhotos.length + newGalleryPhotos.length >= maxGalleryPhotos}
+                      id="lastName"
+                      name="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                     />
-                    {galleryError && (
-                      <p className="text-red-500 text-xs mt-1">{galleryError}</p>
-                    )}
-                    
-                    <div className="grid grid-cols-5 gap-2 mt-2">
-                      {galleryPhotos.map((photo, index) => (
-                        <div key={index} className="relative">
-                          <Image
-                            src={photo}
-                            alt={`Gallery photo ${index + 1}`}
-                            width={100}
-                            height={100}
-                            className="w-full h-24 object-cover rounded"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeGalleryPhoto(index)}
-                            className="absolute top-0 right-0 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white rounded-full p-1"
-                          >
-                            X
-                          </button>
-                        </div>
-                      ))}
-                      {newGalleryPhotos.map((photo, index) => (
-                        <div key={`new-${index}`} className="relative">
-                          <Image
-                            src={URL.createObjectURL(photo)}
-                            alt={`New gallery photo ${index + 1}`}
-                            width={100}
-                            height={100}
-                            className="w-full h-24 object-cover rounded"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeGalleryPhoto(index, true)}
-                            className="absolute top-0 right-0 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white rounded-full p-1"
-                          >
-                            X
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Nama belakang saat ini: {lastName || 'Belum diatur'}
+                    </p>
                   </div>
-                </>
-              )}
+                </div>
 
-              <Button 
-                type="submit" 
-                className="w-full bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white h-11"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Menyimpan Perubahan...
-                  </>
-                ) : (
-                  'Simpan Perubahan'
+                <div className="space-y-1">
+                  <Label htmlFor="location" className="flex items-center text-sm text-gray-600">
+                    <MapPin className="mr-2 h-4 w-4 text-blue-600" />
+                    Lokasi
+                  </Label>
+                  <Input
+                    id="location"
+                    name="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Lokasi saat ini: {location || 'Belum diatur'}
+                  </p>
+                </div>
+
+                {/* Brand Guidelines - Only show for clients */}
+                {type !== 'streamer' && (
+                  <div className="space-y-1">
+                    <Label htmlFor="brand_guideline" className="flex items-center text-sm text-gray-600">
+                      <FileText className="mr-2 h-4 w-4 text-blue-600" />
+                      Brand Guideline
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        type="file"
+                        id="brand_guideline"
+                        name="brand_guideline"
+                        onChange={handleBrandGuidelineChange}
+                        className="hidden"
+                        accept=".pdf,.doc,.docx"
+                      />
+                      <div 
+                        onClick={() => document.getElementById('brand_guideline')?.click()}
+                        className="cursor-pointer group flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 transition-all duration-200 hover:border-blue-500 hover:bg-blue-50/50"
+                      >
+                        <div className="text-center">
+                          <Upload className="mx-auto h-8 w-8 text-gray-400 group-hover:text-blue-500 mb-2 transition-colors" />
+                          <span className="text-sm text-gray-600 group-hover:text-blue-600 transition-colors">
+                            {newBrandGuideline ? newBrandGuideline.name : 'Klik untuk memperbarui Brand Guidelines'}
+                          </span>
+                          {brandGuidelineUrl && (
+                            <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+                              <p className="font-medium text-sm text-blue-600">Brand Guideline Saat Ini:</p>
+                              <p className="text-sm text-blue-500 truncate">
+                                {brandGuidelineUrl.split('/').pop()}
+                              </p>
+                            </div>
+                          )}
+                          {!brandGuidelineUrl && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Belum ada file yang diunggah
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {brandGuidelineError && (
+                      <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-4 w-4" />
+                        {brandGuidelineError}
+                      </p>
+                    )}
+                  </div>
                 )}
-              </Button>
-            </div>
-          </form>
+
+                {/* Streamer-specific fields */}
+                {type === 'streamer' && (
+                  <>
+                    <div className="space-y-1">
+                      <Label htmlFor="youtubeVideoUrl" className="flex items-center text-sm text-gray-600">
+                        <Youtube className="mr-2 h-4 w-4 text-blue-600" />
+                        Video YouTube
+                      </Label>
+                      <Input
+                        id="youtubeVideoUrl"
+                        name="youtubeVideoUrl"
+                        value={youtubeVideoUrl}
+                        onChange={(e) => setYoutubeVideoUrl(e.target.value)}
+                        placeholder="https://youtube.com/watch?v=..."
+                        className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {youtubeVideoUrl ? 
+                          `Video saat ini: ${youtubeVideoUrl}` : 
+                          'Tambahkan video untuk menunjukkan gaya streaming Anda'
+                        }
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="galleryPhotos" className="flex items-center text-sm text-gray-600">
+                        <Camera className="mr-2 h-4 w-4 text-blue-600" />
+                        Foto Galeri (Maks. 5)
+                      </Label>
+                      <Input
+                        type="file"
+                        id="galleryPhotos"
+                        onChange={handleGalleryPhotoChange}
+                        accept="image/*"
+                        multiple
+                        className="mt-1"
+                        disabled={galleryPhotos.length + newGalleryPhotos.length >= maxGalleryPhotos}
+                      />
+                      {galleryError && (
+                        <p className="text-red-500 text-xs mt-1">{galleryError}</p>
+                      )}
+                      
+                      <div className="grid grid-cols-5 gap-2 mt-2">
+                        {galleryPhotos.map((photo, index) => (
+                          <div key={index} className="relative">
+                            <Image
+                              src={photo}
+                              alt={`Gallery photo ${index + 1}`}
+                              width={100}
+                              height={100}
+                              className="w-full h-24 object-cover rounded"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeGalleryPhoto(index)}
+                              className="absolute top-0 right-0 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white rounded-full p-1"
+                            >
+                              X
+                            </button>
+                          </div>
+                        ))}
+                        {newGalleryPhotos.map((photo, index) => (
+                          <div key={`new-${index}`} className="relative">
+                            <Image
+                              src={URL.createObjectURL(photo)}
+                              alt={`New gallery photo ${index + 1}`}
+                              width={100}
+                              height={100}
+                              className="w-full h-24 object-cover rounded"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeGalleryPhoto(index, true)}
+                              className="absolute top-0 right-0 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white rounded-full p-1"
+                            >
+                              X
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <Button 
+                  type="submit" 
+                  className="w-full bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white h-11"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Menyimpan Perubahan...
+                    </>
+                  ) : (
+                    'Simpan Perubahan'
+                  )}
+                </Button>
+              </div>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

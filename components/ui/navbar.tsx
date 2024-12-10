@@ -88,6 +88,7 @@ export function Navbar({ onFilterChange }: NavbarProps) {
                 finalUserData = {
                   ...finalUserData,
                   profile_picture_url: streamerData.image_url || userBasicData.profile_picture_url,
+                  image_url: streamerData.image_url,
                   streamer_id: streamerData.id
                 };
                 

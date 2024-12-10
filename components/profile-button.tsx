@@ -51,8 +51,14 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
     // Add debugging
     console.log('Profile Button User Data:', {
       user,
-      profilePictureUrl: user.profile_picture_url
+      profilePictureUrl: user.profile_picture_url,
+      userType: user.user_type
     });
+    
+    // For streamers, check both profile_picture_url and image_url
+    if (user.user_type === 'streamer') {
+      return user.profile_picture_url || user.image_url || null;
+    }
     
     return user.profile_picture_url;
   };
@@ -69,23 +75,27 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
           className="relative h-8 w-8 rounded-full overflow-hidden p-0 border border-gray-200"
         >
           {profilePictureUrl ? (
-            <Image
-              src={profilePictureUrl}
-              alt={`${user.first_name}'s profile picture`}
-              className="h-8 w-8 rounded-full object-cover"
-              width={32}
-              height={32}
-              priority
-              style={{ transform: 'none' }}
-              onError={(e) => {
-                console.error('Error loading profile image:', e);
-                // Fallback to initial if image fails to load
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement?.querySelector('.fallback')?.classList.remove('hidden');
-              }}
-            />
+            <>
+              <Image
+                src={profilePictureUrl}
+                alt={`${user.first_name}'s profile picture`}
+                className="h-8 w-8 rounded-full object-cover"
+                width={32}
+                height={32}
+                priority
+                style={{ transform: 'none' }}
+                onError={(e) => {
+                  console.error('Error loading profile image:', e);
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+                }}
+              />
+              <span className="fallback hidden h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                {user.first_name.charAt(0) || 'U'}
+              </span>
+            </>
           ) : (
-            <span className="fallback hidden h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+            <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
               {user.first_name.charAt(0) || 'U'}
             </span>
           )}
