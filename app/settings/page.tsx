@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,8 @@ interface UserProfileResponse {
   error?: string;
 }
 
-export default function SettingsPage() {
+// Create a separate component for the settings content
+function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const type = searchParams.get('type');
@@ -548,5 +549,20 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Main component that wraps the content in Suspense
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+      }
+    >
+      <SettingsContent />
+    </Suspense>
   );
 }
