@@ -10,7 +10,7 @@ import { createClient } from "@/utils/supabase/client";
 import Image from 'next/image';
 import { Loader2, User, Mail, FileText, Camera, Youtube, AlertCircle, ChevronLeft, Upload, MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 
@@ -19,9 +19,7 @@ const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB in bytes
 // First, let's define the response types at the top of the file
 interface StreamerProfileResponse {
   success: boolean;
-  message?: string;
   imageUrl?: string;
-  redirect?: string;
   error?: string;
 }
 
@@ -33,6 +31,8 @@ interface UserProfileResponse {
 
 export default function SettingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const type = searchParams.get('type');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [bio, setBio] = useState('');
@@ -52,24 +52,64 @@ export default function SettingsPage() {
   const [brandGuidelineUrl, setBrandGuidelineUrl] = useState("");
   const [brandGuidelineError, setBrandGuidelineError] = useState("");
   const [brandName, setBrandName] = useState('');
+  const [youtubeVideoUrl, setYoutubeVideoUrl] = useState('');
+  const [galleryError, setGalleryError] = useState('');
+  const maxGalleryPhotos = 5;
 
   const fetchUserData = async () => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
-      const { data } = await supabase
-        .from("users")
-        .select("first_name, last_name, brand_name, profile_picture_url, location, brand_guidelines_url")
-        .eq("id", user.id)
+      // First check if user is a streamer
+      const { data: streamerData } = await supabase
+        .from("streamers")
+        .select("*")
+        .eq("user_id", user.id)
         .single();
 
-      if (data) {
-        setFirstName(data.first_name || '');
-        setLastName(data.last_name || '');
-        setBrandName(data.brand_name || '');
-        setLocation(data.location || '');
-        setBrandGuidelineUrl(data.brand_guidelines_url || '');
+      if (streamerData && type === 'streamer') {
+        setUserType('streamer');
+        // Fetch streamer specific data
+        const { data: streamerProfile } = await supabase
+          .from("streamers")
+          .select(`
+            first_name,
+            last_name,
+            brand_name,
+            profile_picture_url,
+            location,
+            brand_guidelines_url,
+            youtube_video_url,
+            gallery_photos
+          `)
+          .eq("user_id", user.id)
+          .single();
+
+        if (streamerProfile) {
+          setFirstName(streamerProfile.first_name || '');
+          setLastName(streamerProfile.last_name || '');
+          setBrandName(streamerProfile.brand_name || '');
+          setLocation(streamerProfile.location || '');
+          setBrandGuidelineUrl(streamerProfile.brand_guidelines_url || '');
+          setYoutubeVideoUrl(streamerProfile.youtube_video_url || '');
+          setGalleryPhotos(streamerProfile.gallery_photos || []);
+        }
+      } else {
+        // Regular user data fetch
+        const { data } = await supabase
+          .from("users")
+          .select("first_name, last_name, brand_name, profile_picture_url, location, brand_guidelines_url")
+          .eq("id", user.id)
+          .single();
+
+        if (data) {
+          setFirstName(data.first_name || '');
+          setLastName(data.last_name || '');
+          setBrandName(data.brand_name || '');
+          setLocation(data.location || '');
+          setBrandGuidelineUrl(data.brand_guidelines_url || '');
+        }
       }
     }
     setLoading(false);
@@ -86,13 +126,11 @@ export default function SettingsPage() {
     try {
       const formData = new FormData(e.currentTarget);
       
-      // Properly handle image upload
       if (selectedImage) {
-        // Remove the Blob creation as we already have a valid File
         formData.append('image', selectedImage);
       }
 
-      // Add other form fields
+      // Add common form fields
       formData.append('firstName', firstName);
       formData.append('lastName', lastName);
       formData.append('brandName', brandName);
@@ -102,7 +140,23 @@ export default function SettingsPage() {
         formData.append('brand_guideline', newBrandGuideline);
       }
 
-      const result = await updateUserProfile(formData);
+      let result;
+      // Add streamer-specific fields if user is a streamer
+      if (userType === 'streamer') {
+        formData.append('youtubeVideoUrl', youtubeVideoUrl);
+        
+        // Append new gallery photos
+        newGalleryPhotos.forEach((photo, index) => {
+          formData.append(`galleryPhoto${index}`, photo);
+        });
+        
+        // Append existing gallery photos
+        formData.append('existingGalleryPhotos', JSON.stringify(galleryPhotos));
+
+        result = await updateStreamerProfile(formData);
+      } else {
+        result = await updateUserProfile(formData);
+      }
 
       if (result.error) {
         toast.error(result.error);
@@ -110,8 +164,8 @@ export default function SettingsPage() {
       }
 
       // Update local state with new image URL
-      if (result.profilePictureUrl) {
-        setImageUrl(result.profilePictureUrl);
+      if (result.imageUrl || result.profilePictureUrl) {
+        setImageUrl(result.imageUrl || result.profilePictureUrl || '');
         // Clean up
         URL.revokeObjectURL(previewUrl || '');
         setSelectedImage(null);
@@ -119,7 +173,7 @@ export default function SettingsPage() {
       }
 
       toast.success('Profil berhasil diperbarui');
-      router.push('/protected');
+      router.push(userType === 'streamer' ? '/streamer-dashboard' : '/protected');
 
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -153,17 +207,24 @@ export default function SettingsPage() {
   const handleGalleryPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const newPhotos = Array.from(files).slice(0, 5 - galleryPhotos.length);
-      setNewGalleryPhotos(prevPhotos => [...prevPhotos, ...newPhotos]);
+      const remainingSlots = maxGalleryPhotos - (galleryPhotos.length + newGalleryPhotos.length);
+      if (remainingSlots <= 0) {
+        setGalleryError(`Maximum ${maxGalleryPhotos} photos allowed`);
+        return;
+      }
+
+      const newPhotos = Array.from(files).slice(0, remainingSlots);
+      setNewGalleryPhotos(prev => [...prev, ...newPhotos]);
+      setGalleryError('');
     }
   };
 
-  const removeGalleryPhoto = (index: number) => {
-    setGalleryPhotos(prevPhotos => prevPhotos.filter((_, i) => i !== index));
-  };
-
-  const removeNewGalleryPhoto = (index: number) => {
-    setNewGalleryPhotos(prevPhotos => prevPhotos.filter((_, i) => i !== index));
+  const removeGalleryPhoto = (index: number, isNew: boolean = false) => {
+    if (isNew) {
+      setNewGalleryPhotos(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setGalleryPhotos(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const handleBackNavigation = () => {
@@ -211,7 +272,7 @@ export default function SettingsPage() {
           Back
         </Button>
         <h1 className="text-xl sm:text-2xl font-semibold">
-          {userType === 'streamer' ? 'Pengaturan Streamer' : 'Pengaturan Client'}
+          {type === 'streamer' ? 'Pengaturan Streamer' : 'Pengaturan Client'}
         </h1>
       </div>
 
@@ -329,90 +390,94 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="brand_guideline" className="flex items-center text-sm text-gray-600">
-                  <FileText className="mr-2 h-4 w-4 text-blue-600" />
-                  Brand Guideline
-                </Label>
-                <div className="relative">
-                  <Input
-                    type="file"
-                    id="brand_guideline"
-                    name="brand_guideline"
-                    onChange={handleBrandGuidelineChange}
-                    className="hidden"
-                    accept=".pdf,.doc,.docx"
-                  />
-                  <div 
-                    onClick={() => document.getElementById('brand_guideline')?.click()}
-                    className="cursor-pointer group flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 transition-all duration-200 hover:border-blue-500 hover:bg-blue-50/50"
-                  >
-                    <div className="text-center">
-                      <Upload className="mx-auto h-8 w-8 text-gray-400 group-hover:text-blue-500 mb-2 transition-colors" />
-                      <span className="text-sm text-gray-600 group-hover:text-blue-600 transition-colors">
-                        {newBrandGuideline ? newBrandGuideline.name : 'Klik untuk memperbarui Brand Guidelines'}
-                      </span>
-                      {brandGuidelineUrl && (
-                        <div className="mt-3 p-2 bg-blue-50 rounded-lg">
-                          <p className="font-medium text-sm text-blue-600">Brand Guideline Saat Ini:</p>
-                          <p className="text-sm text-blue-500 truncate">
-                            {brandGuidelineUrl.split('/').pop()}
+              {/* Brand Guidelines - Only show for clients */}
+              {type !== 'streamer' && (
+                <div className="space-y-1">
+                  <Label htmlFor="brand_guideline" className="flex items-center text-sm text-gray-600">
+                    <FileText className="mr-2 h-4 w-4 text-blue-600" />
+                    Brand Guideline
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="file"
+                      id="brand_guideline"
+                      name="brand_guideline"
+                      onChange={handleBrandGuidelineChange}
+                      className="hidden"
+                      accept=".pdf,.doc,.docx"
+                    />
+                    <div 
+                      onClick={() => document.getElementById('brand_guideline')?.click()}
+                      className="cursor-pointer group flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 transition-all duration-200 hover:border-blue-500 hover:bg-blue-50/50"
+                    >
+                      <div className="text-center">
+                        <Upload className="mx-auto h-8 w-8 text-gray-400 group-hover:text-blue-500 mb-2 transition-colors" />
+                        <span className="text-sm text-gray-600 group-hover:text-blue-600 transition-colors">
+                          {newBrandGuideline ? newBrandGuideline.name : 'Klik untuk memperbarui Brand Guidelines'}
+                        </span>
+                        {brandGuidelineUrl && (
+                          <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+                            <p className="font-medium text-sm text-blue-600">Brand Guideline Saat Ini:</p>
+                            <p className="text-sm text-blue-500 truncate">
+                              {brandGuidelineUrl.split('/').pop()}
+                            </p>
+                          </div>
+                        )}
+                        {!brandGuidelineUrl && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Belum ada file yang diunggah
                           </p>
-                        </div>
-                      )}
-                      {!brandGuidelineUrl && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Belum ada file yang diunggah
-                        </p>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
+                  {brandGuidelineError && (
+                    <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      {brandGuidelineError}
+                    </p>
+                  )}
                 </div>
-                {brandGuidelineError && (
-                  <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
-                    <AlertCircle className="h-4 w-4" />
-                    {brandGuidelineError}
-                  </p>
-                )}
-              </div>
+              )}
 
-              {userType === 'streamer' && (
+              {/* Streamer-specific fields */}
+              {type === 'streamer' && (
                 <>
-                  <div>
-                    <Label htmlFor="youtubeUrl" className="flex items-center text-sm text-gray-600">
+                  <div className="space-y-1">
+                    <Label htmlFor="youtubeVideoUrl" className="flex items-center text-sm text-gray-600">
                       <Youtube className="mr-2 h-4 w-4 text-blue-600" />
-                      YouTube Video URL
+                      Video YouTube
                     </Label>
                     <Input
-                      id="youtubeUrl"
-                      name="youtubeUrl"
-                      value={youtubeUrl}
-                      onChange={(e) => setYoutubeUrl(e.target.value)}
-                      placeholder="https://youtu.be/..."
+                      id="youtubeVideoUrl"
+                      value={youtubeVideoUrl}
+                      onChange={(e) => setYoutubeVideoUrl(e.target.value)}
+                      placeholder="https://youtube.com/watch?v=..."
                       className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Add a video to showcase your streaming style.
+                      Tambahkan video untuk menunjukkan gaya streaming Anda
                     </p>
                   </div>
-                  <div>
+
+                  <div className="space-y-1">
                     <Label htmlFor="galleryPhotos" className="flex items-center text-sm text-gray-600">
                       <Camera className="mr-2 h-4 w-4 text-blue-600" />
-                      Gallery Photos (Max 5)
+                      Foto Galeri (Maks. 5)
                     </Label>
                     <Input
-                      id="galleryPhotos"
-                      name="galleryPhotos"
                       type="file"
+                      id="galleryPhotos"
+                      onChange={handleGalleryPhotoChange}
                       accept="image/*"
                       multiple
-                      onChange={handleGalleryPhotoChange}
-                      className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
-                      disabled={galleryPhotos.length + newGalleryPhotos.length >= 5}
+                      className="mt-1"
+                      disabled={galleryPhotos.length + newGalleryPhotos.length >= maxGalleryPhotos}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Tip: Choose photos that represent your brand and style.
-                    </p>
+                    {galleryError && (
+                      <p className="text-red-500 text-xs mt-1">{galleryError}</p>
+                    )}
+                    
                     <div className="grid grid-cols-5 gap-2 mt-2">
                       {galleryPhotos.map((photo, index) => (
                         <div key={index} className="relative">
@@ -443,7 +508,7 @@ export default function SettingsPage() {
                           />
                           <button
                             type="button"
-                            onClick={() => removeNewGalleryPhoto(index)}
+                            onClick={() => removeGalleryPhoto(index, true)}
                             className="absolute top-0 right-0 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white rounded-full p-1"
                           >
                             X

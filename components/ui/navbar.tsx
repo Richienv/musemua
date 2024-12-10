@@ -83,6 +83,10 @@ export function Navbar({ onFilterChange }: NavbarProps) {
 
   const isStreamerDashboard = pathname === '/streamer-dashboard';
 
+  const getSettingsUrl = (userType: string) => {
+    return userType === 'streamer' ? '/settings?type=streamer' : '/settings';
+  };
+
   return (
     <nav className="sticky top-0 z-50 bg-white text-black border-b border-black/5 w-full pt-2">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -146,6 +150,12 @@ export function Navbar({ onFilterChange }: NavbarProps) {
             <div className="sm:hidden">
               <ProfileButton user={userData} showNameOnMobile={false} />
             </div>
+            <Link
+              href={getSettingsUrl(userData?.user_type || '')}
+              className="text-sm font-medium text-gray-700 hover:text-gray-800"
+            >
+              Settings
+            </Link>
           </div>
         </div>
       </div>

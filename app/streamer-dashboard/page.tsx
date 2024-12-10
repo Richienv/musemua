@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { format, isToday, isThisWeek, isThisMonth, parseISO, differenceInHours } from 'date-fns';
-import { Calendar, Clock, Monitor, DollarSign, MessageSquare, Link as LinkIcon, AlertTriangle, MapPin, Users, XCircle, Video } from 'lucide-react';
+import { Calendar, Clock, Monitor, DollarSign, MessageSquare, Link as LinkIcon, AlertTriangle, MapPin, Users, XCircle, Video, Settings } from 'lucide-react';
 import Link from 'next/link';
 import {
   Dialog,
@@ -24,6 +24,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Navbar } from "@/components/ui/navbar";
+import { streamerService, type StreamerStats, type StreamerGalleryPhoto } from "@/services/streamer/streamer-service";
+import { format as formatDate } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 
 interface UserData {
   user_type: string;
@@ -156,150 +159,143 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 hover:border-[#E23744]/20 transition-all duration-200 p-3 sm:p-4">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-2">
-        <div className="space-y-1">
-          <h3 className="font-bold text-sm sm:text-base">
-            {booking.client_first_name} {booking.client_last_name}
-          </h3>
-          <div className="flex items-center gap-2">
-            <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-            <span className="text-xs sm:text-sm text-gray-600">Jakarta, Indonesia</span>
-          </div>
-        </div>
-        <span className="text-[10px] sm:text-xs px-2 py-1 rounded-full font-medium bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
-          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-        </span>
-      </div>
-
-      {/* Booking Details */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-          <span className="text-xs sm:text-sm text-gray-600">
-            Rp {booking.price.toLocaleString('id-ID')}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-          <span className="text-xs sm:text-sm text-gray-600">
-            {format(new Date(booking.start_time), 'MMMM d, yyyy')}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-          <span className="text-xs sm:text-sm text-gray-600">
-            {format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}
-            <span className="text-gray-400 ml-1">
-              ({differenceInHours(new Date(booking.end_time), new Date(booking.start_time))} hours)
-            </span>
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Monitor className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-          <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${
-            booking.platform.toLowerCase() === 'shopee' 
-              ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white' 
-              : 'bg-gradient-to-r from-[#00f2ea] to-[#ff0050] text-white'
-          }`}>
-            {booking.platform}
-          </span>
-        </div>
-
-        {/* Special Message */}
-        {booking.special_request && (
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-            <span className="text-xs sm:text-sm text-gray-600">
-              Message: <span className="font-medium">{booking.special_request}</span>
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Add Credentials section here - only for accepted bookings */}
-      {booking.status === 'accepted' && booking.platform.toLowerCase() === 'shopee' && (
-        <div className="mt-3 border-t border-gray-100 pt-3">
-          <div className="bg-gray-50 p-2 sm:p-3 rounded-lg space-y-2">
+    <div className="bg-white rounded-2xl border border-gray-100 hover:border-[#E23744]/20 transition-all duration-300">
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              {booking.client_first_name} {booking.client_last_name}
+            </h3>
             <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm text-gray-600">Sub Account ID:</span>
-              <span className="text-xs sm:text-sm font-medium">
-                {booking.sub_acc_link}
-              </span>
+              <MapPin className="h-4 w-4 text-gray-400" />
+              <span className="text-sm text-gray-500">Jakarta, Indonesia</span>
             </div>
-            {booking.sub_acc_pass && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm text-gray-600">Password:</span>
-                <span className="text-xs sm:text-sm font-medium">
-                  {booking.sub_acc_pass}
+          </div>
+          <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${
+            booking.status === 'live' 
+              ? 'bg-green-50 text-green-700' 
+              : 'bg-yellow-50 text-yellow-700'
+          }`}>
+            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+          </span>
+        </div>
+
+        {/* Booking Details */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex items-center gap-3 text-gray-600">
+                <DollarSign className="h-5 w-5 text-[#E23744]" />
+                <span className="text-sm font-medium">
+                  Rp {booking.price.toLocaleString('id-ID')}
                 </span>
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Stream Actions - update condition */}
-      {booking.status === 'live' ? (
-        <Button 
-          onClick={handleEndStream}
-          className="mt-3 w-full py-1.5 sm:py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-xs sm:text-sm font-medium"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse mr-2" />
-          End Stream
-        </Button>
-      ) : booking.status === 'accepted' && (
-        <Button
-          onClick={() => setIsStartLiveModalOpen(true)}
-          className="mt-3 w-full py-1.5 sm:py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-xs sm:text-sm font-medium"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse mr-2" />
-          Start Live
-        </Button>
-      )}
-
-      {/* Start Live Modal - update to include credentials */}
-      <Dialog open={isStartLiveModalOpen} onOpenChange={setIsStartLiveModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Start Live Stream</DialogTitle>
-            <DialogDescription>
-              Please use these credentials to log in to your streaming platform.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {booking.platform.toLowerCase() === 'shopee' && (
-              <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                <p className="text-sm font-medium">Account Credentials</p>
-                <div className="space-y-1">
-                  <p className="text-sm">ID: {booking.sub_acc_link}</p>
-                  {booking.sub_acc_pass && (
-                    <p className="text-sm">Password: {booking.sub_acc_pass}</p>
-                  )}
-                </div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex items-center gap-3 text-gray-600">
+                <Clock className="h-5 w-5 text-[#E23744]" />
+                <span className="text-sm font-medium">
+                  {format(new Date(booking.start_time), 'HH:mm')}
+                </span>
               </div>
-            )}
-            <div className="space-y-2">
-              <Label>Stream Link</Label>
-              <Input
-                placeholder="Enter your stream link"
-                value={streamLink}
-                onChange={(e) => setStreamLink(e.target.value)}
-              />
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              onClick={handleStartLive}
-              disabled={isStarting || !streamLink}
-              className="w-full bg-gradient-to-r from-red-500 to-red-600"
-            >
-              {isStarting ? 'Starting...' : 'Start Stream'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex items-center gap-3 text-gray-600">
+              <Calendar className="h-5 w-5 text-[#E23744]" />
+              <span className="text-sm font-medium">
+                {format(new Date(booking.start_time), 'MMMM d, yyyy')}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <Monitor className="h-5 w-5 text-[#E23744]" />
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                booking.platform.toLowerCase() === 'shopee' 
+                  ? 'bg-[#EE4D2D] text-white' 
+                  : 'bg-[#00f2ea] text-white'
+              }`}>
+                {booking.platform}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Special Request */}
+        {booking.special_request && (
+          <div className="mt-6 bg-gray-50 rounded-xl p-4">
+            <p className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-2">
+              <MessageSquare className="h-4 w-4 text-[#E23744]" />
+              Special Request
+            </p>
+            <p className="text-sm text-gray-600">{booking.special_request}</p>
+          </div>
+        )}
+
+        {/* Stream Actions */}
+        {booking.status === 'live' ? (
+          <Button 
+            onClick={handleEndStream}
+            className="mt-6 w-full py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl"
+          >
+            <span className="h-2 w-2 rounded-full bg-white animate-pulse mr-2" />
+            End Stream
+          </Button>
+        ) : booking.status === 'accepted' && (
+          <Button
+            onClick={() => setIsStartLiveModalOpen(true)}
+            className="mt-6 w-full py-3 bg-[#E23744] hover:bg-[#E23744]/90 text-white font-medium rounded-xl"
+          >
+            Start Live
+          </Button>
+        )}
+
+        {/* Start Live Modal - update to include credentials */}
+        <Dialog open={isStartLiveModalOpen} onOpenChange={setIsStartLiveModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Start Live Stream</DialogTitle>
+              <DialogDescription>
+                Please use these credentials to log in to your streaming platform.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {booking.platform.toLowerCase() === 'shopee' && (
+                <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                  <p className="text-sm font-medium">Account Credentials</p>
+                  <div className="space-y-1">
+                    <p className="text-sm">ID: {booking.sub_acc_link}</p>
+                    {booking.sub_acc_pass && (
+                      <p className="text-sm">Password: {booking.sub_acc_pass}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>Stream Link</Label>
+                <Input
+                  placeholder="Enter your stream link"
+                  value={streamLink}
+                  onChange={(e) => setStreamLink(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={handleStartLive}
+                disabled={isStarting || !streamLink}
+                className="w-full bg-gradient-to-r from-red-500 to-red-600"
+              >
+                {isStarting ? 'Starting...' : 'Start Stream'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }
@@ -313,8 +309,24 @@ function UpcomingSchedule({ bookings, onStreamStart, onStreamEnd }: {
   console.log('Upcoming Schedule Bookings:', bookings);
 
   const todayBookings = bookings.filter(booking => isToday(parseISO(booking.start_time)));
-  const thisWeekBookings = bookings.filter(booking => isThisWeek(parseISO(booking.start_time)) && !isToday(parseISO(booking.start_time)));
-  const thisMonthBookings = bookings.filter(booking => isThisMonth(parseISO(booking.start_time)) && !isThisWeek(parseISO(booking.start_time)));
+  const thisWeekBookings = bookings.filter(booking => 
+    isThisWeek(parseISO(booking.start_time)) && !isToday(parseISO(booking.start_time))
+  );
+  const thisMonthBookings = bookings.filter(booking => 
+    isThisMonth(parseISO(booking.start_time)) && !isThisWeek(parseISO(booking.start_time))
+  );
+
+  // Update the ScheduleCard mapping to include type safety
+  const renderScheduleCards = (bookings: Booking[]) => {
+    return bookings.map((booking: Booking) => (
+      <ScheduleCard 
+        key={booking.id} 
+        booking={booking} 
+        onStreamStart={onStreamStart} 
+        onStreamEnd={onStreamEnd}
+      />
+    ));
+  };
 
   return (
     <Tabs defaultValue="today" className="w-full">
@@ -339,44 +351,23 @@ function UpcomingSchedule({ bookings, onStreamStart, onStreamEnd }: {
         </TabsTrigger>
       </TabsList>
       <TabsContent value="today" className="space-y-4">
-        {todayBookings.length > 0 ? todayBookings.map(booking => (
-          <ScheduleCard 
-            key={booking.id} 
-            booking={booking} 
-            onStreamStart={onStreamStart} 
-            onStreamEnd={onStreamEnd}
-          />
-        )) : (
+        {todayBookings.length > 0 ? renderScheduleCards(todayBookings) : (
           <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
-            No bookings for today.
+            Tidak ada booking untuk hari ini.
           </p>
         )}
       </TabsContent>
       <TabsContent value="week" className="space-y-4">
-        {thisWeekBookings.length > 0 ? thisWeekBookings.map(booking => (
-          <ScheduleCard 
-            key={booking.id} 
-            booking={booking} 
-            onStreamStart={onStreamStart} 
-            onStreamEnd={onStreamEnd}
-          />
-        )) : (
+        {thisWeekBookings.length > 0 ? renderScheduleCards(thisWeekBookings) : (
           <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
-            No bookings for this week.
+            Tidak ada booking untuk minggu ini.
           </p>
         )}
       </TabsContent>
       <TabsContent value="month" className="space-y-4">
-        {thisMonthBookings.length > 0 ? thisMonthBookings.map(booking => (
-          <ScheduleCard 
-            key={booking.id} 
-            booking={booking} 
-            onStreamStart={onStreamStart} 
-            onStreamEnd={onStreamEnd}
-          />
-        )) : (
+        {thisMonthBookings.length > 0 ? renderScheduleCards(thisMonthBookings) : (
           <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
-            No bookings for this month.
+            Tidak ada booking untuk bulan ini.
           </p>
         )}
       </TabsContent>
@@ -477,30 +468,35 @@ function BookingCard({ booking, onAccept, onReject }: {
   );
 }
 
-// Update the AnalyticsCard component
-const AnalyticsCard = ({ title, value, icon: Icon, trend }: { 
+// Update the AnalyticsCard component to remove icons and match the design
+const AnalyticsCard = ({ title, value, trend }: { 
   title: string; 
   value: string; 
-  icon: any;
-  trend?: string;
+  trend?: number;
 }) => (
-  <div className="bg-gradient-to-br from-white/60 to-white/30 backdrop-blur-sm border border-white/20 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow transition-all duration-300">
-    <div className="flex items-start gap-3">
-      <div className="bg-gradient-to-r from-[#E23744] to-[#E23744]/80 p-2 rounded-lg flex-shrink-0">
-        <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
-      </div>
-      <div className="flex-1">
-        <p className="text-[10px] sm:text-xs font-medium text-gray-500 mb-1">{title}</p>
-        <h3 className="text-sm sm:text-base font-bold text-[#E23744]">{value}</h3>
-        {trend && (
-          <p className="text-[10px] sm:text-xs text-green-500 mt-0.5 font-medium">
-            +{trend}% from last month
+  <div className="bg-white rounded-xl sm:rounded-3xl p-4 sm:p-6 hover:shadow-sm transition-all duration-300">
+    <div className="space-y-1 sm:space-y-2">
+      <p className="text-xs sm:text-sm text-gray-500">{title}</p>
+      <div className="space-y-1">
+        <h3 className="text-lg sm:text-[28px] font-bold text-gray-900">{value}</h3>
+        {trend !== undefined && (
+          <p className={`text-xs sm:text-sm ${trend >= 0 ? 'text-[#4CAF50]' : 'text-red-500'}`}>
+            • {trend > 0 ? '+' : ''}{trend}% dari bulan lalu
           </p>
         )}
       </div>
     </div>
   </div>
 );
+
+// Add this helper function for date formatting
+const formatJoinDate = (date: string) => {
+  try {
+    return format(new Date(date), 'd MMMM yyyy', { locale: idLocale });
+  } catch (error) {
+    return '-';
+  }
+};
 
 export default function StreamerDashboard() {
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -509,6 +505,27 @@ export default function StreamerDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const [streamerStats, setStreamerStats] = useState<StreamerStats | null>(null);
+  const [galleryPhotos, setGalleryPhotos] = useState<StreamerGalleryPhoto[]>([]);
+
+  const todayBookings = bookings.filter(booking => isToday(parseISO(booking.start_time)));
+  const thisWeekBookings = bookings.filter(booking => 
+    isThisWeek(parseISO(booking.start_time)) && !isToday(parseISO(booking.start_time))
+  );
+  const thisMonthBookings = bookings.filter(booking => 
+    isThisMonth(parseISO(booking.start_time)) && !isThisWeek(parseISO(booking.start_time))
+  );
+
+  const renderScheduleCards = (bookings: Booking[]) => {
+    return bookings.map((booking: Booking) => (
+      <ScheduleCard 
+        key={booking.id} 
+        booking={booking} 
+        onStreamStart={handleStreamStart} 
+        onStreamEnd={handleStreamEnd}
+      />
+    ));
+  };
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -524,77 +541,54 @@ export default function StreamerDashboard() {
         return;
       }
 
-      console.log("User ID from auth:", user.id);
-
-      // First, try to get the streamer data
+      // Get streamer data
       const { data: streamerData, error: streamerError } = await supabase
         .from('streamers')
         .select('id, user_id, first_name')
         .eq('user_id', user.id)
         .single();
 
-      if (streamerError && streamerError.code !== 'PGRST116') {
-        console.error("Error fetching streamer data:", streamerError);
-        setError(`Error fetching data: ${streamerError.message}`);
-        return;
-      }
-
-      let bookingsQuery;
-      if (streamerData) {
-        // User is a streamer
-        setUserData({ user_type: 'streamer', first_name: streamerData.first_name });
-        bookingsQuery = supabase
-          .from('bookings')
-          .select(`
-            *,
-            client_first_name,
-            client_last_name,
-            sub_acc_link,
-            sub_acc_pass
-          `)
-          .eq('streamer_id', streamerData.id)
-          .not('status', 'eq', 'payment_pending')
-          .order('start_time', { ascending: true });
-      } else {
-        // User is a client
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('first_name')
-          .eq('id', user.id)
-          .single();
-
-        if (userError) {
-          console.error("Error fetching user data:", userError);
-          setError(`Error fetching user data: ${userError.message}`);
-          return;
+      if (streamerError) {
+        if (streamerError.code !== 'PGRST116') {
+          throw streamerError;
         }
-
-        setUserData({ user_type: 'client', first_name: userData.first_name });
-        bookingsQuery = supabase
-          .from('bookings')
-          .select('*')
-          .eq('client_id', user.id)
-          .order('start_time', { ascending: true });
-      }
-
-      const { data: bookingsData, error: bookingsError } = await bookingsQuery;
-
-      if (bookingsError) {
-        console.error("Error fetching bookings:", bookingsError);
-        setError(`Error fetching bookings: ${bookingsError.message}`);
         return;
       }
 
-      console.log("Fetched bookings data:", bookingsData); // Add this line for debugging
+      if (streamerData) {
+        try {
+          // Fetch additional streamer data
+          const stats = await streamerService.getStreamerStats(streamerData.id);
+          const gallery = await streamerService.getStreamerGallery(streamerData.id);
+          
+          setStreamerStats(stats);
+          setGalleryPhotos(gallery);
+          setUserData({ user_type: 'streamer', first_name: streamerData.first_name });
 
-      if (!bookingsData || bookingsData.length === 0) {
-        console.log("No bookings found");
-        setBookings([]);
-      } else {
-        setBookings(bookingsData);
+          // Fetch bookings
+          const { data: bookingsData, error: bookingsError } = await supabase
+            .from('bookings')
+            .select(`
+              *,
+              client_first_name,
+              client_last_name,
+              sub_acc_link,
+              sub_acc_pass
+            `)
+            .eq('streamer_id', streamerData.id)
+            .not('status', 'eq', 'payment_pending')
+            .order('start_time', { ascending: true });
+
+          if (bookingsError) throw bookingsError;
+          setBookings(bookingsData || []);
+
+        } catch (err) {
+          console.error("Error fetching streamer data:", err);
+          throw err;
+        }
       }
     } catch (err) {
-      console.error("Caught error:", err);
+      console.error("Error fetching data:", err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
@@ -734,192 +728,212 @@ export default function StreamerDashboard() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen w-full">
+    <div className="min-h-screen bg-white">
       <Navbar />
-      <div className="flex-grow w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <ToastContainer />
         
-        {/* Analytics Section - More compact on mobile */}
-        <div className="mb-4 sm:mb-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-            <AnalyticsCard
-              title="Total Earnings"
-              value={`Rp ${(8500000).toLocaleString('id-ID')}`}
-              icon={DollarSign}
-              trend="8"
-            />
-            <AnalyticsCard
-              title="Total Bookings"
-              value="124"
-              icon={Users}
-              trend="12"
-            />
-            <AnalyticsCard
-              title="Total Livestreams"
-              value="89"
-              icon={Video}
-              trend="15"
-            />
-            <AnalyticsCard
-              title="Total Rejected"
-              value="23"
-              icon={XCircle}
-            />
+        {/* Welcome Section - Updated copy */}
+        <div className="mb-8 sm:mb-12">
+          <h1 className="text-2xl sm:text-[32px] font-bold mb-2">Dashboard Anda</h1>
+          <div className="flex justify-between items-start">
+            <div className="space-y-2 sm:space-y-4">
+              <h2 className="text-4xl sm:text-[64px] font-bold leading-tight">
+                HALO, {userData?.first_name?.toUpperCase()}
+              </h2>
+              <p className="text-sm sm:text-base text-gray-500">
+                Selamat datang di dashboard Anda! Di sini Anda dapat memantau pendapatan, mengelola booking, dan melihat riwayat aktivitas Anda.
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Upcoming Schedule Card - Reduced padding and font sizes */}
-        <Card className="mb-4 sm:mb-6 border-none shadow-xs hover:shadow-sm transition-all duration-200">
-          <CardHeader className="text-[#E23744] border-b-2 border-gradient-to-r from-[#E23744] to-[#E23744]/80 p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-2xl font-bold">Upcoming Schedule</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-6">
-            <UpcomingSchedule 
-              bookings={acceptedBookings} 
-              onStreamStart={handleStreamStart} 
-              onStreamEnd={handleStreamEnd} 
-            />
-          </CardContent>
-        </Card>
-
-        {/* Booking Management Card - Reduced padding and font sizes */}
-        <Card className="border-none shadow-xs hover:shadow-sm transition-all duration-200">
-          <CardHeader className="text-[#E23744] border-b-2 border-gradient-to-r from-[#E23744] to-[#E23744]/80 p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-2xl font-bold">Booking Management</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-6">
-            <Tabs defaultValue="pending" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-gray-50 p-1 rounded-lg mb-4 sm:mb-6">
-                <TabsTrigger 
-                  value="pending" 
-                  className="text-xs sm:text-base py-1.5 sm:py-2 data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
-                >
-                  Pending Bookings
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="rejected"
-                  className="text-xs sm:text-base py-1.5 sm:py-2 data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
-                >
-                  Rejected Bookings
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Update the booking cards to be more compact */}
-              <TabsContent value="pending">
-                <div className="space-y-3 sm:space-y-4">
-                  {pendingBookings.map((booking) => (
-                    <div key={booking.id} className="bg-white rounded-lg shadow-sm border border-gray-100 hover:border-[#E23744]/20 transition-all duration-200 p-3 sm:p-4">
-                      {/* Header */}
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="space-y-1">
-                          <h3 className="font-bold text-sm sm:text-base">
-                            {booking.client_first_name} {booking.client_last_name}
-                          </h3>
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-                            <span className="text-xs sm:text-sm text-gray-600">Jakarta, Indonesia</span>
-                          </div>
-                        </div>
-                        <span className="text-[10px] sm:text-xs px-2 py-1 rounded-full font-medium bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
-                          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                        </span>
-                      </div>
-
-                      {/* Booking Details */}
-                      <div className="space-y-2 text-xs sm:text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-                          <span>Rp {booking.price.toLocaleString('id-ID')}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-                          <span>{format(new Date(booking.start_time), 'MMMM d, yyyy')}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-                          <span>
-                            {format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}
-                            <span className="text-gray-400 ml-1">
-                              ({differenceInHours(new Date(booking.end_time), new Date(booking.start_time))} hours)
-                            </span>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Monitor className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${
-                            booking.platform.toLowerCase() === 'shopee' 
-                              ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white' 
-                              : 'bg-gradient-to-r from-[#00f2ea] to-[#ff0050] text-white'
-                          }`}>
-                            {booking.platform}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Special Request */}
-                      {booking.special_request && (
-                        <div className="mt-3 p-2 sm:p-3 bg-gray-50 rounded-lg space-y-1">
-                          <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-2">
-                            <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-                            Special Request
-                          </p>
-                          <p className="text-xs sm:text-sm text-gray-600">{booking.special_request}</p>
-                        </div>
-                      )}
-
-                      {/* Sub Account Link */}
-                      {booking.sub_acc_link && (
-                        <div className="mt-3 p-2 sm:p-3 bg-gray-50 rounded-lg space-y-1">
-                          <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-2">
-                            <LinkIcon className="h-3 w-3 sm:h-4 sm:w-4 text-[#E23744]" />
-                            Sub Account Credentials
-                          </p>
-                          <div className="space-y-2">
-                            <a 
-                              href={booking.sub_acc_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs sm:text-sm text-[#E23744] hover:text-[#E23744]/80 break-all"
-                            >
-                              {booking.sub_acc_link}
-                            </a>
-                            {booking.sub_acc_pass && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs sm:text-sm text-gray-600">Password:</span>
-                                <span className="text-xs sm:text-sm font-medium">
-                                  {booking.sub_acc_pass}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      {booking.status === 'pending' && (
-                        <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
-                          <Button
-                            onClick={() => handleAcceptBooking(booking.id)}
-                            className="flex-1 text-xs sm:text-sm py-2 bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744] text-white"
-                          >
-                            Accept
-                          </Button>
-                          <Button
-                            onClick={() => handleRejectBooking(booking.id)}
-                            variant="outline"
-                            className="flex-1 text-xs sm:text-sm py-2 border-2 border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+        {/* Update the grid layout to be responsive */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8">
+          {/* Left Column */}
+          <div className="lg:col-span-8 space-y-4 sm:space-y-8">
+            {/* Account Info Section */}
+            <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl text-[#FF5733] mb-4">Informasi Akun</h3>
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm sm:text-base text-gray-600">Bergabung sejak</span>
+                  <span className="text-sm sm:text-base text-gray-400">
+                    {streamerStats?.joinDate ? formatJoinDate(streamerStats.joinDate) : '-'}
+                  </span>
                 </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm sm:text-base text-gray-600">Total jam live</span>
+                  <span className="text-sm sm:text-base text-gray-400">
+                    {streamerStats?.totalLiveHours 
+                      ? `${Math.round(streamerStats.totalLiveHours)} jam`
+                      : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm sm:text-base text-gray-600">Rating</span>
+                  <span className="text-sm sm:text-base text-gray-400">
+                    {streamerStats?.rating 
+                      ? `${streamerStats.rating.toFixed(1)}/5.0`
+                      : '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Gallery Section */}
+            <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg sm:text-xl text-[#FF5733]">Galeri Live Terakhir</h3>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
+                {galleryPhotos.map((photo, index) => (
+                  <div key={photo.id} className="relative aspect-square">
+                    <img 
+                      src={photo.photo_url}
+                      alt={`Gallery image ${index + 1}`}
+                      className="rounded-xl w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+                {(!galleryPhotos || galleryPhotos.length === 0) && (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    Belum ada foto
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="lg:col-span-4 space-y-4 sm:space-y-8">
+            {/* Analytics Cards - Make them 2 columns on mobile */}
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 sm:gap-4">
+              <AnalyticsCard
+                title="Total Pendapatan"
+                value={streamerStats 
+                  ? `Rp ${streamerStats.totalEarnings.toLocaleString('id-ID')}`
+                  : '-'}
+                trend={streamerStats?.trends.earnings}
+              />
+              <AnalyticsCard
+                title="Total Booking"
+                value={streamerStats?.totalBookings.toString() || '-'}
+                trend={streamerStats?.trends.bookings}
+              />
+              <AnalyticsCard
+                title="Total Live"
+                value={streamerStats?.totalLive.toString() || '-'}
+                trend={streamerStats?.trends.lives}
+              />
+              <AnalyticsCard
+                title="Booking Dibatalkan"
+                value={streamerStats?.cancelledBookings.toString() || '-'}
+                trend={streamerStats?.trends.cancellations}
+              />
+            </div>
+
+            {/* Add this after the Analytics Cards section and before the Schedule section */}
+            <div className="flex gap-4 mt-4">
+              <Button
+                onClick={() => router.push('/streamer-schedule')}
+                className="flex-1 bg-[#E23744] hover:bg-[#E23744]/90 text-white"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Atur Jadwal
+              </Button>
+              <Button
+                onClick={() => router.push('/settings?type=streamer')}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Pengaturan
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Update AnalyticsCard component */}
+        <div className="mt-4 sm:mt-8 space-y-4 sm:space-y-8">
+          {/* Upcoming Schedule Section */}
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100">
+            <div className="p-4 sm:p-6 border-b border-gray-100">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Jadwal Live Mendatang</h2>
+            </div>
+            <div className="p-4 sm:p-6">
+              <Tabs defaultValue="today" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 bg-gray-50 p-1 rounded-lg mb-4 sm:mb-6">
+                  <TabsTrigger 
+                    value="today" 
+                    className="text-xs sm:text-sm data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
+                  >
+                    Hari Ini
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="week"
+                    className="text-xs sm:text-sm data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
+                  >
+                    Minggu Ini
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="month"
+                    className="text-xs sm:text-sm data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
+                  >
+                    Bulan Ini
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="today" className="space-y-4">
+                  {todayBookings.length > 0 ? renderScheduleCards(todayBookings) : (
+                    <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
+                      Tidak ada booking untuk hari ini.
+                    </p>
+                  )}
+                </TabsContent>
+                <TabsContent value="week" className="space-y-4">
+                  {thisWeekBookings.length > 0 ? renderScheduleCards(thisWeekBookings) : (
+                    <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
+                      Tidak ada booking untuk minggu ini.
+                    </p>
+                  )}
+                </TabsContent>
+                <TabsContent value="month" className="space-y-4">
+                  {thisMonthBookings.length > 0 ? renderScheduleCards(thisMonthBookings) : (
+                    <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
+                      Tidak ada booking untuk bulan ini.
+                    </p>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+
+          {/* Booking Management Section */}
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100">
+            <div className="p-4 sm:p-6 border-b border-gray-100">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Manajemen Booking</h2>
+            </div>
+            <div className="p-4 sm:p-6">
+              <Tabs defaultValue="pending" className="w-full">
+                <TabsList className="flex space-x-2 p-1 bg-gray-50 rounded-xl mb-6">
+                  <TabsTrigger 
+                    value="pending" 
+                    className="flex-1 py-2.5 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#E23744] data-[state=active]:shadow-sm"
+                  >
+                    Booking Menunggu
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="rejected"
+                    className="flex-1 py-2.5 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#E23744] data-[state=active]:shadow-sm"
+                  >
+                    Booking Dibatalkan
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Keep existing TabsContent */}
+              </Tabs>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

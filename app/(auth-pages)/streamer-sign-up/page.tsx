@@ -778,7 +778,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         <div className="px-6 py-8 sm:px-8">
           <div className="mb-6">
             <h1 className="text-2xl font-semibold bg-gradient-to-r from-red-600 to-red-400 bg-clip-text text-transparent">
-              Daftar sebagai Streamer
+              Daftar sebagai Host
             </h1>
             <p className="mt-2 text-gray-600">
               Sudah punya akun?{" "}

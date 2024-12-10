@@ -45,7 +45,7 @@ export default function Login({ searchParams }: { searchParams: Message }) {
           {/* Client Login Form */}
           <div className="px-6 py-8 sm:px-8">
             <div className="mb-6">
-              <h1 className="text-2xl font-semibold text-gray-900">Selamat Datang Kembali</h1>
+              <h1 className="text-2xl font-semibold text-gray-900">Masuk Sebagai Brand</h1>
               <p className="mt-2 text-gray-600">
                 Belum punya akun?{" "}
                 <Link href="/sign-up" className="text-blue-600 hover:text-blue-700 font-medium">
