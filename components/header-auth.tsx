@@ -59,7 +59,7 @@ export default async function AuthButton() {
         if (streamerData) {
           userData = {
             ...userData,
-            image_url: streamerData.image_url,
+            profile_picture_url: streamerData.image_url || userData.profile_picture_url,
             streamer_id: streamerData.id
           };
         }

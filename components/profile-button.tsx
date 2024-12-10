@@ -48,9 +48,12 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
   const getProfilePictureUrl = () => {
     if (!user) return null;
     
-    if (user.user_type === 'streamer') {
-      return user.image_url || user.profile_picture_url;
-    }
+    // Add debugging
+    console.log('Profile Button User Data:', {
+      user,
+      profilePictureUrl: user.profile_picture_url
+    });
+    
     return user.profile_picture_url;
   };
 
@@ -61,7 +64,10 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+        <Button 
+          variant="ghost" 
+          className="relative h-8 w-8 rounded-full overflow-hidden p-0 border border-gray-200"
+        >
           {profilePictureUrl ? (
             <Image
               src={profilePictureUrl}
@@ -69,10 +75,17 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
               className="h-8 w-8 rounded-full object-cover"
               width={32}
               height={32}
-              unoptimized
+              priority
+              style={{ transform: 'none' }}
+              onError={(e) => {
+                console.error('Error loading profile image:', e);
+                // Fallback to initial if image fails to load
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+              }}
             />
           ) : (
-            <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+            <span className="fallback hidden h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
               {user.first_name.charAt(0) || 'U'}
             </span>
           )}

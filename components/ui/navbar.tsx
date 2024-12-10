@@ -22,7 +22,6 @@ interface UserData {
   first_name: string;
   user_type: 'streamer' | 'client';
   profile_picture_url: string | null;
-  image_url?: string | null;
   streamer_id?: number;
 }
 
@@ -47,51 +46,68 @@ export function Navbar({ onFilterChange }: NavbarProps) {
       setUser(user);
 
       if (user) {
-        const { data: userBasicData } = await supabase
-          .from('users')
-          .select(`
-            id, 
-            email, 
-            first_name, 
-            user_type, 
-            profile_picture_url
-          `)
-          .eq('id', user.id)
-          .single();
+        try {
+          // First get basic user data with profile picture
+          const { data: userBasicData, error: userError } = await supabase
+            .from('users')
+            .select(`
+              id, 
+              email, 
+              first_name, 
+              user_type, 
+              profile_picture_url
+            `)
+            .eq('id', user.id)
+            .single();
 
-        if (userBasicData) {
-          let finalUserData: UserData = {
-            ...userBasicData,
-            image_url: null,
-            streamer_id: undefined
-          };
-          
-          setUserType(userBasicData.user_type as 'streamer' | 'client');
+          if (userError) throw userError;
 
-          if (userBasicData.user_type === 'streamer') {
-            setDashboardLink("/streamer-dashboard");
-            const { data: streamerData } = await supabase
-              .from('streamers')
-              .select(`
-                id,
-                image_url,
-                user_id
-              `)
-              .eq('user_id', user.id)
-              .single();
+          if (userBasicData) {
+            let finalUserData: UserData = {
+              ...userBasicData
+            };
             
-            if (streamerData) {
-              finalUserData = {
-                ...finalUserData,
-                image_url: streamerData.image_url,
-                streamer_id: streamerData.id
-              };
-            }
-          } else {
-            setDashboardLink("/protected");
-          }
+            setUserType(userBasicData.user_type as 'streamer' | 'client');
 
-          setUserData(finalUserData);
+            if (userBasicData.user_type === 'streamer') {
+              setDashboardLink("/streamer-dashboard");
+              // Get streamer-specific data including image
+              const { data: streamerData, error: streamerError } = await supabase
+                .from('streamers')
+                .select(`
+                  id,
+                  image_url
+                `)
+                .eq('user_id', user.id)
+                .single();
+              
+              if (streamerError) throw streamerError;
+
+              if (streamerData) {
+                // Important: For streamers, prioritize streamer's image_url
+                finalUserData = {
+                  ...finalUserData,
+                  profile_picture_url: streamerData.image_url || userBasicData.profile_picture_url,
+                  streamer_id: streamerData.id
+                };
+                
+                // Add debugging
+                console.log('Streamer Data:', {
+                  streamerData,
+                  finalUserData,
+                  imageUrl: streamerData.image_url,
+                  fallbackUrl: userBasicData.profile_picture_url
+                });
+              }
+            } else {
+              setDashboardLink("/protected");
+            }
+
+            console.log('Final user data for navbar:', finalUserData);
+            setUserData(finalUserData);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
         }
       }
     };

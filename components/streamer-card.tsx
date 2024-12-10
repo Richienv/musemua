@@ -257,9 +257,27 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     if (error) {
       console.error('Error fetching active schedule:', error);
     } else if (data && data.length > 0) {
-      setActiveSchedule(JSON.parse(data[0].schedule));
+      // Add safety check and handle both string and object cases
+      try {
+        const schedule = typeof data[0].schedule === 'string' 
+          ? JSON.parse(data[0].schedule)
+          : data[0].schedule;
+        setActiveSchedule(schedule);
+      } catch (e) {
+        console.error('Error parsing schedule:', e);
+        // Set default schedule on error
+        setActiveSchedule({
+          0: { slots: [{ start: '09:00', end: '17:00' }] },
+          1: { slots: [{ start: '09:00', end: '17:00' }] },
+          2: { slots: [{ start: '09:00', end: '17:00' }] },
+          3: { slots: [{ start: '09:00', end: '17:00' }] },
+          4: { slots: [{ start: '09:00', end: '17:00' }] },
+          5: { slots: [{ start: '09:00', end: '17:00' }] },
+          6: { slots: [{ start: '09:00', end: '17:00' }] },
+        });
+      }
     } else {
-      // Set a default schedule if none is found
+      // Set default schedule if no data
       setActiveSchedule({
         0: { slots: [{ start: '09:00', end: '17:00' }] },
         1: { slots: [{ start: '09:00', end: '17:00' }] },
