@@ -17,16 +17,24 @@ import { Toaster } from 'react-hot-toast';
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB in bytes
 
 // First, let's define the response types at the top of the file
-interface StreamerProfileResponse {
+interface BaseResponse {
   success: boolean;
-  imageUrl?: string;
   error?: string;
 }
 
-interface UserProfileResponse {
-  success: boolean;
+interface StreamerProfileResponse extends BaseResponse {
+  imageUrl?: string;
+}
+
+interface UserProfileResponse extends BaseResponse {
   profilePictureUrl?: string;
-  error?: string;
+}
+
+// Update the type guard to handle error cases
+function isStreamerResponse(
+  response: StreamerProfileResponse | UserProfileResponse | { error: string }
+): response is StreamerProfileResponse {
+  return 'success' in response && !('profilePictureUrl' in response);
 }
 
 // Update the type for the updateUserProfile function response
@@ -246,12 +254,16 @@ function SettingsContent() {
         ? await updateStreamerProfile(formData)
         : await updateUserProfile(formData);
 
-      if (result.error) {
+      if ('error' in result && result.error) {
         toast.error(result.error);
         return;
       }
 
-      const newImageUrl = type === 'streamer' ? result.imageUrl : result.profilePictureUrl;
+      // Use type guard to safely access the correct property
+      const newImageUrl = isStreamerResponse(result) 
+        ? result.imageUrl 
+        : (result as UserProfileResponse).profilePictureUrl;
+
       if (newImageUrl) {
         setImageUrl(newImageUrl);
         if (previewUrl) {
