@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/client";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Save, Loader2 } from "lucide-react";
 import toast from 'react-hot-toast'; // Update this import
 
 interface ScheduleSlot {
@@ -33,6 +33,13 @@ interface AcceptedBooking {
   end_time: string;
 }
 
+interface ScheduleChange {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+}
+
 const timeSlots: TimeSlot[] = [
   { label: "Night", hours: [0, 1, 2, 3, 4, 5] },
   { label: "Morning", hours: [6, 7, 8, 9, 10, 11] },
@@ -53,6 +60,8 @@ export default function StreamerSchedulePage() {
   const scheduleRef = useRef<HTMLDivElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [acceptedBookings, setAcceptedBookings] = useState<AcceptedBooking[]>([]);
+  const [unsavedChanges, setUnsavedChanges] = useState<ScheduleChange[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
 
   const fetchStreamerData = useCallback(async () => {
     const supabase = createClient();
@@ -79,7 +88,11 @@ export default function StreamerSchedulePage() {
     const streamerId = await fetchStreamerData();
     
     if (streamerId) {
-      // Fetch schedule
+      // Get week range for filtering other data
+      const weekStart = format(currentWeek, 'yyyy-MM-dd');
+      const weekEnd = format(addDays(currentWeek, 6), 'yyyy-MM-dd');
+
+      // Fetch schedule patterns
       const { data: scheduleData, error: scheduleError } = await supabase
         .from('streamer_schedule')
         .select('*')
@@ -97,11 +110,13 @@ export default function StreamerSchedulePage() {
         })));
       }
 
-      // Fetch days off
+      // Fetch days off for specific week
       const { data: daysOffData, error: daysOffError } = await supabase
         .from('streamer_day_offs')
         .select('*')
-        .eq('streamer_id', streamerId);
+        .eq('streamer_id', streamerId)
+        .gte('date', weekStart)
+        .lte('date', weekEnd);
 
       if (daysOffError) {
         toast.error("Error fetching days off: " + daysOffError.message);
@@ -110,8 +125,6 @@ export default function StreamerSchedulePage() {
       }
 
       // Fetch accepted bookings
-      const weekStart = format(currentWeek, 'yyyy-MM-dd');
-      const weekEnd = format(addDays(currentWeek, 6), 'yyyy-MM-dd');
       const { data: bookingsData, error: bookingsError } = await supabase
         .from('accepted_bookings')
         .select('*')
@@ -129,123 +142,89 @@ export default function StreamerSchedulePage() {
   }, [fetchStreamerData, currentWeek]);
 
   useEffect(() => {
+    setSchedule([]); // Reset schedule when week changes
     fetchScheduleAndDaysOff();
   }, [fetchScheduleAndDaysOff, currentWeek]);
 
   const toggleAvailability = useCallback(async (dayOfWeek: number, hour: number) => {
-    const supabase = createClient();
-    const streamerId = await fetchStreamerData();
-    
-    if (streamerId) {
-      const currentDate = addDays(currentWeek, dayOfWeek);
-      const formattedDate = format(currentDate, 'yyyy-MM-dd');
-      const startTime = `${hour.toString().padStart(2, '0')}:00:00`;
-      const endTime = `${(hour + 1).toString().padStart(2, '0')}:00:00`;
+    const currentDate = addDays(currentWeek, dayOfWeek);
+    const formattedDate = format(currentDate, 'yyyy-MM-dd');
+    const startTime = `${hour.toString().padStart(2, '0')}:00:00`;
+    const endTime = `${(hour + 1).toString().padStart(2, '0')}:00:00`;
 
-      // Check if the slot is booked
-      const isBooked = acceptedBookings.some(b => 
-        b.booking_date === formattedDate &&
-        b.start_time <= startTime &&
-        b.end_time > startTime
-      );
+    // Check if the slot is booked
+    const isBooked = acceptedBookings.some(b => 
+      b.booking_date === formattedDate &&
+      b.start_time <= startTime &&
+      b.end_time > startTime
+    );
 
-      if (isBooked) {
-        toast.error("Cannot modify a booked slot.");
-        return;
-      }
-
-      if (selectionStart === null) {
-        // Start new selection
-        setSelectionStart(hour);
-        setSelectionEnd(hour);
-      } else if (hour === selectionStart) {
-        // Cancel selection if clicking on the start hour again
-        setSelectionStart(null);
-        setSelectionEnd(null);
-      } else {
-        // Complete the selection
-        const startHour = Math.min(selectionStart, hour);
-        const endHour = Math.max(selectionStart, hour);
-
-        const updatedSchedule = [...schedule];
-        
-        // Determine whether to set or unset availability based on the majority
-        const rangeSlots = updatedSchedule.filter(s => 
-          s.dayOfWeek === dayOfWeek && 
-          parseInt(s.startTime) >= startHour && 
-          parseInt(s.startTime) <= endHour
-        );
-        const availableCount = rangeSlots.filter(s => s.isAvailable).length;
-        const isSettingAvailable = availableCount <= rangeSlots.length / 2;
-
-        for (let i = startHour; i <= endHour; i++) {
-          const startTime = `${i.toString().padStart(2, '0')}:00:00`;
-          const endTime = `${(i + 1).toString().padStart(2, '0')}:00:00`;
-
-          const existingSlotIndex = updatedSchedule.findIndex(s => 
-            s.dayOfWeek === dayOfWeek && 
-            s.startTime === startTime && 
-            s.endTime === endTime
-          );
-
-          if (existingSlotIndex !== -1) {
-            updatedSchedule[existingSlotIndex].isAvailable = isSettingAvailable;
-          } else {
-            updatedSchedule.push({
-              id: `temp-${Date.now()}-${i}`,
-              dayOfWeek,
-              startTime,
-              endTime,
-              isAvailable: isSettingAvailable
-            });
-          }
-        }
-
-        setSchedule(updatedSchedule);
-
-        try {
-          const promises = [];
-          for (let i = startHour; i <= endHour; i++) {
-            const startTime = `${i.toString().padStart(2, '0')}:00:00`;
-            const endTime = `${(i + 1).toString().padStart(2, '0')}:00:00`;
-
-            const existingSlot = schedule.find(s => 
-              s.dayOfWeek === dayOfWeek && 
-              s.startTime === startTime && 
-              s.endTime === endTime
-            );
-
-            if (existingSlot) {
-              promises.push(supabase
-                .from('streamer_schedule')
-                .update({ is_available: isSettingAvailable })
-                .eq('id', existingSlot.id));
-            } else {
-              promises.push(supabase
-                .from('streamer_schedule')
-                .insert({
-                  streamer_id: streamerId,
-                  day_of_week: dayOfWeek,
-                  start_time: startTime,
-                  end_time: endTime,
-                  is_available: isSettingAvailable
-                }));
-            }
-          }
-
-          await Promise.all(promises);
-        } catch (error) {
-          console.error('Error toggling availability:', error);
-          toast.error("An unexpected error occurred. Please try again.");
-          fetchScheduleAndDaysOff();
-        }
-
-        // Reset selection
-        setSelectionStart(null);
-        setSelectionEnd(null);
-      }
+    if (isBooked) {
+      toast.error("Cannot modify a booked slot.");
+      return;
     }
-  }, [fetchStreamerData, schedule, fetchScheduleAndDaysOff, selectionStart, currentWeek, acceptedBookings]);
+
+    if (selectionStart === null) {
+      setSelectionStart(hour);
+      setSelectionEnd(hour);
+    } else if (hour === selectionStart) {
+      setSelectionStart(null);
+      setSelectionEnd(null);
+    } else {
+      const startHour = Math.min(selectionStart, hour);
+      const endHour = Math.max(selectionStart, hour);
+
+      const updatedSchedule = [...schedule];
+      const newChanges = [...unsavedChanges];
+      
+      // Determine availability based on majority
+      const rangeSlots = updatedSchedule.filter(s => 
+        s.dayOfWeek === dayOfWeek && 
+        parseInt(s.startTime) >= startHour && 
+        parseInt(s.startTime) <= endHour
+      );
+      const availableCount = rangeSlots.filter(s => s.isAvailable).length;
+      const isSettingAvailable = availableCount <= rangeSlots.length / 2;
+
+      // Update local state only
+      for (let i = startHour; i <= endHour; i++) {
+        const slotStartTime = `${i.toString().padStart(2, '0')}:00:00`;
+        const slotEndTime = `${(i + 1).toString().padStart(2, '0')}:00:00`;
+
+        const existingSlotIndex = updatedSchedule.findIndex(s => 
+          s.dayOfWeek === dayOfWeek && 
+          s.startTime === slotStartTime && 
+          s.endTime === slotEndTime
+        );
+
+        if (existingSlotIndex !== -1) {
+          updatedSchedule[existingSlotIndex].isAvailable = isSettingAvailable;
+        } else {
+          updatedSchedule.push({
+            id: `temp-${Date.now()}-${i}`,
+            dayOfWeek,
+            startTime: slotStartTime,
+            endTime: slotEndTime,
+            isAvailable: isSettingAvailable
+          });
+        }
+
+        // Track changes
+        newChanges.push({
+          dayOfWeek,
+          startTime: slotStartTime,
+          endTime: slotEndTime,
+          isAvailable: isSettingAvailable
+        });
+      }
+
+      setSchedule(updatedSchedule);
+      setUnsavedChanges(newChanges);
+      setHasChanges(true);
+      setSelectionStart(null);
+      setSelectionEnd(null);
+    }
+  }, [selectionStart, schedule, unsavedChanges, currentWeek, acceptedBookings]);
 
   const handleHourMouseEnter = useCallback((hour: number) => {
     if (selectionStart !== null) {
@@ -317,104 +296,59 @@ export default function StreamerSchedulePage() {
     
     if (streamerId) {
       try {
-        // Prepare the schedule data
-        const scheduleData = Array.from({ length: 7 }, (_, day) => {
-          const currentDate = addDays(currentWeek, day);
-          const formattedDate = format(currentDate, 'yyyy-MM-dd');
-          const dayBookings = acceptedBookings.filter(b => b.booking_date === formattedDate);
-          
-          return {
-            day,
-            slots: schedule
-              .filter(slot => slot.dayOfWeek === day && slot.isAvailable)
-              .map(slot => ({ 
-                start: slot.startTime, 
-                end: slot.endTime,
-                isBooked: dayBookings.some(b => 
-                  b.start_time <= slot.startTime && b.end_time > slot.startTime
-                )
-              }))
-          };
+        // Apply all changes to database
+        const promises = unsavedChanges.map(change => {
+          const existingSlot = schedule.find(s => 
+            s.dayOfWeek === change.dayOfWeek && 
+            s.startTime === change.startTime && 
+            s.endTime === change.endTime
+          );
+
+          if (existingSlot && existingSlot.id.startsWith('temp-')) {
+            return supabase
+              .from('streamer_schedule')
+              .insert({
+                streamer_id: streamerId,
+                day_of_week: change.dayOfWeek,
+                start_time: change.startTime,
+                end_time: change.endTime,
+                is_available: change.isAvailable
+              });
+          } else if (existingSlot) {
+            return supabase
+              .from('streamer_schedule')
+              .update({ is_available: change.isAvailable })
+              .eq('id', existingSlot.id);
+          }
         });
 
-        // Check if an active schedule exists
-        const { data: existingSchedule, error: checkError } = await supabase
-          .from('streamer_active_schedules')
-          .select('id')
-          .eq('streamer_id', streamerId)
-          .single();
+        await Promise.all(promises);
 
-        if (checkError && checkError.code !== 'PGRST116') {
-          throw checkError;
-        }
-
-        let activeScheduleError;
-        if (existingSchedule) {
-          // Update existing schedule
-          const { error } = await supabase
-            .from('streamer_active_schedules')
-            .update({ schedule: JSON.stringify(scheduleData) })
-            .eq('streamer_id', streamerId);
-          activeScheduleError = error;
-        } else {
-          // Insert new schedule
-          const { error } = await supabase
-            .from('streamer_active_schedules')
-            .insert({ streamer_id: streamerId, schedule: JSON.stringify(scheduleData) });
-          activeScheduleError = error;
-        }
-
-        if (activeScheduleError) throw activeScheduleError;
-
-        // Update streamer_schedule table
-        const { error: deleteError } = await supabase
-          .from('streamer_schedule')
-          .delete()
-          .eq('streamer_id', streamerId);
-
-        if (deleteError) throw deleteError;
-
-        const { error: insertError } = await supabase
-          .from('streamer_schedule')
-          .insert(
-            schedule.map(slot => ({
-              streamer_id: streamerId,
-              day_of_week: slot.dayOfWeek,
-              start_time: slot.startTime,
-              end_time: slot.endTime,
-              is_available: slot.isAvailable
+        // Update active schedule
+        const scheduleData = Array.from({ length: 7 }, (_, day) => ({
+          day,
+          slots: schedule
+            .filter(slot => slot.dayOfWeek === day && slot.isAvailable)
+            .map(slot => ({ 
+              start: slot.startTime, 
+              end: slot.endTime 
             }))
-          );
+        }));
 
-        if (insertError) throw insertError;
+        await supabase
+          .from('streamer_active_schedules')
+          .upsert({ 
+            streamer_id: streamerId, 
+            schedule: scheduleData 
+          }, { onConflict: 'streamer_id' });
 
-        // Update streamer_day_offs table
-        const { error: daysOffError } = await supabase
-          .from('streamer_day_offs')
-          .upsert(
-            daysOff.map(dayOff => ({
-              streamer_id: streamerId,
-              date: dayOff.date
-            })),
-            { onConflict: 'streamer_id,date' }
-          );
-
-        if (daysOffError) throw daysOffError;
-
-        console.log('Schedule saved successfully, showing toast...');
-        
-        toast.success('You\'ve successfully updated your schedule.', {
-          duration: 5000,
-        });
-
-        // Refresh the schedule data after saving
-        fetchScheduleAndDaysOff();
+        toast.success('Jadwal berhasil disimpan');
+        setUnsavedChanges([]);
+        setHasChanges(false);
+        await fetchScheduleAndDaysOff(); // Refresh data
       } catch (error) {
         console.error('Error saving schedule:', error);
-        
-        toast.error('Failed to save and activate the schedule. Please try again.', {
-          duration: 5000,
-        });
+        toast.error('Gagal menyimpan jadwal');
       } finally {
         setIsSaving(false);
       }
@@ -435,32 +369,40 @@ export default function StreamerSchedulePage() {
     };
 
     return (
-      <div key={day} className="mb-2 border border-gray-200 rounded-md overflow-hidden shadow-sm">
+      <div key={day} className="bg-white rounded-lg border border-gray-100 shadow-sm transition-all duration-200 hover:border-[#E23744]/20">
         <div 
-          className={`flex justify-between items-center p-3 cursor-pointer ${isDayOff ? 'bg-gray-100' : 'bg-white'} hover:bg-gray-50`}
+          className={`flex justify-between items-center p-4 cursor-pointer ${
+            isDayOff ? 'bg-gray-50' : 'bg-white'
+          } hover:bg-gray-50/50`}
           onClick={toggleExpand}
         >
           <div className="flex items-center">
-            <span className="text-sm font-medium text-gray-900">{format(currentDate, 'EEE, MMM d')}</span>
+            <span className="text-sm font-medium text-gray-900">
+              {format(currentDate, 'EEEE, d MMMM yyyy')}
+            </span>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              className={`mr-2 h-6 ${!isDayOff ? 'bg-[#000080] text-white' : ''}`}
+              className={`h-8 px-4 ${
+                !isDayOff 
+                  ? 'bg-[#E23744] text-white hover:bg-[#E23744]/90 border-[#E23744]' 
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
               onClick={(e) => toggleDayOff(e, currentDate)}
             >
-              {isDayOff ? 'Day Off' : 'Working'}
+              {isDayOff ? 'Hari Libur' : 'Hari Kerja'}
             </Button>
             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </div>
         </div>
         {isExpanded && !isDayOff && (
-          <div className="p-3 bg-white border-t border-gray-200">
+          <div className="p-4 bg-white border-t border-gray-100">
             {timeSlots.map((timeSlot) => (
-              <div key={timeSlot.label} className="mb-3">
-                <h4 className="text-xs font-medium text-gray-700 mb-1">{timeSlot.label}</h4>
-                <div className="grid grid-cols-6 gap-1">
+              <div key={timeSlot.label} className="mb-4 last:mb-0">
+                <h4 className="text-xs font-medium text-gray-600 mb-2">{timeSlot.label}</h4>
+                <div className="grid grid-cols-6 gap-2">
                   {timeSlot.hours.map((hour) => {
                     const startTime = `${hour.toString().padStart(2, '0')}:00:00`;
                     const slot = schedule.find(s => s.dayOfWeek === day && s.startTime === startTime);
@@ -469,20 +411,21 @@ export default function StreamerSchedulePage() {
                     );
                     const isInSelectionRange = selectionStart !== null && selectionEnd !== null && 
                       ((hour >= selectionStart && hour <= selectionEnd) || (hour <= selectionStart && hour >= selectionEnd));
+                    
                     return (
                       <Button
                         key={hour}
                         variant="outline"
                         size="sm"
-                        className={`p-1 h-8 text-xs ${
+                        className={`p-1 h-8 text-xs font-medium transition-all duration-200 ${
                           isBooked
-                            ? 'bg-red-500 text-white cursor-not-allowed'
+                            ? 'bg-red-500 text-white cursor-not-allowed border-red-500'
                             : slot?.isAvailable 
-                              ? 'bg-blue-500 text-white hover:bg-blue-600'
+                              ? 'bg-[#E23744] text-white hover:bg-[#E23744]/90 border-[#E23744]'
                               : isInSelectionRange
-                              ? 'bg-blue-200 hover:bg-blue-300'
-                              : 'hover:bg-gray-100'
-                        } ${hour === selectionStart ? 'ring-2 ring-blue-400' : ''}`}
+                              ? 'bg-[#E23744]/20 hover:bg-[#E23744]/30 border-[#E23744]/20'
+                              : 'hover:bg-gray-50 border-gray-200'
+                        } ${hour === selectionStart ? 'ring-2 ring-[#E23744]' : ''}`}
                         onClick={() => !isBooked && toggleAvailability(day, hour)}
                         onMouseEnter={() => handleHourMouseEnter(hour)}
                         disabled={isBooked}
@@ -500,54 +443,108 @@ export default function StreamerSchedulePage() {
     );
   }, [currentWeek, daysOff, expandedDay, schedule, toggleAvailability, toggleDayOff, selectionStart, selectionEnd, handleHourMouseEnter, acceptedBookings]);
 
+  // Add warning when leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasChanges]);
+
   if (isLoading) {
     return <div className="text-center py-10 text-sm text-gray-600">Loading...</div>;
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-3xl" ref={scheduleRef}>
-      <h1 className="text-2xl font-medium text-gray-900 mb-4">{streamerName}'s Schedule</h1>
-      <div className="flex justify-between items-center mb-4">
-        <Button 
-          onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}
-          variant="outline"
-          size="sm"
-          className="text-xs"
-        >
-          <ChevronLeft className="mr-1 h-3 w-3" /> Previous Week
-        </Button>
-        <span className="text-sm font-medium text-gray-700">
-          {format(currentWeek, 'MMM d')} - {format(addDays(currentWeek, 6), 'MMM d, yyyy')}
-        </span>
-        <Button 
-          onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
-          variant="outline"
-          size="sm"
-          className="text-xs"
-        >
-          Next Week <ChevronRight className="ml-1 h-3 w-3" />
-        </Button>
-      </div>
-      <div className="space-y-2 mb-4">
-        {Array.from({ length: 7 }, (_, day) => renderDaySchedule(day))}
-      </div>
-      <div className="flex justify-between items-center">
-        <Button 
-          onClick={() => router.push('/streamer-dashboard')} 
-          variant="outline"
-          size="sm"
-          className="text-xs"
-        >
-          Back to Dashboard
-        </Button>
-        <Button 
-          onClick={saveSchedule}
-          size="sm"
-          className="text-xs bg-blue-600 hover:bg-blue-700 text-white"
-          disabled={isSaving}
-        >
-          {isSaving ? 'Saving...' : 'Save Schedule'}
-        </Button>
+    <div className="min-h-screen bg-white">
+      {/* Add Navbar component */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header Section */}
+        <div className="mb-8 sm:mb-12">
+          <h1 className="text-2xl sm:text-[32px] font-bold mb-2">Pengaturan Jadwal</h1>
+          <div className="flex justify-between items-start">
+            <p className="text-sm sm:text-base text-gray-500">
+              Atur jadwal live streaming Anda untuk memudahkan client melakukan booking.
+            </p>
+          </div>
+        </div>
+
+        {/* Schedule Card */}
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm">
+          <div className="p-4 sm:p-6 border-b border-gray-100">
+            <div className="flex justify-between items-center">
+              <span className="text-lg sm:text-xl font-bold text-gray-900">
+                {format(currentWeek, 'MMM d')} - {format(addDays(currentWeek, 6), 'MMM d, yyyy')}
+              </span>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
+                >
+                  <ChevronLeft className="mr-1 h-3 w-3" /> Minggu Sebelumnya
+                </Button>
+                <Button 
+                  onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
+                >
+                  Minggu Selanjutnya <ChevronRight className="ml-1 h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-6">
+            {isLoading ? (
+              <div className="flex justify-center items-center py-10">
+                <Loader2 className="h-8 w-8 animate-spin text-[#E23744]" />
+              </div>
+            ) : (
+              <div className="space-y-3" ref={scheduleRef}>
+                {Array.from({ length: 7 }, (_, day) => renderDaySchedule(day))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50/50">
+            <div className="flex justify-between items-center">
+              <Button 
+                onClick={() => router.push('/streamer-dashboard')} 
+                variant="outline"
+                className="text-sm border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
+              >
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Kembali ke Dashboard
+              </Button>
+              <Button 
+                onClick={saveSchedule}
+                className="text-sm bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744] text-white"
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Simpan Jadwal
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
