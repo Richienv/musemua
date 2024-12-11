@@ -39,10 +39,22 @@ export async function signUpAction(formData: FormData): Promise<SignUpResponse> 
     const brandName = formData.get("brand_name") as string;
     const brandDescription = formData.get("brand_description") as string;
     const brandGuidelineFile = formData.get("brand_doc") as File;
-    
-    const origin = headers().get("origin");
 
-    // 1. First create the user
+    // 1. Check if user already exists
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email)
+      .single();
+
+    if (existingUser) {
+      return {
+        success: false,
+        error: 'Email already registered'
+      };
+    }
+
+    // 2. Create the user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -53,32 +65,32 @@ export async function signUpAction(formData: FormData): Promise<SignUpResponse> 
           user_type: 'client',
           brand_name: brandName,
           location: location,
-        },
-        emailRedirectTo: `${origin}/auth/callback`,
+        }
       },
     });
 
-    if (authError) {
-      return encodedRedirect("error", "/sign-up", authError.message);
+    if (authError || !authData.user) {
+      return {
+        success: false,
+        error: authError?.message || 'Failed to create user'
+      };
     }
 
-    // 2. Then upload the brand guidelines file if provided
+    // 3. Upload brand guidelines if provided
     let brandGuidelineUrl = null;
-    if (brandGuidelineFile && authData.user && brandGuidelineFile.size > 0) {
+    if (brandGuidelineFile && brandGuidelineFile.size > 0) {
       const fileName = `${authData.user.id}/${Date.now()}_${sanitizeFileName(brandGuidelineFile.name)}`;
 
       const { error: uploadError, data } = await supabase.storage
         .from('brand_guideline')
-        .upload(fileName, brandGuidelineFile, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: brandGuidelineFile.type
-        });
+        .upload(fileName, brandGuidelineFile);
 
       if (uploadError) {
-        // Clean up: delete the user if file upload fails
         await supabase.auth.admin.deleteUser(authData.user.id);
-        return encodedRedirect("error", "/sign-up", "Failed to upload brand guideline");
+        return {
+          success: false,
+          error: 'Failed to upload brand guideline'
+        };
       }
 
       brandGuidelineUrl = supabase.storage
@@ -86,34 +98,35 @@ export async function signUpAction(formData: FormData): Promise<SignUpResponse> 
         .getPublicUrl(fileName).data.publicUrl;
     }
 
-    // 3. Finally, create the user profile with all the information
-    if (authData.user) {
-      const { error: profileError } = await supabase
-        .from("users")
-        .insert({
-          id: authData.user.id,
-          email: authData.user.email,
-          first_name: firstName,
-          last_name: lastName,
-          user_type: 'client',
-          brand_name: brandName,
-          brand_description: brandDescription,
-          brand_guidelines_url: brandGuidelineUrl,
-          location: location,
-          profile_picture_url: null,
-          bio: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
+    // 4. Create user profile
+    const { error: profileError } = await supabase
+      .from("users")
+      .insert({
+        id: authData.user.id,
+        email: authData.user.email,
+        first_name: firstName,
+        last_name: lastName,
+        user_type: 'client',
+        brand_name: brandName,
+        brand_description: brandDescription,
+        brand_guidelines_url: brandGuidelineUrl,
+        location: location,
+        profile_picture_url: null,
+        bio: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
 
-      if (profileError) {
-        // Clean up: delete user and uploaded file if profile creation fails
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        throw new Error("Failed to create user profile");
-      }
+    if (profileError) {
+      // Clean up: delete user and uploaded file if profile creation fails
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      return {
+        success: false,
+        error: 'Failed to create user profile'
+      };
     }
 
-    // Return success response with redirect path
+    // Return success response
     return {
       success: true,
       redirectTo: '/client-onboarding'
