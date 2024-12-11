@@ -21,18 +21,29 @@ interface Message {
   is_read: boolean;
 }
 
+interface StreamerProfile {
+  id: number;
+  first_name: string;
+  last_name: string;
+  image_url: string;
+  user_id: string;
+}
+
+interface ClientProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  profile_picture_url: string;
+}
+
 interface Conversation {
   id: string;
   streamer_id: number;
   client_id: string;
   created_at: string;
-  streamer: {
-    id: number;
-    first_name: string;
-    last_name: string;
-    image_url: string;
-    user_id: string;
-  };
+  streamer?: StreamerProfile;
+  client?: ClientProfile;
+  messages?: Message[];
   lastMessage?: Message;
 }
 
@@ -65,38 +76,68 @@ export default function MessagesPage() {
         .single();
 
       if (userData) {
-        setUserType(userData.user_type);
+        setUserType(userData.user_type as 'streamer' | 'client');
       }
 
       setCurrentUser(user);
 
       try {
-        const { data: conversationsData } = await supabase
-          .from('conversations')
-          .select(`
-            *,
-            streamer:streamers (
-              id, first_name, last_name, image_url, user_id
-            ),
-            messages (
-              id, content, created_at, sender_id, conversation_id
-            )
-          `)
-          .eq('client_id', user.id)
-          .order('created_at', { ascending: false });
+        let conversationsData;
+
+        if (userData?.user_type === 'client') {
+          // Fetch conversations for client
+          const { data } = await supabase
+            .from('conversations')
+            .select(`
+              *,
+              streamer:streamers (
+                id, first_name, last_name, image_url, user_id
+              ),
+              messages (
+                id, content, created_at, sender_id, conversation_id
+              )
+            `)
+            .eq('client_id', user.id)
+            .order('created_at', { ascending: false });
+          
+          conversationsData = data;
+        } else if (userData?.user_type === 'streamer') {
+          // First get the streamer's ID
+          const { data: streamerData } = await supabase
+            .from('streamers')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+
+          if (streamerData) {
+            // Fetch conversations for streamer
+            const { data } = await supabase
+              .from('conversations')
+              .select(`
+                *,
+                client:users!conversations_client_id_fkey (
+                  id, first_name, last_name, profile_picture_url
+                ),
+                messages (
+                  id, content, created_at, sender_id, conversation_id
+                )
+              `)
+              .eq('streamer_id', streamerData.id)
+              .order('created_at', { ascending: false });
+            
+            conversationsData = data;
+          }
+        }
 
         if (conversationsData) {
-          const processedConversations = conversationsData.map(conv => {
-            const messages = conv.messages || [];
-            const sortedMessages = messages.sort((a: Message, b: Message) => 
-              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-            );
-            
-            return {
-              ...conv,
-              lastMessage: sortedMessages[0] || null
-            };
-          });
+          const processedConversations = conversationsData.map((conv: any) => ({
+            ...conv,
+            lastMessage: conv.messages && conv.messages.length > 0 
+              ? conv.messages.sort((a: Message, b: Message) => 
+                  new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                )[0]
+              : null
+          }));
 
           console.log('Processed conversations:', processedConversations);
           setConversations(processedConversations);
@@ -109,11 +150,12 @@ export default function MessagesPage() {
         }
       } catch (error) {
         console.error('Error fetching conversations:', error);
+        toast.error('Failed to load conversations');
       }
     };
 
     initializeChat();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     // Scroll to bottom when messages update
@@ -267,8 +309,14 @@ export default function MessagesPage() {
         onClick={() => handleConversationSelect(conversation)}
       >
         <Image
-          src={conversation.streamer.image_url || '/default-avatar.png'}
-          alt={`${conversation.streamer.first_name} ${conversation.streamer.last_name}`}
+          src={userType === 'client' 
+            ? (conversation.streamer?.image_url || '/default-avatar.png')
+            : (conversation.client?.profile_picture_url || '/default-avatar.png')
+          }
+          alt={userType === 'client'
+            ? `${conversation.streamer?.first_name || ''} ${conversation.streamer?.last_name || ''}`
+            : `${conversation.client?.first_name || ''} ${conversation.client?.last_name || ''}`
+          }
           width={48}
           height={48}
           className="rounded-full mr-4"
@@ -276,7 +324,10 @@ export default function MessagesPage() {
         <div className="flex-1">
           <div className="flex justify-between items-start">
             <h3 className="font-semibold text-base">
-              {`${conversation.streamer.first_name} ${conversation.streamer.last_name}`}
+              {userType === 'client'
+                ? `${conversation.streamer?.first_name || ''} ${conversation.streamer?.last_name || ''}`
+                : `${conversation.client?.first_name || ''} ${conversation.client?.last_name || ''}`
+              }
             </h3>
             {conversation.lastMessage && (
               <span className="text-xs text-gray-500">
@@ -358,14 +409,20 @@ export default function MessagesPage() {
               <div className="bg-white p-4 border-b border-gray-200">
                 <div className="flex items-center">
                   <Image
-                    src={selectedConversation.streamer.image_url || '/default-avatar.png'}
+                    src={userType === 'client'
+                      ? (selectedConversation.streamer?.image_url || '/default-avatar.png')
+                      : (selectedConversation.client?.profile_picture_url || '/default-avatar.png')
+                    }
                     alt="Profile"
                     width={40}
                     height={40}
                     className="rounded-full mr-3"
                   />
                   <span className="font-semibold text-base truncate">
-                    {`${selectedConversation.streamer.first_name} ${selectedConversation.streamer.last_name}`}
+                    {userType === 'client'
+                      ? `${selectedConversation.streamer?.first_name || ''} ${selectedConversation.streamer?.last_name || ''}`
+                      : `${selectedConversation.client?.first_name || ''} ${selectedConversation.client?.last_name || ''}`
+                    }
                   </span>
                 </div>
               </div>

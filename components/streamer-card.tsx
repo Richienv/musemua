@@ -264,8 +264,8 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
     if (error) {
       console.error('Error fetching active schedule:', error);
+      setActiveSchedule(null); // Set to null instead of default schedule
     } else if (data && data.length > 0) {
-      // Add safety check and handle both string and object cases
       try {
         const schedule = typeof data[0].schedule === 'string' 
           ? JSON.parse(data[0].schedule)
@@ -273,28 +273,10 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
         setActiveSchedule(schedule);
       } catch (e) {
         console.error('Error parsing schedule:', e);
-        // Set default schedule on error
-        setActiveSchedule({
-          0: { slots: [{ start: '09:00', end: '17:00' }] },
-          1: { slots: [{ start: '09:00', end: '17:00' }] },
-          2: { slots: [{ start: '09:00', end: '17:00' }] },
-          3: { slots: [{ start: '09:00', end: '17:00' }] },
-          4: { slots: [{ start: '09:00', end: '17:00' }] },
-          5: { slots: [{ start: '09:00', end: '17:00' }] },
-          6: { slots: [{ start: '09:00', end: '17:00' }] },
-        });
+        setActiveSchedule(null); // Set to null on parse error
       }
     } else {
-      // Set default schedule if no data
-      setActiveSchedule({
-        0: { slots: [{ start: '09:00', end: '17:00' }] },
-        1: { slots: [{ start: '09:00', end: '17:00' }] },
-        2: { slots: [{ start: '09:00', end: '17:00' }] },
-        3: { slots: [{ start: '09:00', end: '17:00' }] },
-        4: { slots: [{ start: '09:00', end: '17:00' }] },
-        5: { slots: [{ start: '09:00', end: '17:00' }] },
-        6: { slots: [{ start: '09:00', end: '17:00' }] },
-      });
+      setActiveSchedule(null); // Set to null when no schedule exists
     }
   };
 
@@ -691,44 +673,55 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
           <div className="h-px bg-gray-200" />
 
-          {timeOptions.length > 0 ? (
-            <div className="space-y-3 sm:space-y-4">
-              {['Morning', 'Afternoon', 'Evening', 'Night'].map((timeOfDay) => (
-                <div key={timeOfDay}>
-                  <h4 className="text-xs sm:text-sm font-semibold mb-2">{timeOfDay}</h4>
-                  <div className="grid grid-cols-4 gap-1 sm:gap-2">
-                    {timeOptions
-                      .filter((hour: string) => {
-                        const hourNum = parseInt(hour.split(':')[0]);
-                        return (
-                          (timeOfDay === 'Night' && (hourNum >= 0 && hourNum < 6)) ||
-                          (timeOfDay === 'Morning' && (hourNum >= 6 && hourNum < 12)) ||
-                          (timeOfDay === 'Afternoon' && (hourNum >= 12 && hourNum < 18)) ||
-                          (timeOfDay === 'Evening' && (hourNum >= 18 && hourNum < 24))
-                        );
-                      })
-                      .map((hour: string) => (
-                        <Button
-                          key={hour}
-                          variant={isHourSelected(hour) ? "default" : "outline"}
-                          className={`text-[10px] sm:text-sm p-1 sm:p-2 h-auto ${
-                            isHourSelected(hour) 
-                              ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]' 
-                              : 'hover:bg-blue-50'
-                          }`}
-                          onClick={() => handleHourSelection(hour)}
-                          disabled={isHourDisabled(hour)}
-                        >
-                          {hour}
-                        </Button>
-                      ))}
+          {activeSchedule ? (
+            timeOptions.length > 0 ? (
+              <div className="space-y-3 sm:space-y-4">
+                {['Morning', 'Afternoon', 'Evening', 'Night'].map((timeOfDay) => (
+                  <div key={timeOfDay}>
+                    <h4 className="text-xs sm:text-sm font-semibold mb-2">{timeOfDay}</h4>
+                    <div className="grid grid-cols-4 gap-1 sm:gap-2">
+                      {timeOptions
+                        .filter((hour: string) => {
+                          const hourNum = parseInt(hour.split(':')[0]);
+                          return (
+                            (timeOfDay === 'Night' && (hourNum >= 0 && hourNum < 6)) ||
+                            (timeOfDay === 'Morning' && (hourNum >= 6 && hourNum < 12)) ||
+                            (timeOfDay === 'Afternoon' && (hourNum >= 12 && hourNum < 18)) ||
+                            (timeOfDay === 'Evening' && (hourNum >= 18 && hourNum < 24))
+                          );
+                        })
+                        .map((hour: string) => (
+                          <Button
+                            key={hour}
+                            variant={isHourSelected(hour) ? "default" : "outline"}
+                            className={`text-[10px] sm:text-sm p-1 sm:p-2 h-auto ${
+                              isHourSelected(hour) 
+                                ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]' 
+                                : 'hover:bg-blue-50'
+                            }`}
+                            onClick={() => handleHourSelection(hour)}
+                            disabled={isHourDisabled(hour)}
+                          >
+                            {hour}
+                          </Button>
+                        ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-xs sm:text-sm text-gray-500">
+                No available slots for this day
+              </div>
+            )
           ) : (
-            <div className="text-center text-xs sm:text-sm text-gray-500">
-              No available slots for this day
+            <div className="text-center py-6">
+              <div className="text-sm text-gray-500 mb-2">
+                This streamer hasn't set their availability yet.
+              </div>
+              <div className="text-xs text-gray-400">
+                Please check back later or contact the streamer directly.
+              </div>
             </div>
           )}
 
