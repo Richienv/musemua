@@ -14,6 +14,7 @@ import { Info, ArrowLeft, ArrowRight } from 'lucide-react';
 import { StreamerCard, Streamer } from "@/components/streamer-card";
 import { motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SignUpResponse } from "@/app/types/auth";
 
 const platforms = ["TikTok", "Shopee"];
 const categories = ["Fashion", "Technology", "Beauty", "Gaming", "Cooking", "Fitness", "Music", "Others"];
@@ -187,8 +188,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
       setError(null);
       setIsSigningUp(true);
 
-      // Create a new FormData instance for submission
-      const submitFormData = new window.FormData();
+      const submitFormData = new FormData();
 
       // Add basic info
       submitFormData.append('first_name', formData.basicInfo.first_name);
@@ -237,19 +237,16 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
       submitFormData.append('bio', formData.profile.bio);
       submitFormData.append('video_url', formData.profile.video_url);
 
-      const result = await streamerSignUpAction(submitFormData);
+      const result: SignUpResponse = await streamerSignUpAction(submitFormData);
       
-      // If we get here, signup was successful
-      window.location.href = '/sign-in?success=Account created successfully! Please sign in.';
+      if (result.success && result.redirectTo) {
+        window.location.href = result.redirectTo;
+      } else {
+        setError(result.error || 'An unexpected error occurred');
+      }
     } catch (error: any) {
       console.error('Sign up error:', error);
-      if (error.digest?.includes('NEXT_REDIRECT')) {
-        const params = new URLSearchParams(error.digest.split(';')[2]);
-        const errorMsg = params.get('error');
-        setError(errorMsg || 'An unexpected error occurred');
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsSigningUp(false);
     }

@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cookies } from 'next/headers';
 import { v4 as uuidv4 } from 'uuid';
+import { SignUpResponse } from "@/app/types/auth";
 
 // Add this helper function at the top of the file
 function sanitizeFileName(fileName: string): string {
@@ -23,95 +24,108 @@ export interface StreamerProfileResponse {
   error?: string;
 }
 
-export async function signUpAction(formData: FormData) {
+export async function signUpAction(formData: FormData): Promise<SignUpResponse> {
   const supabase = createClient();
   
-  // Get basic info
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const firstName = formData.get("first_name") as string;
-  const lastName = formData.get("last_name") as string;
-  const location = formData.get("location") as string;
-  
-  // Get brand info
-  const brandName = formData.get("brand_name") as string;
-  const brandDescription = formData.get("brand_description") as string;
-  const brandGuidelineFile = formData.get("brand_doc") as File;
-  
-  const origin = headers().get("origin");
+  try {
+    // Get basic info
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const firstName = formData.get("first_name") as string;
+    const lastName = formData.get("last_name") as string;
+    const location = formData.get("location") as string;
+    
+    // Get brand info
+    const brandName = formData.get("brand_name") as string;
+    const brandDescription = formData.get("brand_description") as string;
+    const brandGuidelineFile = formData.get("brand_doc") as File;
+    
+    const origin = headers().get("origin");
 
-  // 1. First create the user
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        first_name: firstName,
-        last_name: lastName,
-        user_type: 'client',
-        brand_name: brandName,
-        location: location,
+    // 1. First create the user
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          user_type: 'client',
+          brand_name: brandName,
+          location: location,
+        },
+        emailRedirectTo: `${origin}/auth/callback`,
       },
-      emailRedirectTo: `${origin}/auth/callback`,
-    },
-  });
+    });
 
-  if (authError) {
-    return encodedRedirect("error", "/sign-up", authError.message);
-  }
-
-  // 2. Then upload the brand guidelines file if provided
-  let brandGuidelineUrl = null;
-  if (brandGuidelineFile && authData.user && brandGuidelineFile.size > 0) {
-    const fileName = `${authData.user.id}/${Date.now()}_${sanitizeFileName(brandGuidelineFile.name)}`;
-
-    const { error: uploadError, data } = await supabase.storage
-      .from('brand_guideline')
-      .upload(fileName, brandGuidelineFile, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: brandGuidelineFile.type
-      });
-
-    if (uploadError) {
-      // Clean up: delete the user if file upload fails
-      await supabase.auth.admin.deleteUser(authData.user.id);
-      return encodedRedirect("error", "/sign-up", "Failed to upload brand guideline");
+    if (authError) {
+      return encodedRedirect("error", "/sign-up", authError.message);
     }
 
-    brandGuidelineUrl = supabase.storage
-      .from('brand_guideline')
-      .getPublicUrl(fileName).data.publicUrl;
-  }
+    // 2. Then upload the brand guidelines file if provided
+    let brandGuidelineUrl = null;
+    if (brandGuidelineFile && authData.user && brandGuidelineFile.size > 0) {
+      const fileName = `${authData.user.id}/${Date.now()}_${sanitizeFileName(brandGuidelineFile.name)}`;
 
-  // 3. Finally, create the user profile with all the information
-  if (authData.user) {
-    const { error: profileError } = await supabase
-      .from("users")
-      .insert({
-        id: authData.user.id,
-        email: authData.user.email,
-        first_name: firstName,
-        last_name: lastName,
-        user_type: 'client',
-        brand_name: brandName,
-        brand_description: brandDescription, // Add the brand description
-        brand_guidelines_url: brandGuidelineUrl,
-        location: location,
-        profile_picture_url: null,
-        bio: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      const { error: uploadError, data } = await supabase.storage
+        .from('brand_guideline')
+        .upload(fileName, brandGuidelineFile, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: brandGuidelineFile.type
+        });
 
-    if (profileError) {
-      // Clean up: delete user and uploaded file if profile creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id);
-      return encodedRedirect("error", "/sign-up", "Failed to create user profile");
+      if (uploadError) {
+        // Clean up: delete the user if file upload fails
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        return encodedRedirect("error", "/sign-up", "Failed to upload brand guideline");
+      }
+
+      brandGuidelineUrl = supabase.storage
+        .from('brand_guideline')
+        .getPublicUrl(fileName).data.publicUrl;
     }
-  }
 
-  return redirect("/sign-in?success=Account created successfully! Please sign in.");
+    // 3. Finally, create the user profile with all the information
+    if (authData.user) {
+      const { error: profileError } = await supabase
+        .from("users")
+        .insert({
+          id: authData.user.id,
+          email: authData.user.email,
+          first_name: firstName,
+          last_name: lastName,
+          user_type: 'client',
+          brand_name: brandName,
+          brand_description: brandDescription,
+          brand_guidelines_url: brandGuidelineUrl,
+          location: location,
+          profile_picture_url: null,
+          bio: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+      if (profileError) {
+        // Clean up: delete user and uploaded file if profile creation fails
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        throw new Error("Failed to create user profile");
+      }
+    }
+
+    // Return success response with redirect path
+    return {
+      success: true,
+      redirectTo: '/client-onboarding'
+    };
+    
+  } catch (error) {
+    console.error('Sign up error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected error occurred"
+    };
+  }
 }
 
 export const signInAction = async (formData: FormData) => {
@@ -375,7 +389,7 @@ export async function updateUserProfile(formData: FormData) {
   }
 }
 
-export async function streamerSignUpAction(formData: FormData) {
+export async function streamerSignUpAction(formData: FormData): Promise<SignUpResponse> {
   const supabase = createClient();
   
   try {
@@ -498,17 +512,23 @@ export async function streamerSignUpAction(formData: FormData) {
 
           if (galleryError) {
             console.error('Gallery upload error:', galleryError);
-            // Continue with other uploads even if one fails
           }
         }
       }
     }
 
-    return encodedRedirect("success", "/sign-in", "Account created successfully! Please check your email to verify your account.");
+    // Instead of direct redirect, return a success response with redirect path
+    return {
+      success: true,
+      redirectTo: '/streamer-onboarding'
+    };
 
   } catch (error) {
     console.error('Streamer signup error:', error);
-    return encodedRedirect("error", "/streamer-sign-up", error instanceof Error ? error.message : "An unexpected error occurred");
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected error occurred"
+    };
   }
 }
 

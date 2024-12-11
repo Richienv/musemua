@@ -12,6 +12,7 @@ import Image from "next/image";
 import { Info, ArrowLeft, ArrowRight, Upload, Check, AlertCircle } from 'lucide-react';
 import { motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SignUpResponse } from "@/app/types/auth";
 
 interface FormData {
   basicInfo: {
@@ -424,8 +425,13 @@ export default function Signup({ searchParams }: { searchParams: Message }) {
         submitFormData.append('brand_doc', formData.brandInfo.brand_doc);
       }
 
-      await signUpAction(submitFormData);
-      window.location.href = '/sign-in?success=Account created successfully! Please sign in.';
+      const result: SignUpResponse = await signUpAction(submitFormData);
+      
+      if (result.success && result.redirectTo) {
+        window.location.href = result.redirectTo;
+      } else {
+        setError(result.error || 'An unexpected error occurred');
+      }
     } catch (error: any) {
       console.error('Sign up error:', error);
       setError('An unexpected error occurred. Please try again.');
