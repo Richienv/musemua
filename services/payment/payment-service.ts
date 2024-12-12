@@ -30,36 +30,11 @@ interface PaymentDetails {
 }
 
 export async function createPayment(details: PaymentDetails) {
-  const supabase = createClient();
-  
   try {
-    // Create booking first
-    const { data: bookingData, error: bookingError } = await supabase
-      .from('bookings')
-      .insert({
-        client_id: details.metadata.userId,
-        streamer_id: parseInt(details.metadata.streamerId),
-        start_time: details.metadata.startTime,
-        end_time: details.metadata.endTime,
-        platform: details.metadata.platform,
-        status: 'payment_pending',
-        special_request: details.metadata.specialRequest,
-        sub_acc_link: details.metadata.sub_acc_link,
-        sub_acc_pass: details.metadata.sub_acc_pass,
-        price: details.metadata.price,
-        client_first_name: details.metadata.firstName,
-        client_last_name: details.metadata.lastName,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-      })
-      .select()
-      .single();
-
-    if (bookingError) throw bookingError;
-
-    // Generate Midtrans token with finish URL
+    // Generate Midtrans token first
     const transactionDetails = {
       transaction_details: {
-        order_id: `BOOKING-${bookingData.id}-${Date.now()}`,
+        order_id: `BOOKING-TEMP-${Date.now()}`, // Temporary order ID
         gross_amount: details.amount
       },
       customer_details: {
@@ -78,34 +53,74 @@ export async function createPayment(details: PaymentDetails) {
     const transaction = await snap.createTransaction(transactionDetails);
 
     if (!transaction || !transaction.token) {
-      // Clean up the booking if payment token creation fails
-      await supabase
-        .from('bookings')
-        .delete()
-        .eq('id', bookingData.id);
       throw new Error('Failed to generate Midtrans token');
     }
 
-    // Create payment record
-    await supabase
-      .from('payments')
-      .insert({
-        booking_id: bookingData.id,
-        amount: details.amount,
-        status: 'pending',
-        payment_method: 'midtrans',
-        payment_token: transaction.token,
-        transaction_id: transactionDetails.transaction_details.order_id
-      });
-
     return {
       token: transaction.token,
-      bookingId: bookingData.id,
-      orderId: transactionDetails.transaction_details.order_id
+      metadata: details.metadata // Return metadata for use after payment success
     };
 
   } catch (error) {
     console.error('Payment creation error:', error);
+    throw error;
+  }
+}
+
+// Add a new function to create booking after successful payment
+export async function createBookingAfterPayment(paymentResult: any, metadata: any) {
+  const supabase = createClient();
+  
+  try {
+    // Create booking
+    const { data: bookingData, error: bookingError } = await supabase
+      .from('bookings')
+      .insert({
+        client_id: metadata.userId,
+        streamer_id: parseInt(metadata.streamerId),
+        start_time: metadata.startTime,
+        end_time: metadata.endTime,
+        platform: metadata.platform,
+        status: 'pending',
+        special_request: metadata.specialRequest,
+        sub_acc_link: metadata.sub_acc_link,
+        sub_acc_pass: metadata.sub_acc_pass,
+        price: metadata.price,
+        client_first_name: metadata.firstName,
+        client_last_name: metadata.lastName,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      })
+      .select()
+      .single();
+
+    if (bookingError) throw bookingError;
+
+    // Create payment record with status
+    const { error: paymentError } = await supabase
+      .from('payments')
+      .insert({
+        booking_id: bookingData.id,
+        amount: metadata.price,
+        status: 'success', // Payment status goes here
+        payment_method: 'midtrans',
+        transaction_id: paymentResult.order_id,
+        midtrans_response: paymentResult // Store the full response from Midtrans
+      });
+
+    if (paymentError) throw paymentError;
+
+    // Get booking with streamer details for notifications
+    const { data: bookingWithStreamer, error: streamerError } = await supabase
+      .from('bookings')
+      .select('*, streamers(*)')
+      .eq('id', bookingData.id)
+      .single();
+
+    if (streamerError) throw streamerError;
+
+    return bookingWithStreamer;
+  } catch (error) {
+    console.error('Error creating booking:', error);
     throw error;
   }
 }

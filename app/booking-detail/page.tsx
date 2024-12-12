@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from "@/utils/supabase/client";
+import { createBookingAfterPayment } from '@/services/payment/payment-service';
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -82,6 +83,7 @@ function BookingDetailContent() {
   const [paymentToken, setPaymentToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentMetadata, setPaymentMetadata] = useState<any>(null);
 
   useEffect(() => {
     if (searchParams) {
@@ -221,10 +223,11 @@ function BookingDetailContent() {
   };
 
   const handleConfirmBooking = async () => {
-    if (!bookingDetails || isLoading) return;
+    if (!bookingDetails || isLoading || isProcessing) return;
 
     try {
       setIsLoading(true);
+      setIsProcessing(true);
       const supabase = createClient();
       
       const { data: { user } } = await supabase.auth.getUser();
@@ -233,7 +236,7 @@ function BookingDetailContent() {
         return;
       }
 
-      // Generate payment token and create booking
+      // Only generate Midtrans token first, without creating booking
       const paymentResponse = await fetch('/api/payments/create', {
         method: 'POST',
         headers: {
@@ -269,90 +272,80 @@ function BookingDetailContent() {
         throw new Error('No payment token received');
       }
 
+      // Store metadata for use after payment success
+      setPaymentMetadata(paymentData.metadata);
       setPaymentToken(paymentData.token);
 
     } catch (error) {
       console.error('Error initiating payment:', error);
       toast.error('Failed to initiate payment. Please try again.');
-    } finally {
+      setIsProcessing(false);
       setIsLoading(false);
     }
   };
 
   const handlePaymentSuccess = async (result: any) => {
     try {
-      const supabase = createClient();
-      
-      // Extract the booking ID from the order ID
-      const orderIdParts = result.order_id.split('-');
-      const bookingId = parseInt(orderIdParts[1], 10);
-      
-      if (isNaN(bookingId)) {
-        throw new Error('Invalid booking ID format');
-      }
+      // Use stored metadata instead of paymentData.metadata
+      const bookingData = await createBookingAfterPayment(result, paymentMetadata);
 
-      // Get booking details with streamer info including user_id
-      const { data: booking } = await supabase
-        .from('bookings')
+      // Create notifications
+      const supabase = createClient();
+
+      // Get streamer details first - simplified query
+      const { data: streamerData, error: streamerError } = await supabase
+        .from('streamers')
         .select(`
-          *,
-          streamer:streamers (
-            id,
-            first_name,
-            last_name,
-            user_id
-          )
+          id,
+          first_name,
+          last_name,
+          user_id
         `)
-        .eq('id', bookingId)
+        .eq('id', parseInt(bookingDetails!.streamerId))
         .single();
 
-      if (!booking) {
-        throw new Error('Booking not found');
+      if (streamerError || !streamerData) {
+        throw new Error('Failed to fetch streamer details');
       }
 
-      // Create notifications for both parties with correct notification type
       const notifications = [
         {
-          user_id: booking.streamer.user_id,
-          streamer_id: booking.streamer_id,
-          message: `New booking request from ${booking.client_first_name} ${booking.client_last_name}. Payment confirmed.`,
-          type: 'confirmation',  // Changed from 'booking_request' to 'confirmation'
-          booking_id: bookingId,
+          user_id: streamerData.user_id, // Use the direct user_id from streamer
+          streamer_id: streamerData.id,
+          message: `New booking request from ${bookingData.client_first_name} ${bookingData.client_last_name}. Payment confirmed.`,
+          type: 'confirmation',
+          booking_id: bookingData.id,
           created_at: new Date().toISOString(),
           is_read: false
         },
         {
-          user_id: booking.client_id,
-          message: `Payment confirmed for booking with ${booking.streamer.first_name} ${booking.streamer.last_name}. Waiting for acceptance.`,
-          type: 'confirmation',  // Changed from 'booking_request' to 'confirmation'
-          booking_id: bookingId,
+          user_id: bookingData.client_id,
+          message: `Payment confirmed for booking with ${streamerData.first_name} ${streamerData.last_name}. Waiting for acceptance.`,
+          type: 'confirmation',
+          booking_id: bookingData.id,
           created_at: new Date().toISOString(),
           is_read: false
         }
       ];
 
-      // Insert notifications
       const { error: notificationError } = await supabase
         .from('notifications')
         .insert(notifications);
 
       if (notificationError) {
         console.error('Error creating notifications:', notificationError);
+        throw new Error('Failed to create notifications');
       }
 
-      // Update booking status
-      await supabase
-        .from('bookings')
-        .update({ status: 'pending' })
-        .eq('id', bookingId);
-
-      // Show success toast
       toast.success('Payment successful! Booking request has been sent.');
       router.push('/client-bookings');
 
     } catch (error) {
       console.error('Error handling payment success:', error);
       toast.error('Payment successful but encountered an error. Please contact support.');
+    } finally {
+      setIsLoading(false);
+      setIsProcessing(false);
     }
   };
 
@@ -362,10 +355,14 @@ function BookingDetailContent() {
 
   const handlePaymentError = (result: any) => {
     toast.error('Payment failed. Please try again.');
+    setIsLoading(false);
+    setIsProcessing(false);
   };
 
   const handlePaymentClose = () => {
     setPaymentToken(null);
+    setIsLoading(false);
+    setIsProcessing(false);
   };
 
   const isHourSelected = (hour: string) => selectedHours.includes(hour);

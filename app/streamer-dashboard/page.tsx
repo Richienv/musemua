@@ -382,49 +382,49 @@ function BookingCard({ booking, onAccept, onReject }: {
 }) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 hover:border-gray-200 transition-all duration-200">
-      <div className="p-6 space-y-5">
+      <div className="p-3 sm:p-4 md:p-6 space-y-4">
         {/* Header section */}
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-0">
           <div className="space-y-2">
-            <h3 className="font-semibold text-lg">
+            <h3 className="font-semibold text-base sm:text-lg">
               {booking.client_first_name} {booking.client_last_name}
             </h3>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+            <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium
               ${booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                 booking.status === 'accepted' ? 'bg-green-100 text-green-800' :
                 'bg-red-100 text-red-800'}`}>
               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
             </span>
           </div>
-          <div className="text-xl font-bold text-gray-900">
+          <div className="text-base sm:text-lg md:text-xl font-bold text-gray-900">
             Rp {booking.price.toLocaleString('id-ID')}
           </div>
         </div>
 
         {/* Booking Details */}
-        <div className="space-y-3 text-base text-gray-600">
-          <div className="flex items-center gap-3">
-            <div className="w-6 flex justify-center">
-              <Calendar className="h-5 w-5 text-gray-400" />
+        <div className="space-y-2 sm:space-y-3 text-sm sm:text-base text-gray-600">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-5 sm:w-6 flex justify-center">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
             </div>
             <span>{format(new Date(booking.start_time), 'MMMM d, yyyy')}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-6 flex justify-center">
-              <Clock className="h-5 w-5 text-gray-400" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-5 sm:w-6 flex justify-center">
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
             </div>
-            <span>
+            <span className="text-sm sm:text-base">
               {format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}
               <span className="text-gray-400 ml-2">
                 ({differenceInHours(new Date(booking.end_time), new Date(booking.start_time))} hours)
               </span>
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-6 flex justify-center">
-              <Monitor className="h-5 w-5 text-gray-400" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-5 sm:w-6 flex justify-center">
+              <Monitor className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
             </div>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
               booking.platform.toLowerCase() === 'shopee' 
                 ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white' 
                 : 'bg-gradient-to-r from-[#00f2ea] to-[#ff0050] text-white'
@@ -434,20 +434,20 @@ function BookingCard({ booking, onAccept, onReject }: {
           </div>
         </div>
 
-        {/* Special Request - Keep this section */}
+        {/* Special Request */}
         {booking.special_request && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
-            <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
+          <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-gray-50 rounded-lg space-y-2">
+            <p className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-2">
+              <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
               Special Request
             </p>
-            <p className="text-sm text-gray-600">{booking.special_request}</p>
+            <p className="text-xs sm:text-sm text-gray-600">{booking.special_request}</p>
           </div>
         )}
 
         {/* Actions */}
         {booking.status === 'pending' && (
-          <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
+          <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6 pt-4 border-t border-gray-100">
             <Button
               onClick={() => onAccept(booking.id)}
               className="flex-1 text-xs sm:text-sm py-2 bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744] text-white"
@@ -468,19 +468,19 @@ function BookingCard({ booking, onAccept, onReject }: {
   );
 }
 
-// Update the AnalyticsCard component to remove icons and match the design
+// Update the AnalyticsCard component for better mobile display
 const AnalyticsCard = ({ title, value, trend }: { 
   title: string; 
   value: string; 
   trend?: number;
 }) => (
-  <div className="bg-white rounded-xl sm:rounded-3xl p-4 sm:p-6 hover:shadow-sm transition-all duration-300">
+  <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 hover:shadow-sm transition-all duration-300">
     <div className="space-y-1 sm:space-y-2">
-      <p className="text-xs sm:text-sm text-gray-500">{title}</p>
+      <p className="text-[10px] sm:text-xs md:text-sm text-gray-500">{title}</p>
       <div className="space-y-1">
-        <h3 className="text-lg sm:text-[28px] font-bold text-gray-900">{value}</h3>
+        <h3 className="text-base sm:text-lg md:text-[28px] font-bold text-gray-900">{value}</h3>
         {trend !== undefined && (
-          <p className={`text-xs sm:text-sm ${trend >= 0 ? 'text-[#4CAF50]' : 'text-red-500'}`}>
+          <p className={`text-[10px] sm:text-xs md:text-sm ${trend >= 0 ? 'text-[#4CAF50]' : 'text-red-500'}`}>
             • {trend > 0 ? '+' : ''}{trend}% dari bulan lalu
           </p>
         )}
@@ -501,6 +501,8 @@ const formatJoinDate = (date: string) => {
 export default function StreamerDashboard() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
+  const [rejectedBookings, setRejectedBookings] = useState<Booking[]>([]);
   const [activeTab, setActiveTab] = useState('upcoming');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -534,7 +536,6 @@ export default function StreamerDashboard() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
       if (!user) {
         console.log("No authenticated user found");
         router.push("/sign-in");
@@ -565,8 +566,8 @@ export default function StreamerDashboard() {
           setGalleryPhotos(gallery);
           setUserData({ user_type: 'streamer', first_name: streamerData.first_name });
 
-          // Fetch bookings
-          const { data: bookingsData, error: bookingsError } = await supabase
+          // Fetch all bookings with different statuses
+          const { data: allBookings, error: bookingsError } = await supabase
             .from('bookings')
             .select(`
               *,
@@ -576,11 +577,30 @@ export default function StreamerDashboard() {
               sub_acc_pass
             `)
             .eq('streamer_id', streamerData.id)
-            .not('status', 'eq', 'payment_pending')
             .order('start_time', { ascending: true });
 
           if (bookingsError) throw bookingsError;
-          setBookings(bookingsData || []);
+
+          // Filter bookings based on status
+          const upcomingBookings = (allBookings || []).filter(booking => 
+            // Only show accepted and live bookings in upcoming schedule
+            booking.status === 'accepted' || booking.status === 'live'
+          );
+
+          // Set pending bookings (including those that just completed payment)
+          const pendingBookings = (allBookings || []).filter(booking => 
+            booking.status === 'pending' || booking.status === 'payment_pending'
+          );
+
+          // Set rejected bookings
+          const rejectedBookings = (allBookings || []).filter(booking => 
+            booking.status === 'rejected'
+          );
+
+          // Update all states
+          setBookings(upcomingBookings);
+          setPendingBookings(pendingBookings);
+          setRejectedBookings(rejectedBookings);
 
         } catch (err) {
           console.error("Error fetching streamer data:", err);
@@ -611,7 +631,8 @@ export default function StreamerDashboard() {
     const subscription = supabase
       .channel('bookings_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, async (payload: any) => {
-        console.log("Received real-time update:", payload); // Add this line for debugging
+        console.log("Received real-time update:", payload);
+        
         // Check if the new booking is for this streamer
         const { data: { user } } = await supabase.auth.getUser();
         const { data: streamerData } = await supabase
@@ -621,28 +642,44 @@ export default function StreamerDashboard() {
           .single();
 
         if (streamerData && payload.new && payload.new.streamer_id === streamerData.id) {
-          // Fetch client name
-          const { data: clientData } = await supabase
-            .from('users')
-            .select('first_name, last_name')
-            .eq('id', payload.new.client_id)
-            .single();
+          // Handle different booking status changes
+          if (payload.new.status === 'pending') {
+            // New booking received - update pending bookings
+            setPendingBookings(prev => [...prev, payload.new]);
+            
+            // Show notification
+            const { data: clientData } = await supabase
+              .from('users')
+              .select('first_name, last_name')
+              .eq('id', payload.new.client_id)
+              .single();
 
-          const clientName = clientData ? `${clientData.first_name} ${clientData.last_name}` : 'A client';
-          const bookingDate = payload.new.start_time ? new Date(payload.new.start_time).toLocaleDateString() : 'Unknown date';
-          const duration = payload.new.start_time && payload.new.end_time ? 
-            calculateDuration(payload.new.start_time, payload.new.end_time) : 'Unknown duration';
+            const clientName = clientData ? `${clientData.first_name} ${clientData.last_name}` : 'A client';
+            const bookingDate = payload.new.start_time ? 
+              format(new Date(payload.new.start_time), 'MMMM d, yyyy') : 
+              'Unknown date';
+            const duration = payload.new.start_time && payload.new.end_time ? 
+              calculateDuration(payload.new.start_time, payload.new.end_time) : 
+              'Unknown duration';
 
-          toast.info(`${clientName} has made a booking for you on ${bookingDate} for ${duration}.`, {
-            position: "top-right",
-            autoClose: 5000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          });
+            toast.info(`${clientName} has made a booking request for ${bookingDate} (${duration}).`, {
+              position: "top-right",
+              autoClose: 5000,
+              hideProgressBar: false,
+              closeOnClick: true,
+              pauseOnHover: true,
+              draggable: true,
+            });
+          } else if (payload.new.status === 'accepted') {
+            // Booking accepted - move to upcoming schedule
+            setPendingBookings(prev => prev.filter(b => b.id !== payload.new.id));
+            setBookings(prev => [...prev, payload.new]);
+          } else if (payload.new.status === 'rejected') {
+            // Booking rejected - move to rejected list
+            setPendingBookings(prev => prev.filter(b => b.id !== payload.new.id));
+            setRejectedBookings(prev => [...prev, payload.new]);
+          }
         }
-        fetchData();
       })
       .subscribe();
 
@@ -650,10 +687,6 @@ export default function StreamerDashboard() {
       subscription.unsubscribe();
     };
   }, [fetchData]);
-
-  const pendingBookings = bookings.filter(booking => booking.status === 'pending');
-  const rejectedBookings = bookings.filter(booking => booking.status === 'rejected');
-  const acceptedBookings = bookings.filter(booking => booking.status === 'accepted' || booking.status === 'live');
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -683,8 +716,16 @@ export default function StreamerDashboard() {
   const handleAcceptBooking = async (bookingId: number) => {
     const result = await acceptBooking(bookingId);
     if (result.success) {
+      // Update local state immediately for better UX
+      const acceptedBooking = pendingBookings.find(b => b.id === bookingId);
+      if (acceptedBooking) {
+        // Remove from pending
+        setPendingBookings(prev => prev.filter(b => b.id !== bookingId));
+        // Add to upcoming with accepted status
+        setBookings(prev => [...prev, { ...acceptedBooking, status: 'accepted' }]);
+      }
       toast.success("Booking accepted successfully");
-      fetchData(); // Refresh the bookings
+      fetchData(); // Refresh all data
     } else {
       toast.error(result.error || "Failed to accept booking");
     }
@@ -693,8 +734,16 @@ export default function StreamerDashboard() {
   const handleRejectBooking = async (bookingId: number) => {
     const result = await rejectBooking(bookingId);
     if (result.success) {
+      // Update local state immediately for better UX
+      const rejectedBooking = pendingBookings.find(b => b.id === bookingId);
+      if (rejectedBooking) {
+        // Remove from pending
+        setPendingBookings(prev => prev.filter(b => b.id !== bookingId));
+        // Add to rejected
+        setRejectedBookings(prev => [...prev, { ...rejectedBooking, status: 'rejected' }]);
+      }
       toast.success("Booking rejected successfully");
-      fetchData(); // Refresh the bookings
+      fetchData(); // Refresh all data
     } else {
       toast.error(result.error || "Failed to reject booking");
     }
@@ -730,49 +779,49 @@ export default function StreamerDashboard() {
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 md:py-8">
         <ToastContainer />
         
-        {/* Welcome Section - Updated copy */}
-        <div className="mb-8 sm:mb-12">
-          <h1 className="text-2xl sm:text-[32px] font-bold mb-2">Dashboard Anda</h1>
+        {/* Welcome Section - Better mobile spacing */}
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h1 className="text-lg sm:text-2xl md:text-[32px] font-bold mb-1 sm:mb-2">Dashboard Anda</h1>
           <div className="flex justify-between items-start">
-            <div className="space-y-2 sm:space-y-4">
-              <h2 className="text-4xl sm:text-[64px] font-bold leading-tight">
+            <div className="space-y-1 sm:space-y-2 md:space-y-4">
+              <h2 className="text-xl sm:text-4xl md:text-[64px] font-bold leading-tight">
                 HALO, {userData?.first_name?.toUpperCase()}
               </h2>
-              <p className="text-sm sm:text-base text-gray-500">
+              <p className="text-xs sm:text-sm md:text-base text-gray-500 max-w-[90%] sm:max-w-none">
                 Selamat datang di dashboard Anda! Di sini Anda dapat memantau pendapatan, mengelola booking, dan melihat riwayat aktivitas Anda.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Update the grid layout to be responsive */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8">
+        {/* Grid Layout - Improved mobile spacing */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 md:gap-8">
           {/* Left Column */}
-          <div className="lg:col-span-8 space-y-4 sm:space-y-8">
+          <div className="lg:col-span-8 space-y-3 sm:space-y-4 md:space-y-8">
             {/* Account Info Section */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl text-[#FF5733] mb-4">Informasi Akun</h3>
-              <div className="space-y-3 sm:space-y-4">
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm sm:text-base text-gray-600">Bergabung sejak</span>
-                  <span className="text-sm sm:text-base text-gray-400">
+            <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6">
+              <h3 className="text-base sm:text-lg md:text-xl text-[#FF5733] mb-3 sm:mb-4">Informasi Akun</h3>
+              <div className="space-y-2 sm:space-y-3 md:space-y-4">
+                <div className="flex justify-between items-center py-1.5 sm:py-2">
+                  <span className="text-xs sm:text-sm md:text-base text-gray-600">Bergabung sejak</span>
+                  <span className="text-xs sm:text-sm md:text-base text-gray-400">
                     {streamerStats?.joinDate ? formatJoinDate(streamerStats.joinDate) : '-'}
                   </span>
                 </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm sm:text-base text-gray-600">Total jam live</span>
-                  <span className="text-sm sm:text-base text-gray-400">
+                <div className="flex justify-between items-center py-1.5 sm:py-2">
+                  <span className="text-xs sm:text-sm md:text-base text-gray-600">Total jam live</span>
+                  <span className="text-xs sm:text-sm md:text-base text-gray-400">
                     {streamerStats?.totalLiveHours 
                       ? `${Math.round(streamerStats.totalLiveHours)} jam`
                       : '-'}
                   </span>
                 </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm sm:text-base text-gray-600">Rating</span>
-                  <span className="text-sm sm:text-base text-gray-400">
+                <div className="flex justify-between items-center py-1.5 sm:py-2">
+                  <span className="text-xs sm:text-sm md:text-base text-gray-600">Rating</span>
+                  <span className="text-xs sm:text-sm md:text-base text-gray-400">
                     {streamerStats?.rating 
                       ? `${streamerStats.rating.toFixed(1)}/5.0`
                       : '-'}
@@ -782,11 +831,11 @@ export default function StreamerDashboard() {
             </div>
 
             {/* Gallery Section */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg sm:text-xl text-[#FF5733]">Galeri Live Terakhir</h3>
+            <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6">
+              <div className="flex justify-between items-center mb-3 sm:mb-4">
+                <h3 className="text-base sm:text-lg md:text-xl text-[#FF5733]">Galeri Live Terakhir</h3>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
                 {galleryPhotos.map((photo, index) => (
                   <div key={photo.id} className="relative aspect-square">
                     <img 
@@ -806,9 +855,9 @@ export default function StreamerDashboard() {
           </div>
 
           {/* Right Column */}
-          <div className="lg:col-span-4 space-y-4 sm:space-y-8">
-            {/* Analytics Cards - Make them 2 columns on mobile */}
-            <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 sm:gap-4">
+          <div className="lg:col-span-4 space-y-3 sm:space-y-4 md:space-y-8">
+            {/* Analytics Cards - Better grid for mobile */}
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 sm:gap-3">
               <AnalyticsCard
                 title="Total Pendapatan"
                 value={streamerStats 
@@ -833,34 +882,34 @@ export default function StreamerDashboard() {
               />
             </div>
 
-            {/* Add this after the Analytics Cards section and before the Schedule section */}
-            <div className="flex gap-4 mt-4">
+            {/* Action Buttons - Better mobile spacing */}
+            <div className="flex gap-2 sm:gap-3 mt-3 sm:mt-4">
               <Button
                 onClick={() => router.push('/streamer-schedule')}
-                className="flex-1 bg-[#E23744] hover:bg-[#E23744]/90 text-white"
+                className="flex-1 py-2 sm:py-3 text-xs sm:text-sm bg-[#E23744] hover:bg-[#E23744]/90 text-white"
               >
-                <Calendar className="h-4 w-4 mr-2" />
+                <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 Atur Jadwal
               </Button>
               <Button
                 onClick={() => router.push('/settings?type=streamer')}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700"
+                className="flex-1 py-2 sm:py-3 text-xs sm:text-sm bg-gray-100 hover:bg-gray-200 text-gray-700"
               >
-                <Settings className="h-4 w-4 mr-2" />
+                <Settings className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 Pengaturan
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Update AnalyticsCard component */}
-        <div className="mt-4 sm:mt-8 space-y-4 sm:space-y-8">
+        {/* Schedule Sections */}
+        <div className="mt-3 sm:mt-4 md:mt-8 space-y-3 sm:space-y-4 md:space-y-8">
           {/* Upcoming Schedule Section */}
-          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100">
-            <div className="p-4 sm:p-6 border-b border-gray-100">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Jadwal Live Mendatang</h2>
+          <div className="bg-white rounded-lg sm:rounded-xl border border-gray-100">
+            <div className="p-3 sm:p-4 md:p-6 border-b border-gray-100">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Jadwal Live Mendatang</h2>
             </div>
-            <div className="p-4 sm:p-6">
+            <div className="p-3 sm:p-4 md:p-6">
               <Tabs defaultValue="today" className="w-full">
                 <TabsList className="grid w-full grid-cols-3 bg-gray-50 p-1 rounded-lg mb-4 sm:mb-6">
                   <TabsTrigger 
@@ -908,28 +957,60 @@ export default function StreamerDashboard() {
           </div>
 
           {/* Booking Management Section */}
-          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100">
-            <div className="p-4 sm:p-6 border-b border-gray-100">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Manajemen Booking</h2>
+          <div className="bg-white rounded-lg sm:rounded-xl border border-gray-100">
+            <div className="p-3 sm:p-4 md:p-6 border-b border-gray-100">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Manajemen Booking</h2>
             </div>
-            <div className="p-4 sm:p-6">
+            <div className="p-3 sm:p-4 md:p-6">
               <Tabs defaultValue="pending" className="w-full">
                 <TabsList className="flex space-x-2 p-1 bg-gray-50 rounded-xl mb-6">
                   <TabsTrigger 
                     value="pending" 
                     className="flex-1 py-2.5 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#E23744] data-[state=active]:shadow-sm"
                   >
-                    Booking Menunggu
+                    Booking Menunggu ({pendingBookings.length})
                   </TabsTrigger>
                   <TabsTrigger 
                     value="rejected"
                     className="flex-1 py-2.5 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#E23744] data-[state=active]:shadow-sm"
                   >
-                    Booking Dibatalkan
+                    Booking Dibatalkan ({rejectedBookings.length})
                   </TabsTrigger>
                 </TabsList>
 
-                {/* Keep existing TabsContent */}
+                <TabsContent value="pending" className="space-y-4">
+                  {pendingBookings.length > 0 ? (
+                    pendingBookings.map((booking) => (
+                      <BookingCard
+                        key={booking.id}
+                        booking={booking}
+                        onAccept={handleAcceptBooking}
+                        onReject={handleRejectBooking}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
+                      Tidak ada booking yang menunggu persetujuan
+                    </p>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="rejected" className="space-y-4">
+                  {rejectedBookings.length > 0 ? (
+                    rejectedBookings.map((booking) => (
+                      <BookingCard
+                        key={booking.id}
+                        booking={booking}
+                        onAccept={handleAcceptBooking}
+                        onReject={handleRejectBooking}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
+                      Tidak ada booking yang dibatalkan
+                    </p>
+                  )}
+                </TabsContent>
               </Tabs>
             </div>
           </div>

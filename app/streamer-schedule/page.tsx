@@ -456,47 +456,49 @@ export default function StreamerSchedulePage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasChanges]);
 
+  const isDayOff = (date: Date) => {
+    const formattedDate = format(date, 'yyyy-MM-dd');
+    return daysOff.some(d => d.date === formattedDate);
+  };
+
   if (isLoading) {
     return <div className="text-center py-10 text-sm text-gray-600">Loading...</div>;
   }
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Add Navbar component */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="mb-8 sm:mb-12">
-          <h1 className="text-2xl sm:text-[32px] font-bold mb-2">Pengaturan Jadwal</h1>
-          <div className="flex justify-between items-start">
-            <p className="text-sm sm:text-base text-gray-500">
-              Atur jadwal live streaming Anda untuk memudahkan client melakukan booking.
-            </p>
-          </div>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold mb-2">Pengaturan Jadwal</h1>
+          <p className="text-sm text-gray-500">
+            Atur jadwal live streaming Anda untuk memudahkan client melakukan booking.
+          </p>
         </div>
 
-        {/* Schedule Card */}
-        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
           <div className="p-4 sm:p-6 border-b border-gray-100">
-            <div className="flex justify-between items-center">
-              <span className="text-lg sm:text-xl font-bold text-gray-900">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <span className="text-base sm:text-lg font-semibold text-gray-900">
                 {format(currentWeek, 'MMM d')} - {format(addDays(currentWeek, 6), 'MMM d, yyyy')}
               </span>
-              <div className="flex gap-2">
+              <div className="flex w-full sm:w-auto gap-2">
                 <Button 
                   onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}
                   variant="outline"
                   size="sm"
-                  className="text-xs border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
+                  className="flex-1 sm:flex-none text-xs border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
                 >
-                  <ChevronLeft className="mr-1 h-3 w-3" /> Minggu Sebelumnya
+                  <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Minggu Sebelumnya</span>
                 </Button>
                 <Button 
                   onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
                   variant="outline"
                   size="sm"
-                  className="text-xs border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
+                  className="flex-1 sm:flex-none text-xs border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
                 >
-                  Minggu Selanjutnya <ChevronRight className="ml-1 h-3 w-3" />
+                  <span className="hidden sm:inline">Minggu Selanjutnya</span>
+                  <ChevronRight className="h-4 w-4 sm:ml-1" />
                 </Button>
               </div>
             </div>
@@ -509,25 +511,105 @@ export default function StreamerSchedulePage() {
               </div>
             ) : (
               <div className="space-y-3" ref={scheduleRef}>
-                {Array.from({ length: 7 }, (_, day) => renderDaySchedule(day))}
+                {Array.from({ length: 7 }, (_, day) => {
+                  const currentDate = addDays(currentWeek, day);
+                  const dayBookings = acceptedBookings.filter(b => 
+                    format(new Date(b.booking_date), 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')
+                  );
+
+                  return (
+                    <div key={day} className="bg-white rounded-lg border border-gray-100 shadow-sm transition-all duration-200 hover:border-[#E23744]/20">
+                      <div 
+                        className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50/50"
+                        onClick={() => setExpandedDay(expandedDay === day ? null : day)}
+                      >
+                        <div className="flex items-center">
+                          <span className="text-sm sm:text-base font-medium text-gray-900">
+                            {format(currentDate, 'EEEE, d MMMM yyyy')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`h-8 px-3 sm:px-4 text-xs ${
+                              !isDayOff(currentDate)
+                                ? 'bg-[#E23744] text-white hover:bg-[#E23744]/90 border-[#E23744]' 
+                                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                            }`}
+                            onClick={(e) => toggleDayOff(e, currentDate)}
+                          >
+                            {isDayOff(currentDate) ? 'Hari Libur' : 'Hari Kerja'}
+                          </Button>
+                          {expandedDay === day ? (
+                            <ChevronUp className="h-4 w-4 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                          )}
+                        </div>
+                      </div>
+                      {expandedDay === day && !isDayOff(currentDate) && (
+                        <div className="p-4 bg-white border-t border-gray-100">
+                          {timeSlots.map((timeSlot) => (
+                            <div key={timeSlot.label} className="mb-4 last:mb-0">
+                              <h4 className="text-xs font-medium text-gray-600 mb-2">{timeSlot.label}</h4>
+                              <div className="grid grid-cols-6 gap-2">
+                                {timeSlot.hours.map((hour) => {
+                                  const startTime = `${hour.toString().padStart(2, '0')}:00:00`;
+                                  const slot = schedule.find(s => s.dayOfWeek === day && s.startTime === startTime);
+                                  const isBooked = dayBookings.some(b => 
+                                    b.start_time <= startTime && b.end_time > startTime
+                                  );
+                                  const isInSelectionRange = selectionStart !== null && selectionEnd !== null && 
+                                    ((hour >= selectionStart && hour <= selectionEnd) || (hour <= selectionStart && hour >= selectionEnd));
+                                  
+                                  return (
+                                    <Button
+                                      key={hour}
+                                      variant="outline"
+                                      size="sm"
+                                      className={`p-1 h-8 text-xs font-medium transition-all duration-200 ${
+                                        isBooked
+                                          ? 'bg-red-500 text-white cursor-not-allowed border-red-500'
+                                          : slot?.isAvailable 
+                                            ? 'bg-[#E23744] text-white hover:bg-[#E23744]/90 border-[#E23744]'
+                                            : isInSelectionRange
+                                            ? 'bg-[#E23744]/20 hover:bg-[#E23744]/30 border-[#E23744]/20'
+                                            : 'hover:bg-gray-50 border-gray-200'
+                                      } ${hour === selectionStart ? 'ring-2 ring-[#E23744]' : ''}`}
+                                      onClick={() => !isBooked && toggleAvailability(day, hour)}
+                                      onMouseEnter={() => handleHourMouseEnter(hour)}
+                                      disabled={isBooked}
+                                    >
+                                      {`${hour.toString().padStart(2, '0')}:00`}
+                                    </Button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Footer Actions */}
           <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50/50">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
               <Button 
                 onClick={() => router.push('/streamer-dashboard')} 
                 variant="outline"
-                className="text-sm border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
+                className="text-xs sm:text-sm border-[#E23744] text-[#E23744] hover:bg-[#E23744]/10"
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 Kembali ke Dashboard
               </Button>
               <Button 
                 onClick={saveSchedule}
-                className="text-sm bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744] text-white"
+                className="text-xs sm:text-sm bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744] text-white"
                 disabled={isSaving}
               >
                 {isSaving ? (
