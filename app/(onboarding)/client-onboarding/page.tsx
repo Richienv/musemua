@@ -312,6 +312,25 @@ export default function ClientOnboarding() {
               )}
             </Button>
           </div>
+
+          {/* Add back the skip button with logo */}
+          <div className="text-center pt-4 lg:pt-0">
+            <button
+              onClick={handleSkip}
+              className="group inline-flex flex-col items-center gap-2"
+            >
+              <Image
+                src="/images/salda-logoB.png"
+                alt="Salda Logo"
+                width={40}
+                height={40}
+                className="opacity-50 group-hover:opacity-100 transition-opacity lg:w-[60px] lg:h-[60px]"
+              />
+              <span className="text-xs lg:text-sm text-gray-500 underline group-hover:text-gray-700">
+                Lewati semua pengenalan
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     );
