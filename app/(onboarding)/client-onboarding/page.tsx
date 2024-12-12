@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, CheckCircle2, ArrowLeft, ArrowRight } from 'lucide-react';
+import { createClient } from "@/utils/supabase/client";
 
 const onboardingSteps = [
   {
@@ -114,16 +115,50 @@ export default function ClientOnboarding() {
   const [currentStep, setCurrentStep] = useState(0);
   const router = useRouter();
 
+  const handleRedirect = async () => {
+    try {
+      const supabase = createClient();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('Authentication error:', authError);
+        router.push('/sign-in');
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('user_type')
+        .eq('id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+        router.push('/sign-in');
+        return;
+      }
+
+      if (userData?.user_type === 'client') {
+        router.push('/protected');
+      } else {
+        router.push('/sign-in');
+      }
+    } catch (error) {
+      console.error('Redirect error:', error);
+      router.push('/sign-in');
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < onboardingSteps.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
-      router.push('/dashboard');
+      handleRedirect();
     }
   };
 
   const handleSkip = () => {
-    router.push('/dashboard');
+    handleRedirect();
   };
 
   const handlePrevious = () => {
@@ -221,7 +256,7 @@ export default function ClientOnboarding() {
     }
 
     return (
-      <div className="space-y-4 lg:space-y-6">
+      <div className="space-y-6 lg:space-y-8">
         <h1 className="text-2xl lg:text-4xl font-bold text-gray-900">
           {onboardingSteps[currentStep].title}
         </h1>
@@ -246,6 +281,37 @@ export default function ClientOnboarding() {
               <span className="text-sm lg:text-base">{point}</span>
             </motion.div>
           ))}
+        </div>
+
+        {/* Navigation Buttons */}
+        <div className="space-y-6 lg:space-y-8 px-4 lg:px-0">
+          <div className="flex gap-3 lg:gap-4">
+            <Button
+              onClick={handlePrevious}
+              variant="outline"
+              className="flex-1 flex items-center justify-center gap-2 h-12 lg:h-11 text-sm lg:text-base"
+              disabled={currentStep === 0}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Kembali
+            </Button>
+            <Button
+              onClick={handleNext}
+              className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 flex items-center justify-center gap-2 h-12 lg:h-11 text-sm lg:text-base"
+            >
+              {currentStep === onboardingSteps.length - 1 ? (
+                <>
+                  Mulai
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  Lanjut
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -292,56 +358,6 @@ export default function ClientOnboarding() {
               {/* Content */}
               <div className="px-4 lg:px-0">
                 {renderSecurityStep()}
-              </div>
-
-              {/* Navigation Buttons */}
-              <div className="space-y-6 lg:space-y-8 px-4 lg:px-0">
-                <div className="flex gap-3 lg:gap-4">
-                  <Button
-                    onClick={handlePrevious}
-                    variant="outline"
-                    className="flex-1 flex items-center justify-center gap-2 h-12 lg:h-11 text-sm lg:text-base"
-                    disabled={currentStep === 0}
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Kembali
-                  </Button>
-                  <Button
-                    onClick={handleNext}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 flex items-center justify-center gap-2 h-12 lg:h-11 text-sm lg:text-base"
-                  >
-                    {currentStep === onboardingSteps.length - 1 ? (
-                      <>
-                        Mulai
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    ) : (
-                      <>
-                        Lanjut
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                {/* Skip Link with Logo */}
-                <div className="text-center pt-4 lg:pt-0">
-                  <button
-                    onClick={handleSkip}
-                    className="group inline-flex flex-col items-center gap-2"
-                  >
-                    <Image
-                      src="/images/salda-logoB.png"
-                      alt="Salda Logo"
-                      width={40}
-                      height={40}
-                      className="opacity-50 group-hover:opacity-100 transition-opacity lg:w-[60px] lg:h-[60px]"
-                    />
-                    <span className="text-xs lg:text-sm text-gray-500 underline group-hover:text-gray-700">
-                      Lewati semua pengenalan
-                    </span>
-                  </button>
-                </div>
               </div>
             </motion.div>
           </AnimatePresence>
