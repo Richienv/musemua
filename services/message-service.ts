@@ -28,6 +28,36 @@ function containsForbiddenContent(message: string): boolean {
   return FORBIDDEN_PATTERNS.some(pattern => pattern.test(message));
 }
 
+const containsPhoneNumber = (text: string): boolean => {
+  // Matches sequences of numbers that could be phone numbers (3 or more digits)
+  const phonePattern = /\d{3,}/;
+  return phonePattern.test(text);
+};
+
+const containsEmailPattern = (text: string): boolean => {
+  // Matches common email patterns like:
+  // - anything@anything
+  // - anything.com
+  // - anything.co.id
+  // - anything.id
+  const emailPattern = /[@]|[.](com|net|org|edu|gov|mil|biz|info|io|co|id|co\.id)\b/i;
+  return emailPattern.test(text);
+};
+
+const containsShippingKeywords = (text: string): boolean => {
+  const shippingKeywords = [
+    /kirim\s*barang/i,
+    /pengiriman/i,
+    /ngirim/i,
+    /kirimkan/i,
+    /kirimin/i,
+    /kirim\s*produk/i,
+    /kirim\s*product/i,
+    /kirim\s*paket/i
+  ];
+  return shippingKeywords.some(pattern => pattern.test(text));
+};
+
 export async function getConversations(userId: string) {
   const supabase = createClient();
   
@@ -98,40 +128,30 @@ export async function sendMessage(message: {
   sender_id: string;
   content: string;
 }) {
+  // Check for forbidden content
+  if (containsPhoneNumber(message.content) || containsEmailPattern(message.content)) {
+    throw new Error("FORBIDDEN_CONTENT");
+  }
+
   const supabase = createClient();
-
+  
   try {
-    // Check for forbidden content
-    if (containsForbiddenContent(message.content)) {
-      throw new Error("FORBIDDEN_CONTENT");
-    }
-
-    console.log('Sending message:', message);
-
-    const { data: messageData, error: messageError } = await supabase
+    const { data, error } = await supabase
       .from('messages')
-      .insert({
-        conversation_id: message.conversation_id,
-        sender_id: message.sender_id,
-        content: message.content,
-        created_at: new Date().toISOString(),
-        is_read: false,
-        message_type: 'text'
-      })
+      .insert([
+        {
+          conversation_id: message.conversation_id,
+          sender_id: message.sender_id,
+          content: message.content,
+          is_read: false
+        }
+      ])
       .select()
       .single();
 
-    if (messageError) {
-      console.error('Error sending message:', messageError);
-      throw messageError;
-    }
-
-    console.log('Message sent successfully:', messageData);
-    return messageData;
+    if (error) throw error;
+    return data;
   } catch (error) {
-    if (error instanceof Error && error.message === "FORBIDDEN_CONTENT") {
-      throw new Error("FORBIDDEN_CONTENT");
-    }
     console.error('Error sending message:', error);
     throw error;
   }

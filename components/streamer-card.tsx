@@ -76,6 +76,8 @@ interface StreamerProfile extends Streamer {
   }[];
 }
 
+type ShippingOption = 'yes' | 'no';
+
 function RatingStars({ rating }: { rating: number }) {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 >= 0.5;
@@ -123,6 +125,8 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   const [bookings, setBookings] = useState<any[]>([]);
   const [averageRating, setAverageRating] = useState(streamer.rating);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [needsShipping, setNeedsShipping] = useState<ShippingOption>('no');
+  const [clientLocation, setClientLocation] = useState<string>('');
 
   const isMinimumBookingMet = selectedHours.length >= 2;
 
@@ -189,6 +193,27 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
       setSelectedImage(extendedProfile.gallery.photos[0].photo_url);
     }
   }, [extendedProfile]);
+
+  useEffect(() => {
+    const fetchClientLocation = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('location')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.location) {
+          setClientLocation(profile.location);
+        }
+      }
+    };
+
+    fetchClientLocation();
+  }, []);
 
   const fetchExtendedProfile = async () => {
     const supabase = createClient();
@@ -360,6 +385,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
       price: streamer.price.toString(),
       location: streamer.location,
       rating: streamer.rating.toString(),
+      image_url: streamer.image_url,
     });
 
     setIsBookingModalOpen(false);
@@ -445,6 +471,9 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     selectedDateTime.setHours(hourNum, 0, 0, 0);
     const now = new Date();
 
+    // Check if the date is too soon for shipping
+    if (isDateTooSoonForShipping(selectedDate)) return true;
+    
     // Basic time validation
     if (isBefore(selectedDateTime, now)) return true;
     
@@ -464,7 +493,25 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     return hourNum !== maxHour + 1 && hourNum !== minHour - 1;
   };
 
-  const isDayOff = (date: Date) => daysOff.includes(format(date, 'yyyy-MM-dd'));
+  const isDayOff = (date: Date) => {
+    return date < startOfDay(new Date()) || 
+           daysOff.includes(format(date, 'yyyy-MM-dd')) ||
+           isDateTooSoonForShipping(date);
+  };
+
+  const getMinimumBookingDate = () => {
+    if (needsShipping === 'no') return startOfDay(new Date());
+    
+    // If shipping is needed, check locations
+    const isSameCity = clientLocation.toLowerCase() === streamer.location.toLowerCase();
+    const daysToAdd = isSameCity ? 1 : 3;
+    return addDays(startOfDay(new Date()), daysToAdd);
+  };
+
+  const isDateTooSoonForShipping = (date: Date) => {
+    if (needsShipping === 'no') return false;
+    return isBefore(date, getMinimumBookingDate());
+  };
 
   const fullName = `${streamer.first_name} ${streamer.last_name}`;
   
@@ -504,7 +551,10 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     );
   };
 
-  const handleMessageClick = async () => {
+  const handleMessageClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Stop propagation at the earliest point
+    e.preventDefault(); // Prevent any default behavior
+    
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -522,6 +572,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
       await createOrGetConversation(clientId, streamerId);
       router.push('/messages');
+      
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast.error('Failed to create conversation');
@@ -634,7 +685,10 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           </div>
 
           {/* Buttons - reduced size */}
-          <div className="flex gap-1.5">
+          <div 
+            className="flex gap-1.5" 
+            onClick={(e) => e.stopPropagation()}
+          >
             <Button 
               className="flex-1 text-[10px] sm:text-xs py-0.5 text-white max-w-[85%] 
                 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87]"
@@ -648,7 +702,11 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             <Button
               variant="outline"
               className="px-2 text-[#2563eb] border-[#2563eb] hover:bg-[#2563eb]/5"
-              onClick={handleMessageClick}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsProfileModalOpen(false);
+                handleMessageClick(e);
+              }}
             >
               <Mail className="h-3 w-3" />
             </Button>
@@ -681,7 +739,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           <BookingCalendar 
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
-            isDayOff={(date) => date < startOfDay(new Date()) || isDayOff(date)}
+            isDayOff={isDayOff}
             selectedClassName="bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]"
           />
 
@@ -748,17 +806,77 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             <p className="text-xs text-red-500">Minimum booking is 1 hour.</p>
           )}
 
-          <div className="grid grid-cols-4 items-center gap-2 sm:gap-4">
-            <Label htmlFor="booking-platform" className="text-right text-xs sm:text-sm">Platform</Label>
-            <Select onValueChange={setPlatform} value={platform}>
-              <SelectTrigger id="booking-platform" className="col-span-3 h-8 sm:h-10 text-xs sm:text-sm">
-                <SelectValue placeholder="Select platform" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Shopee">Shopee</SelectItem>
-                <SelectItem value="TikTok">TikTok</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="h-px bg-gray-200 my-4" />
+
+          {/* Grid container for both selects */}
+          <div className="space-y-4">
+            {/* Shipping Select */}
+            <div className="grid grid-cols-4 items-center gap-2 sm:gap-4">
+              <Label htmlFor="shipping-needed" className="text-right text-xs sm:text-sm">
+                Perlu Pengiriman
+              </Label>
+              <Select
+                value={needsShipping}
+                onValueChange={(value) => setNeedsShipping(value as ShippingOption)}
+              >
+                <SelectTrigger id="shipping-needed" className="col-span-3 h-8 sm:h-10 text-xs sm:text-sm">
+                  <SelectValue placeholder="Pilih opsi pengiriman" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yes">Ya</SelectItem>
+                  <SelectItem value="no">Tidak</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Shipping information message */}
+            {needsShipping === 'yes' && (
+              <div className="col-span-4 text-sm bg-blue-50 border border-blue-200 rounded-md p-3">
+                <p className="text-blue-800">
+                  {clientLocation.toLowerCase() === streamer.location.toLowerCase()
+                    ? "Karena lokasi Anda sama dengan streamer, Anda hanya dapat memilih jadwal minimal H+1 untuk memberikan waktu pengiriman produk."
+                    : "Karena lokasi Anda berbeda dengan streamer, Anda hanya dapat memilih jadwal minimal H+3 untuk memberikan waktu pengiriman produk."
+                  }
+                </p>
+                <p className="text-blue-600 mt-2 text-xs">
+                  Lokasi Anda: {clientLocation || 'Belum diatur'}
+                  <br />
+                  Lokasi Streamer: {streamer.location}
+                </p>
+              </div>
+            )}
+
+            {/* Platform Select */}
+            <div className="grid grid-cols-4 items-center gap-2 sm:gap-4">
+              <Label htmlFor="booking-platform" className="text-right text-xs sm:text-sm">
+                Platform
+              </Label>
+              <Select onValueChange={setPlatform} value={platform}>
+                <SelectTrigger id="booking-platform" className="col-span-3 h-8 sm:h-10 text-xs sm:text-sm">
+                  <SelectValue placeholder="Select platform" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Shopee">Shopee</SelectItem>
+                  <SelectItem value="TikTok">TikTok</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Add the customer support text */}
+          <div className="mt-4 text-center">
+            <p className="text-xs sm:text-sm">
+              <span className="text-gray-600">Ada pertanyaan? Hubungi CS kami: </span>
+              <a 
+                href="https://wa.me/6282154902561" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-blue-600 underline hover:text-blue-800"
+                onClick={(e) => e.stopPropagation()}
+              >
+                klik disini
+              </a>
+            </p>
           </div>
 
           <DialogFooter className="mt-4">

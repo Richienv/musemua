@@ -176,7 +176,7 @@ export default function MessagesPage() {
               <AlertTriangle className="h-6 w-6 sm:h-8 sm:w-8 text-red-600" />
             </div>
 
-            {/* Content - Adjusted text sizes */}a
+            {/* Content - Adjusted text sizes */}
             <div className="text-center space-y-4 sm:space-y-6">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900">
                 Peringatan Keamanan
@@ -215,6 +215,67 @@ export default function MessagesPage() {
     );
   };
 
+  const ShippingInquiryModal = () => {
+    return (
+      <div className="fixed inset-90 z-[10] flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+        
+        <div className="relative w-[95%] sm:w-[20%] min-w-[300px] md:min-w-[600px] bg-white rounded-xl shadow-2xl animate-in slide-in-from-bottom-4 duration-300 mx-auto">
+          <div className="p-4 sm:p-8">
+            <div className="text-center space-y-4">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                Pengiriman Barang
+              </h3>
+              <p className="text-sm sm:text-base text-gray-600">
+                Kamu ingin mengirim barang ke livestreamer? Silakan hubungi admin Salda untuk membantu mengatur pengiriman product yang ingin di review oleh streamer kami.
+              </p>
+              <div className="mt-4">
+                <a
+                  href="https://wa.me/62821544902561"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                >
+                  Klik di sini
+                </a>
+              </div>
+              <div className="mt-6">
+                <Button
+                  onClick={() => toast.dismiss()}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Tutup
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const InlineNotification = () => {
+    return (
+      <div className="flex justify-center mb-3">
+        <div className="bg-gray-50/90 rounded-lg p-4 max-w-[90%] border border-gray-200 shadow-sm">
+          <p className="text-sm text-gray-700 mb-1">
+            Kamu ingin mengirim barang ke livestreamer? Silakan hubungi admin kami.{" "}
+            <a
+              href="https://wa.me/62821544902561"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              Klik di sini
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !currentUser) return;
 
@@ -231,14 +292,16 @@ export default function MessagesPage() {
       const messagesData = await getMessages(selectedConversation.id);
       setMessages(messagesData || []);
     } catch (error) {
-      if (error instanceof Error && error.message === "FORBIDDEN_CONTENT") {
-        toast.custom((t) => <WarningModal />, {
-          duration: Infinity, // Modal will stay until dismissed
-          position: "top-center",
-        });
-      } else {
-        console.error('Error sending message:', error);
-        toast.error("Gagal mengirim pesan. Silakan coba lagi.");
+      if (error instanceof Error) {
+        if (error.message === "FORBIDDEN_CONTENT") {
+          toast.custom((t) => <WarningModal />, {
+            duration: Infinity,
+            position: "top-center",
+          });
+        } else {
+          console.error('Error sending message:', error);
+          toast.error("Gagal mengirim pesan. Silakan coba lagi.");
+        }
       }
     }
   };
@@ -267,6 +330,23 @@ export default function MessagesPage() {
         showDateSeparator = true;
       }
 
+      // Check if the current message contains shipping keywords
+      const containsShippingKeywords = (text: string): boolean => {
+        const shippingKeywords = [
+          /kirim\s*barang/i,
+          /pengiriman/i,
+          /ngirim/i,
+          /kirimkan/i,
+          /kirimin/i,
+          /kirim\s*produk/i,
+          /kirim\s*product/i,
+          /kirim\s*paket/i
+        ];
+        return shippingKeywords.some(pattern => pattern.test(text));
+      };
+
+      const showShippingNotification = containsShippingKeywords(message.content);
+
       return (
         <div key={message.id}>
           {showDateSeparator && (
@@ -294,6 +374,7 @@ export default function MessagesPage() {
               </p>
             </div>
           </div>
+          {showShippingNotification && <InlineNotification />}
         </div>
       );
     });
@@ -344,7 +425,9 @@ export default function MessagesPage() {
   );
 
   const handleBackNavigation = () => {
-    if (userType === 'streamer') {
+    if (isMobileChat) {
+      setIsMobileChat(false);
+    } else if (userType === 'streamer') {
       router.push('/streamer-dashboard');
     } else {
       router.push('/protected');
@@ -359,27 +442,15 @@ export default function MessagesPage() {
       <div className="w-full bg-white border-b border-gray-200 flex-shrink-0">
         <div className="w-full px-4">
           <div className="flex items-center h-16">
-            {isMobileChat ? (
-              <Button 
-                onClick={() => setIsMobileChat(false)} 
-                variant="ghost" 
-                size="sm" 
-                className="mr-2 md:hidden"
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-            ) : (
-              <Button 
-                onClick={() => router.push('/protected')}
-                variant="ghost" 
-                size="sm" 
-                className="mr-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-            )}
+            <Button 
+              onClick={handleBackNavigation}
+              variant="ghost" 
+              size="sm" 
+              className="mr-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
             <h1 className="text-xl flex items-center gap-2">
               Messages
             </h1>
