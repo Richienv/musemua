@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { format, parseISO, differenceInHours, addHours, isSameDay, startOfDay } from 'date-fns';
 import toast from 'react-hot-toast';
-import { MapPin, Star, Shield, Clock, Calendar, Monitor, DollarSign, AlertTriangle, Phone, ChevronLeft, Info } from 'lucide-react';
+import { MapPin, Star, Shield, Clock, Calendar, Monitor, DollarSign, AlertTriangle, Phone, ChevronLeft, Info, Package, FileText } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { PaymentModal } from '@/components/payment-modal';
 import { Navbar } from "@/components/ui/navbar";
@@ -31,6 +31,7 @@ interface BookingDetails {
   price: number;
   location: string;
   rating: number;
+  image_url?: string;
 }
 
 interface TimeSlot {
@@ -97,6 +98,7 @@ function BookingDetailContent() {
         price: Number(searchParams.get('price')) || 0,
         location: decodeURIComponent(searchParams.get('location') || ''),
         rating: Number(searchParams.get('rating')) || 0,
+        image_url: searchParams.get('image_url') || '/placeholder-avatar.png',
       };
       setBookingDetails(details);
       
@@ -388,11 +390,11 @@ function BookingDetailContent() {
     return <div className="container mx-auto p-4">Loading...</div>;
   }
 
-  const subtotal = bookingDetails.price * selectedHours.length;
-  const platformFee = subtotal * 0.30;
-  const subtotalWithPlatformFee = subtotal + platformFee;
-  const tax = subtotalWithPlatformFee * 0.11;
-  const total = Math.round(subtotalWithPlatformFee + tax);
+  // Calculate price with 30% platform fee included
+  const priceWithPlatformFee = bookingDetails.price * 1.3;
+  const subtotal = priceWithPlatformFee * selectedHours.length;
+  const tax = subtotal * 0.11;
+  const total = Math.round(subtotal + tax);
 
   return (
     <div className="container mx-auto p-3 sm:p-4 max-w-6xl font-sans text-xs sm:text-sm mt-4 sm:mt-8">
@@ -407,6 +409,58 @@ function BookingDetailContent() {
       <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
         {/* Left Container */}
         <div className="flex-1 space-y-4 sm:space-y-6">
+          {/* Warning Section - At top */}
+          <div className="border border-gray-200 rounded-lg p-3 sm:p-6 bg-gray-50">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-1" />
+              <div className="space-y-4 flex-1">
+                <div>
+                  <h2 className="text-base font-medium text-gray-900">Kebijakan Pembatalan</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Pembatalan gratis hingga 24 jam sebelum pemesanan. Setelah itu, biaya 50% akan dikenakan.
+                    <span className="block mt-1 text-amber-600">
+                      *Pengembalian dana butuh 7-14 hari kerja, jadi pastikan semua data sudah benar
+                    </span>
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-base font-medium text-gray-900">Checklist Sebelum Booking</h3>
+                  <div className="space-y-2.5">
+                    {[
+                      {
+                        title: 'Pengiriman Produk',
+                        description: 'Pastikan produk sudah dikirim ke alamat streamer sebelum jadwal live',
+                        icon: <Package className="h-4 w-4" />
+                      },
+                      {
+                        title: 'Guidelines Produk',
+                        description: 'Product guidelines sudah diupdate dan dikomunikasikan',
+                        icon: <FileText className="h-4 w-4" />
+                      },
+                      {
+                        title: 'Estimasi Waktu',
+                        description: 'Perhitungkan waktu pengiriman: H+1 untuk kota yang sama, H+3 untuk beda kota',
+                        icon: <Clock className="h-4 w-4" />
+                      }
+                    ].map((item, index) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100">
+                        <div className="p-2 bg-blue-50 rounded-full">
+                          {item.icon}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-900">{item.title}</h4>
+                          <p className="text-xs text-gray-600 mt-0.5">{item.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Booking Information - Second */}
           <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
             <h2 className="text-base sm:text-xl mb-4 sm:mb-6">Informasi Pemesanan</h2>
             <div className="space-y-3 sm:space-y-5">
@@ -436,17 +490,7 @@ function BookingDetailContent() {
             </div>
           </div>
 
-          <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
-            <h2 className="text-base sm:text-xl mb-3 sm:mb-4">Permintaan Khusus</h2>
-            <Textarea
-              id="special-request"
-              placeholder="Ada permintaan khusus untuk streamer?"
-              value={specialRequest}
-              onChange={(e) => setSpecialRequest(e.target.value)}
-              className="mt-1 text-xs sm:text-sm"
-            />
-          </div>
-
+          {/* Platform Specific Forms - Third */}
           {bookingDetails?.platform.toLowerCase() === 'shopee' ? (
             <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
               <div className="mb-4">
@@ -512,95 +556,112 @@ function BookingDetailContent() {
             </div>
           ) : null}
 
+          {/* Special Request - Moved to last */}
           <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
-            <div className="flex items-start gap-2 sm:gap-3">
-              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 flex-shrink-0 mt-1" />
-              <div>
-                <h2 className="text-base sm:text-xl mb-2">Penting!</h2>
-                <div className="space-y-2">
-                  <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-                    Pembatalan gratis hingga 24 jam sebelum pemesanan. Setelah itu, biaya 50% akan dikenakan.
-                  </p>
-                  <div className="mt-3 space-y-2 bg-red-50 p-3 rounded-lg">
-                    <p className="text-xs sm:text-sm text-red-600 font-medium">Pastikan sebelum melanjutkan:</p>
-                    <ul className="list-disc pl-4 text-xs sm:text-sm text-red-600 space-y-1">
-                      <li>Produk sudah dikirim ke alamat streamer sebelum jadwal live</li>
-                      <li>Product guidelines sudah diupdate dan dikomunikasikan</li>
-                      <li>Estimasi pengiriman produk sudah diperhitungkan</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <h2 className="text-base sm:text-xl mb-3 sm:mb-4">Permintaan Khusus</h2>
+            <Textarea
+              id="special-request"
+              placeholder="Ada permintaan khusus untuk streamer?"
+              value={specialRequest}
+              onChange={(e) => setSpecialRequest(e.target.value)}
+              className="mt-1 text-xs sm:text-sm"
+            />
           </div>
         </div>
 
         {/* Right Container */}
         <div className="w-full md:w-1/3">
-          <div className="rounded-lg p-3 sm:p-6 sticky top-4">
-            <p className="text-xs text-gray-500 mb-2 font-bold">Informasi Streamer</p>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg">{bookingDetails?.streamerName}</h2>
-                <div className="bg-blue-50 p-1 rounded-full">
-                  <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6 sticky top-4 bg-white">
+            {/* Streamer Info Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden">
+                    <Image
+                      src={bookingDetails?.image_url || '/placeholder-avatar.png'}
+                      alt={bookingDetails?.streamerName || ''}
+                      width={40}
+                      height={40}
+                      className="object-cover"
+                    />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-medium">{bookingDetails?.streamerName}</h2>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <MapPin className="h-3 w-3" />
+                      <span>{bookingDetails?.location}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-lg">
+                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                  <span className="ml-1 text-sm font-medium">{bookingDetails?.rating.toFixed(1)}</span>
                 </div>
               </div>
-              <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-lg">
-                <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                <span className="ml-1 text-sm">{bookingDetails?.rating.toFixed(1)}</span>
+
+              {/* Booking Details */}
+              <div className="space-y-3 py-4 border-y border-gray-100">
+                <div className="flex items-center gap-3 text-sm">
+                  <Calendar className="h-4 w-4 text-gray-400" />
+                  <span>{format(new Date(bookingDetails?.date || ''), 'MMMM d, yyyy')}</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <Clock className="h-4 w-4 text-gray-400" />
+                  <span>
+                    {selectedHours.length > 0 && (
+                      `${selectedHours[0]} - ${format(addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1), 'HH:mm')} (${differenceInHours(
+                        addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1),
+                        parseISO(`${bookingDetails?.date}T${selectedHours[0]}`)
+                      )} jam)`
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <Monitor className="h-4 w-4 text-gray-400" />
+                  <span>{bookingDetails?.platform}</span>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center text-sm text-gray-600 mb-4">
-              <MapPin className="h-4 w-4 text-red-500 mr-2" />
-              <span>{bookingDetails?.location}</span>
-            </div>
-
-            <div className="h-2 bg-gray-100 -mx-3 sm:-mx-6 my-4" />
-
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 font-bold">{`Rp ${bookingDetails?.price.toLocaleString()} x ${selectedHours.length} jam`}</span>
-                <span>{`Rp ${subtotal.toLocaleString()}`}</span>
+              {/* Price Breakdown */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">
+                    {`Rp ${priceWithPlatformFee.toLocaleString()} × ${selectedHours.length} jam`}
+                  </span>
+                  <span className="font-medium">{`Rp ${subtotal.toLocaleString()}`}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Pajak (11%)</span>
+                  <span className="font-medium">{`Rp ${tax.toLocaleString()}`}</span>
+                </div>
+                <div className="pt-2 mt-2 border-t border-gray-100">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Total</span>
+                    <span className="font-medium text-lg">{`Rp ${total.toLocaleString()}`}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 font-bold">Biaya platform (30%)</span>
-                <span>{`Rp ${platformFee.toLocaleString()}`}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 font-bold">Pajak (11%)</span>
-                <span>{`Rp ${tax.toLocaleString()}`}</span>
-              </div>
-            </div>
 
-            <div className="h-2 bg-gray-100 -mx-3 sm:-mx-6 my-4" />
-
-            <div className="flex justify-between text-base sm:text-lg mb-6">
-              <span className="font-bold">Total</span>
-              <span className="font-bold">{`Rp ${total.toLocaleString()}`}</span>
-            </div>
-
-            <div className="pt-2">
+              {/* Confirm Button */}
               <Button 
                 onClick={handleConfirmBooking} 
                 disabled={isLoading}
-                className={`w-full py-3 rounded-lg text-sm transition-all duration-200 ${
+                className={`w-full py-6 rounded-xl text-sm font-medium transition-all duration-200 ${
                   isLoading 
-                    ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white'
+                    ? 'bg-gray-100 text-gray-400'
                     : 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white'
                 }`}
               >
                 {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Bayar
-                  </>
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Memproses...</span>
+                  </div>
                 ) : (
-                  <>
-                    <Shield className="mr-2 h-4 w-4" />
-                    Konfirmasi
-                  </>
+                  <div className="flex items-center justify-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    <span>Konfirmasi Booking</span>
+                  </div>
                 )}
               </Button>
             </div>
