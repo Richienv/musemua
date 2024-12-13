@@ -16,7 +16,7 @@ const onboardingSteps = [
       "Kelola jadwal live shopping dengan mudah",
       "Terima pembayaran secara aman dan tepat waktu"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/s1.mp4"
   },
   {
     title: "Komunikasi yang Aman 💬",
@@ -26,7 +26,7 @@ const onboardingSteps = [
       "Diskusikan detail live shopping dengan aman",
       "Semua percakapan tercatat dalam sistem"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/s2.mp4"
   },
   {
     title: "Dukungan Admin 🤝",
@@ -36,7 +36,7 @@ const onboardingSteps = [
       "Bantuan teknis selama live shopping",
       "Penyelesaian masalah dengan cepat"
     ],
-    video: "/videos/hero.mp4"
+      video: "/videos/s3.mp4"
   },
   {
     title: "Mulai Live dengan Mudah 🎥",
@@ -46,7 +46,7 @@ const onboardingSteps = [
       "Interface yang user-friendly",
       "Panduan langkah demi langkah"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/s4.mp4"
   },
   {
     title: "Sistem Audit Otomatis ⚡",
@@ -56,17 +56,7 @@ const onboardingSteps = [
       "Monitoring status live secara real-time",
       "Laporan performa setiap sesi"
     ],
-    video: "/videos/hero.mp4"
-  },
-  {
-    title: "Dashboard Riwayat & Analisis Personal",
-    description: "Akses lengkap data historis untuk pengembangan diri.",
-    points: [
-      "Lihat semua riwayat sesi live kamu dengan mudah",
-      "Analisis pendapatan kamu dengan analitik yang detail",
-      "Pantau rating dan ulasan client dari performa kamu"
-    ],
-    video: "/videos/hero.mp4"
+    video: "/videos/s5.mp4"
   },
   {
     title: "Pembayaran Terjamin 💰",
@@ -76,7 +66,7 @@ const onboardingSteps = [
       "Rincian fee yang jelas dengan struktur komisi yang jelas",
       "Histori transaksi lengkap dan tidak terlihat oleh pihak lain"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/s6.mp4"
   },
   {
     title: "Kelola Booking dengan Mudah 📅",
@@ -86,7 +76,7 @@ const onboardingSteps = [
       "Dapatkan permintaan langsung dari brand-brand terpercaya",
       "Kelola sesi live kamu dengan fleksibel"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/s7.mp4"
   },
   {
     title: "Atur Jadwal Fleksibel ⏰",
@@ -96,7 +86,7 @@ const onboardingSteps = [
       "Blokir waktu untuk keperluan pribadi",
       "Semua jadwal kamu dapat dijadwalkan dengan mudah"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/s8.mp4"
   },
   {
     title: "⚠️ PENTING ⚠️",
@@ -106,7 +96,7 @@ const onboardingSteps = [
       "Semua transaksi WAJIB melalui Salda",
       "Laporkan aktivitas mencurigakan ke admin"
     ],
-    video: "/videos/hero.mp4"
+    video: ""
   }
 ];
 
@@ -228,7 +218,7 @@ export default function StreamerOnboarding() {
         <p className="text-base lg:text-lg text-gray-600">
           {onboardingSteps[currentStep].description}
         </p>
-        <div className="space-y-3 lg:space-y-4 mt-6 lg:mt-8">
+        <div className="space-y-3 lg:space-y-4">
           {onboardingSteps[currentStep].points.map((point, index) => (
             <motion.div
               key={index}
@@ -247,63 +237,36 @@ export default function StreamerOnboarding() {
             </motion.div>
           ))}
         </div>
-
-        {/* Navigation Buttons */}
-        <div className="space-y-6 lg:space-y-8 px-4 lg:px-0">
-          <div className="flex gap-3 lg:gap-4">
-            <Button
-              onClick={handlePrevious}
-              variant="outline"
-              className="flex-1 flex items-center justify-center gap-2 h-12 lg:h-11 text-sm lg:text-base"
-              disabled={currentStep === 0}
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Kembali
-            </Button>
-            <Button
-              onClick={handleNext}
-              className="flex-1 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 flex items-center justify-center gap-2 h-12 lg:h-11 text-sm lg:text-base"
-            >
-              {currentStep === onboardingSteps.length - 1 ? (
-                <>
-                  Mulai
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              ) : (
-                <>
-                  Lanjut
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Add back the skip button with logo */}
-          <div className="text-center pt-4 lg:pt-0">
-            <button
-              onClick={handleSkip}
-              className="group inline-flex flex-col items-center gap-2"
-            >
-              <Image
-                src="/images/salda-logoB.png"
-                alt="Salda Logo"
-                width={40}
-                height={40}
-                className="opacity-50 group-hover:opacity-100 transition-opacity lg:w-[60px] lg:h-[60px]"
-              />
-              <span className="text-xs lg:text-sm text-gray-500 underline group-hover:text-gray-700">
-                Lewati semua pengenalan
-              </span>
-            </button>
-          </div>
-        </div>
       </div>
     );
   };
 
   return (
     <div className="flex flex-col lg:flex-row w-full min-h-screen">
-      {/* Left Content */}
+      {/* Video Section */}
+      <div className="w-full lg:flex-1 h-[40vh] lg:h-auto relative bg-white order-1 lg:order-2">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            <video
+              key={onboardingSteps[currentStep].video}
+              src={onboardingSteps[currentStep].video}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-contain"
+            />
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Content Section */}
       <div className="w-full lg:w-[45%] bg-gradient-to-br from-red-50 via-white to-red-50 p-6 lg:p-12 flex items-center justify-center order-2 lg:order-1">
         <div className="w-full max-w-2xl">
           <AnimatePresence mode="wait">
@@ -317,10 +280,7 @@ export default function StreamerOnboarding() {
               {/* Progress Bar */}
               <div className="flex items-center gap-1 lg:gap-2 mb-8 lg:mb-12 px-4 lg:px-0">
                 {onboardingSteps.map((_, index) => (
-                  <div
-                    key={index}
-                    className="flex-1 relative"
-                  >
+                  <div key={index} className="flex-1 relative">
                     <div 
                       className={`h-1.5 lg:h-2 rounded-full transition-all duration-500 ${
                         index <= currentStep ? "bg-red-500" : "bg-gray-200"
@@ -344,9 +304,8 @@ export default function StreamerOnboarding() {
                 {renderSecurityStep()}
               </div>
 
-              {/* Navigation Buttons - Repositioned and Restyled */}
+              {/* Navigation */}
               <div className="space-y-6 lg:space-y-8 px-4 lg:px-0">
-                {/* Main Navigation Buttons */}
                 <div className="flex gap-3 lg:gap-4">
                   <Button
                     onClick={handlePrevious}
@@ -361,46 +320,33 @@ export default function StreamerOnboarding() {
                     onClick={handleNext}
                     className="flex-1 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 flex items-center justify-center gap-2 h-12 lg:h-11 text-sm lg:text-base"
                   >
-                    {currentStep === onboardingSteps.length - 1 ? (
-                      <>
-                        Mulai
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    ) : (
-                      <>
-                        Lanjut
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
+                    {currentStep === onboardingSteps.length - 1 ? "Mulai" : "Lanjut"}
+                    <ArrowRight className="w-4 h-4" />
                   </Button>
+                </div>
+
+                {/* Skip button */}
+                <div className="text-center">
+                  <button
+                    onClick={handleSkip}
+                    className="group inline-flex flex-col items-center gap-2"
+                  >
+                    <Image
+                      src="/images/salda-logoB.png"
+                      alt="Salda Logo"
+                      width={40}
+                      height={40}
+                      className="opacity-50 group-hover:opacity-100 transition-opacity lg:w-[60px] lg:h-[60px]"
+                    />
+                    <span className="text-xs lg:text-sm text-gray-500 underline group-hover:text-gray-700">
+                      Lewati semua pengenalan
+                    </span>
+                  </button>
                 </div>
               </div>
             </motion.div>
           </AnimatePresence>
         </div>
-      </div>
-
-      {/* Right Content - Video Section */}
-      <div className="w-full lg:flex-1 h-[40vh] lg:h-auto relative bg-gray-900 order-1 lg:order-2">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentStep}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0"
-          >
-            <video
-              key={onboardingSteps[currentStep].video}
-              src={onboardingSteps[currentStep].video}
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="w-full h-full object-cover"
-            />
-          </motion.div>
-        </AnimatePresence>
       </div>
     </div>
   );

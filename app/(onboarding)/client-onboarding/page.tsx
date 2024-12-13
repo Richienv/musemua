@@ -17,7 +17,7 @@ const onboardingSteps = [
       "Tingkatkan penjualan dengan live shopping",
       "Sistem pembayaran yang aman dan transparan"
     ],
-    video: "/videos/Rotato Selamat Datang di Salda.mov"
+    video: "/videos/c1.mp4"
   },
   {
     title: "Host Berkualitas 🌟",
@@ -27,7 +27,7 @@ const onboardingSteps = [
       "Spesialisasi di berbagai kategori produk",
       "Rating dan review terbuka dari client sebelumnya"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/c2.mp4"
   },
   {
     title: "Keamanan Terjamin 🔒",
@@ -37,7 +37,7 @@ const onboardingSteps = [
       "Perlindungan dari penipuan dan fraud",
       "Kontrak digital yang mengikat secara hukum"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/c3.mp4"
   },
   {
     title: "Transaksi Transparan 💎",
@@ -47,7 +47,7 @@ const onboardingSteps = [
       "Rincian biaya yang jelas tanpa biaya tersembunyi",
       "Laporan keuangan yang detail dan akurat"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/c4.mp4"
   },
   {
     title: "Notifikasi Real-time 📱",
@@ -57,7 +57,7 @@ const onboardingSteps = [
       "Notifikasi performa selama live",
       "Laporan hasil penjualan otomatis"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/c5.mp4"
   },
   {
     title: "Pilihan Host Terlengkap 🎯",
@@ -67,7 +67,7 @@ const onboardingSteps = [
       "Filter berdasarkan kategori dan pengalaman",
       "Profil lengkap dengan portofolio host"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/c6.mp4"
   },
   {
     title: "Tingkatkan Revenue 📈",
@@ -77,7 +77,7 @@ const onboardingSteps = [
       "Engagement rate 10x lebih tinggi",
       "Konversi penjualan hingga 30%"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/c7.mp4"
   },
   {
     title: "Harga Kompetitif 💰",
@@ -87,17 +87,7 @@ const onboardingSteps = [
       "Paket booking yang fleksibel",
       "Program loyalitas untuk client regular"
     ],
-    video: "/videos/hero.mp4"
-  },
-  {
-    title: "Dukungan Premium 🤝",
-    description: "Tim support yang siap membantu kesuksesan live shopping Anda.",
-    points: [
-      "Bantuan pemilihan host yang tepat",
-      "Konsultasi strategi live shopping",
-      "Dukungan teknis 24/7"
-    ],
-    video: "/videos/hero.mp4"
+    video: "/videos/c8.mp4"
   },
   {
     title: "⚠️ PENTING ⚠️",
@@ -107,7 +97,7 @@ const onboardingSteps = [
       "Jangan melakukan transaksi di luar platform",
       "Hubungi admin jika ada aktivitas mencurigakan"
     ],
-    video: "/videos/hero.mp4"
+    video: ""
   }
 ];
 
