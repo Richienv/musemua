@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { useEffect, useState, useRef } from "react";
-import { ArrowRight, Star, Users, Shield, ChevronLeft, ChevronRight, ChevronDown, Check, X, TrendingUp } from "lucide-react";
+import { ArrowRight, Star, Users, Shield, ChevronLeft, ChevronRight, ChevronDown, Check, X, TrendingUp, LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { HeroBackground } from "@/components/hero-background";
@@ -29,6 +29,19 @@ interface ComparisonItem {
   description?: string;
   salda: boolean;
   competitors: boolean;
+}
+
+interface TiltCardStats {
+  viewers: string | number;
+  rating: string | number;
+  sales: string | number;
+}
+
+interface TiltCardProps {
+  image: string;
+  name: string;
+  title: string;
+  stats: TiltCardStats;
 }
 
 const tutorialSlides: TutorialSlide[] = [
@@ -174,15 +187,15 @@ const comparisonData: ComparisonItem[] = [
 
 // Add this custom hook for the tilt effect
 function useTilt(initial = 0) {
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
   
   const x = useMotionValue(initial);
   const y = useMotionValue(initial);
   
-  const rotateX = useTransform(y, [-0.5, 0.5], ["17.5deg", "-17.5deg"]);
-  const rotateY = useTransform(x, [-0.5, 0.5], ["-17.5deg", "17.5deg"]);
+  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], ["17.5deg", "-17.5deg"]));
+  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], ["-17.5deg", "17.5deg"]));
 
-  const handleMouse = (event: React.MouseEvent) => {
+  const handleMouse = (event: React.MouseEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     
     const width = rect.width;
@@ -1086,7 +1099,7 @@ const scrollToNextSection = () => {
 };
 
 // Create a new TiltCard component
-function TiltCard({ image, name, title, stats }) {
+function TiltCard({ image, name, title, stats }: TiltCardProps) {
   const { ref, rotateX, rotateY, handleMouse } = useTilt();
 
   return (
@@ -1149,14 +1162,33 @@ function TiltCard({ image, name, title, stats }) {
 }
 
 // Helper Components
-const StatsItem = ({ label, value }) => (
+interface StatsItemProps {
+  label: string;
+  value: string | number;
+}
+
+const StatsItem = ({ label, value }: StatsItemProps) => (
   <div>
     <p className="text-sm text-gray-400">{label}</p>
     <p className="text-lg font-semibold">{value}</p>
   </div>
 );
 
-const StatsBlock = ({ title, subtitle, icon: Icon, iconColor = "text-sky-700", bgColor = "bg-sky-100" }) => (
+interface StatsBlockProps {
+  title: string;
+  subtitle: string;
+  icon: LucideIcon;  // Assuming you're using lucide-react icons
+  iconColor?: string;
+  bgColor?: string;
+}
+
+const StatsBlock = ({ 
+  title, 
+  subtitle, 
+  icon: Icon, 
+  iconColor = "text-sky-700", 
+  bgColor = "bg-sky-100" 
+}: StatsBlockProps) => (
   <div className="text-center">
     <div className={`w-12 h-12 rounded-full ${bgColor} flex items-center justify-center mx-auto mb-3`}>
       <Icon className={`w-6 h-6 ${iconColor}`} />
@@ -1173,7 +1205,13 @@ const LiveBadge = () => (
   </div>
 );
 
-const StatsCard = ({ title, subtitle, icon: Icon }) => (
+interface StatsCardProps {
+  title: string;
+  subtitle: string;
+  icon: LucideIcon;  // Assuming you're using lucide-react icons
+}
+
+const StatsCard = ({ title, subtitle, icon: Icon }: StatsCardProps) => (
   <motion.div
     className="relative"
     initial={{ rotateX: 15, rotateY: -10, z: 30 }}
