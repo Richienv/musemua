@@ -17,7 +17,7 @@ const onboardingSteps = [
       "Tingkatkan penjualan dengan live shopping",
       "Sistem pembayaran yang aman dan transparan"
     ],
-    video: "/videos/hero.mp4"
+    video: "/videos/Rotato Selamat Datang di Salda.mov"
   },
   {
     title: "Host Berkualitas 🌟",
@@ -384,14 +384,14 @@ export default function ClientOnboarding() {
       </div>
 
       {/* Right Content - Video Section */}
-      <div className="w-full lg:flex-1 h-[40vh] lg:h-auto relative bg-gray-900 order-1 lg:order-2">
+      <div className="w-full lg:flex-1 h-[40vh] lg:h-auto relative bg-white order-1 lg:order-2">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0"
+            className="absolute inset-0 flex items-center justify-center"
           >
             <video
               key={onboardingSteps[currentStep].video}
@@ -400,7 +400,7 @@ export default function ClientOnboarding() {
               muted
               loop
               playsInline
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
           </motion.div>
         </AnimatePresence>

@@ -172,8 +172,8 @@ export default function ProtectedPage() {
 
       {/* Main Content */}
       <Suspense fallback={<MainContentSkeleton />}>
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-          <div className="max-w-7xl mx-auto">
+        <div className="w-full px-2 sm:px-4 lg:px-6 py-6 md:py-8">
+          <div className="max-w-[1440px] mx-auto">
             {/* Carousel */}
             <Suspense fallback={
               <div className="w-full h-[400px] bg-gray-100 animate-pulse rounded-lg mb-6 md:mb-10" />
@@ -210,8 +210,8 @@ export default function ProtectedPage() {
             {/* StreamerList */}
             <div className="px-2 md:px-4 lg:px-6">
               <Suspense fallback={
-                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                  {[...Array(6)].map((_, i) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                  {[...Array(8)].map((_, i) => (
                     <div key={i} className="h-[400px] bg-gray-100 animate-pulse rounded-lg" />
                   ))}
                 </div>
@@ -219,7 +219,7 @@ export default function ProtectedPage() {
                 <StreamerList 
                   initialStreamers={filteredStreamers} 
                   filter={filter} 
-                  className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6"
                 />
               </Suspense>
             </div>
@@ -239,8 +239,8 @@ function MainContentSkeleton() {
         <hr className="border-t border-gray-200 my-6 md:my-8" />
         <div className="h-8 bg-gray-200 animate-pulse rounded mb-4"></div>
         <hr className="border-t border-gray-200 my-4 md:my-5" />
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          {[...Array(8)].map((_, i) => (
             <div key={i} className="h-[400px] bg-gray-100 animate-pulse rounded-lg" />
           ))}
         </div>
