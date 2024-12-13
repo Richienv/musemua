@@ -388,11 +388,11 @@ function BookingDetailContent() {
     return <div className="container mx-auto p-4">Loading...</div>;
   }
 
-  const subtotal = bookingDetails.price * selectedHours.length;
-  const platformFee = subtotal * 0.30;
-  const subtotalWithPlatformFee = subtotal + platformFee;
-  const tax = subtotalWithPlatformFee * 0.11;
-  const total = Math.round(subtotalWithPlatformFee + tax);
+  // Calculate price with 30% platform fee included
+  const priceWithPlatformFee = bookingDetails.price * 1.3;
+  const subtotal = priceWithPlatformFee * selectedHours.length;
+  const tax = subtotal * 0.11;
+  const total = Math.round(subtotal + tax);
 
   return (
     <div className="container mx-auto p-3 sm:p-4 max-w-6xl font-sans text-xs sm:text-sm mt-4 sm:mt-8">
@@ -561,12 +561,10 @@ function BookingDetailContent() {
 
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600 font-bold">{`Rp ${bookingDetails?.price.toLocaleString()} x ${selectedHours.length} jam`}</span>
+                <span className="text-gray-600 font-bold">
+                  {`Rp ${priceWithPlatformFee.toLocaleString()} x ${selectedHours.length} jam`}
+                </span>
                 <span>{`Rp ${subtotal.toLocaleString()}`}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 font-bold">Biaya platform (30%)</span>
-                <span>{`Rp ${platformFee.toLocaleString()}`}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 font-bold">Pajak (11%)</span>

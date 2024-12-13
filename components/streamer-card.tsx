@@ -572,13 +572,13 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           <div className="flex flex-col mb-1.5">
             <div className="flex items-center gap-1">
               <span className="text-sm sm:text-base font-bold text-foreground">
-                Rp {streamer.price.toLocaleString('id-ID')}
+                Rp {(streamer.price * 1.3).toLocaleString('id-ID')}
               </span>
               <span className="text-[10px] sm:text-xs font-normal text-foreground/70">/ jam</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="text-xs sm:text-sm text-gray-400 line-through">
-                Rp {Math.round(streamer.price * 1.25).toLocaleString('id-ID')}
+                Rp {Math.round(streamer.price * 1.3 * 1.2).toLocaleString('id-ID')}
               </span>
               <span className="text-[10px] sm:text-xs font-medium text-blue-600">25%</span>
             </div>
@@ -602,21 +602,35 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           </div>
 
           {/* Location and Categories */}
-          <div className="flex flex-wrap items-center gap-2 mb-3">
+          <div className="flex flex-col gap-2 mb-3">
+            {/* Location */}
             <div className="flex items-center gap-1.5">
               <div className="p-1 bg-[#2563eb]/10 rounded-full">
                 <MapPin className="w-3 h-3 text-[#2563eb]" />
               </div>
               <span className="text-xs text-gray-600">{streamer.location}</span>
             </div>
-            {(streamer.categories || [streamer.category]).map((category, index) => (
-              <div key={category} className="flex items-center gap-1.5">
-                <div className="p-1 bg-[#2563eb]/10 rounded-full">
-                  <Monitor className="w-3 h-3 text-[#2563eb]" />
+            
+            {/* Categories */}
+            <div className="flex flex-wrap gap-1.5 min-h-[64px] content-start">
+              {(streamer.category || '')
+                .split(',')
+                .filter(Boolean)
+                .slice(0, 6) // Limit to 6 categories (2 rows of 3)
+                .map((category) => (
+                <div 
+                  key={category} 
+                  className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-md h-[28px]"
+                >
+                  <div className="p-1 bg-[#2563eb]/10 rounded-full shrink-0">
+                    <Monitor className="w-3 h-3 text-[#2563eb]" />
+                  </div>
+                  <span className="text-xs text-gray-600 truncate">
+                    {category.trim()}
+                  </span>
                 </div>
-                <span className="text-xs text-gray-600">{category}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* Buttons - reduced size */}
