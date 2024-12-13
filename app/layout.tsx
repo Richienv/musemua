@@ -22,7 +22,6 @@ export const metadata = {
   description: "Temukan streamer terbaik untuk kebutuhan live-selling streaming Anda",
 };
 
-// Define custom properties type
 interface CustomCSSProperties extends CSSProperties {
   '--primary-gradient': string;
   '--primary-gradient-hover': string;
@@ -34,12 +33,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.className} ${playfair.variable} overflow-x-hidden`}>
-      <body className={`${GeistSans.className} overflow-x-hidden`} 
+    <html lang="en" className={`${inter.className} ${playfair.variable}`}>
+      <body 
+        className={`${GeistSans.className} bg-white overflow-x-hidden`} 
         style={{
           '--primary-gradient': 'linear-gradient(to right, #2563eb, #7c3aed)',
           '--primary-gradient-hover': 'linear-gradient(to right, #1d4ed8, #6d28d9)'
-        } as CustomCSSProperties}>
+        } as CustomCSSProperties}
+      >
         <Toaster position="top-center" />
         <main className="min-h-screen flex flex-col items-center w-full">
           {children}

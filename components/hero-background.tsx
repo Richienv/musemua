@@ -1,62 +1,70 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useRef, useState } from "react";
-import { Mesh, Vector3 } from "three";
-import { Environment, Float, MeshDistortMaterial, Sphere } from "@react-three/drei";
+import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
 
-function AnimatedSphere({ position }: { position: [number, number, number] }) {
-  const meshRef = useRef<Mesh>(null);
-  const [hovered, setHovered] = useState(false);
+export const HeroBackground = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.x = state.clock.getElapsedTime() * 0.2;
-      meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.1;
-      meshRef.current.position.y = Math.sin(state.clock.getElapsedTime() * 0.5) * 0.2;
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ alpha: true });
+    
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    containerRef.current.appendChild(renderer.domElement);
+
+    // Create particles
+    const particlesGeometry = new THREE.BufferGeometry();
+    const particlesCount = 5000;
+    const posArray = new Float32Array(particlesCount * 3);
+
+    for (let i = 0; i < particlesCount * 3; i++) {
+      posArray[i] = (Math.random() - 0.5) * 5;
     }
-  });
 
-  return (
-    <Float
-      speed={2} 
-      rotationIntensity={1} 
-      floatIntensity={2}
-      position={position}
-    >
-      <mesh
-        ref={meshRef}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-        scale={hovered ? 1.2 : 1}
-      >
-        <sphereGeometry args={[1, 64, 64]} />
-        <MeshDistortMaterial
-          color="#ff6b6b"
-          attach="material"
-          distort={0.4}
-          speed={2}
-          roughness={0.2}
-          metalness={0.8}
-          opacity={0.1}
-          transparent
-        />
-      </mesh>
-    </Float>
-  );
-}
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
 
-export function HeroBackground() {
-  return (
-    <div className="absolute inset-0 -z-10">
-      <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
-        <Environment preset="city" />
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        <AnimatedSphere position={[-2, 0, 0]} />
-        <AnimatedSphere position={[2, -1, -2]} />
-        <AnimatedSphere position={[0, 2, -1]} />
-      </Canvas>
-    </div>
-  );
-} 
+    // Material
+    const particlesMaterial = new THREE.PointsMaterial({
+      size: 0.005,
+      color: '#FF0000',
+      transparent: true,
+      opacity: 0.5,
+    });
+
+    // Mesh
+    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+    scene.add(particlesMesh);
+
+    camera.position.z = 3;
+
+    // Animation
+    const animate = () => {
+      requestAnimationFrame(animate);
+      particlesMesh.rotation.y += 0.001;
+      renderer.render(scene, camera);
+    };
+
+    animate();
+
+    // Handle resize
+    const handleResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      containerRef.current?.removeChild(renderer.domElement);
+    };
+  }, []);
+
+  return <div ref={containerRef} className="absolute inset-0 -z-10" />;
+}; 

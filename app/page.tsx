@@ -3,11 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { useEffect, useState } from "react";
-import { ArrowRight, Star, Users, Shield, ChevronLeft, ChevronRight, ChevronDown, Check, X } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { ArrowRight, Star, Users, Shield, ChevronLeft, ChevronRight, ChevronDown, Check, X, TrendingUp } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { HeroBackground } from "@/components/hero-background";
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
 interface UserData {
   first_name: string;
@@ -171,6 +172,35 @@ const comparisonData: ComparisonItem[] = [
   }
 ];
 
+// Add this custom hook for the tilt effect
+function useTilt(initial = 0) {
+  const ref = useRef(null);
+  
+  const x = useMotionValue(initial);
+  const y = useMotionValue(initial);
+  
+  const rotateX = useTransform(y, [-0.5, 0.5], ["17.5deg", "-17.5deg"]);
+  const rotateY = useTransform(x, [-0.5, 0.5], ["-17.5deg", "17.5deg"]);
+
+  const handleMouse = (event: React.MouseEvent) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    
+    const width = rect.width;
+    const height = rect.height;
+    
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    
+    const xPct = mouseX / width - 0.5;
+    const yPct = mouseY / height - 0.5;
+    
+    x.set(xPct);
+    y.set(yPct);
+  };
+
+  return { ref, rotateX, rotateY, handleMouse };
+}
+
 export default function Home() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -201,130 +231,310 @@ export default function Home() {
     <>
       <main className="flex flex-col min-h-screen bg-white w-full">
         {/* Hero Section */}
-        <section className="relative min-h-screen flex items-center justify-center w-full overflow-hidden">
-          {/* Three.js Background */}
-          <HeroBackground />
-          
-          {/* Background Image */}
-          <div className="absolute inset-0">
-            <Image
-              src="/images/bg-salda.png"
-              alt="Background"
-              fill
-              className="object-cover opacity-90"
-              priority
-            />
+        <section className="relative min-h-screen bg-white">
+          {/* Top announcement banner */}
+          <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 z-20 w-[90%] md:w-auto">
+            <div className="bg-[#6366F1]/10 rounded-full py-1.5 px-4 flex items-center gap-2 justify-center">
+              <div className="w-2 h-2 bg-[#6366F1] rounded-full animate-pulse" />
+              <span className="text-xs md:text-sm text-gray-600">Rata-rata penjualan meningkat 300%</span>
+            </div>
           </div>
-          
-          {/* Gradient overlays */}
-          <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-transparent to-white/80 opacity-90" />
-          <div className="absolute inset-0 bg-gradient-to-r from-white/80 via-transparent to-white/80 opacity-80" />
-          
-          {/* Add some animated particles */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute w-2 h-2 bg-red-500 rounded-full animate-float-1" style={{ top: '10%', left: '10%' }} />
-            <div className="absolute w-2 h-2 bg-red-300 rounded-full animate-float-2" style={{ top: '20%', right: '20%' }} />
-            <div className="absolute w-2 h-2 bg-red-400 rounded-full animate-float-3" style={{ bottom: '15%', left: '30%' }} />
-          </div>
-          
-          {/* Rest of your hero content */}
-          <div className="w-full relative z-10">
-            <div className="max-w-[1400px] w-full mx-auto">
-              <div className="grid md:grid-cols-2 gap-16 items-center">
-                {/* Left Content */}
-                <div className="text-left space-y-10 px-8 md:px-12">
-                  <div className="inline-flex items-center px-4 py-2 bg-gray-50 rounded-full text-gray-600 text-sm">
-                    <span className="animate-pulse w-2 h-2 bg-red-400 rounded-full mr-2"></span>
-                    Live Now: 250+ Professional Hosts
-                  </div>
-                  
-                  <div className="space-y-6">
-                    <h1 className="font-serif text-4xl sm:text-6xl md:text-7xl font-medium tracking-tight text-gray-900 leading-[1.1]">
-                      Temukan 
-                      <br />
-                      Streamer
-                      <br />
-                      Favoritmu di{' '}
-                      <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-transparent bg-clip-text font-normal italic">
-                        Salda
-                      </span>
-                    </h1>
-                    
-                    <p className="text-sm sm:text-base md:text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto">
-                      Platform streaming yang dirancang untuk memberikan pengalaman terbaik bagi host dan penonton
-                    </p>
-                  </div>
 
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <button 
-                      onClick={() => router.push('/sign-in')}
-                      className="px-8 py-4 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-all hover:scale-105 shadow-lg flex items-center justify-center gap-2 group"
-                    >
-                      Mulai Sekarang
-                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                    
-                    <button 
-                      onClick={scrollToNextSection}
-                      className="px-8 py-4 bg-gray-100 text-gray-900 rounded-full hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
-                    >
-                      Pelajari Lebih Lanjut
-                    </button>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-4 sm:gap-8 pt-6 sm:pt-10 border-t border-gray-100">
-                    <div className="transform transition-all duration-300 hover:scale-105 hover:text-red-500">
-                      <div className="text-2xl sm:text-3xl font-serif font-medium text-gray-900">250+</div>
-                      <div className="text-xs sm:text-sm text-gray-500 mt-1">Host Aktif</div>
-                    </div>
-                    <div>
-                      <div className="text-3xl font-serif font-medium text-gray-900">10x</div>
-                      <div className="text-sm text-gray-500 mt-1">Peningkatan Penjualan</div>
-                    </div>
-                    <div>
-                      <div className="text-3xl font-serif font-medium text-gray-900">24/7</div>
-                      <div className="text-sm text-gray-500 mt-1">Dukungan Tim</div>
-                    </div>
-                  </div>
+          {/* Main hero content */}
+          <div className="container mx-auto px-4 pt-24 md:pt-32">
+            <div className="max-w-[1200px] mx-auto">
+              {/* Text content */}
+              <div className="text-center mb-12 md:mb-20">
+                <h1 className="text-4xl md:text-[64px] leading-[1.1] tracking-[-0.02em] font-medium mb-4 md:mb-6">
+                  <span className="text-[#6366F1]/60 font-serif">Tingkatkan Penjualan</span>
+                  <br />
+                  <span className="text-black font-serif">UMKM Anda</span>
+                  <br />
+                  <span className="bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] text-transparent bg-clip-text font-serif">
+                    hingga 3x lipat
+                  </span>
+                </h1>
+                <p className="text-gray-500 text-base md:text-lg max-w-2xl mx-auto mb-6 md:mb-8 px-4">
+                  Platform yang membantu UMKM meningkatkan penjualan melalui live streaming bersama influencer profesional. 
+                  Rata-rata mitra kami mengalami peningkatan penjualan 300% dalam 30 hari pertama.
+                </p>
+                <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-4">
+                  <button 
+                    onClick={() => router.push('/sign-in')}
+                    className="w-full md:w-auto bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] text-white px-6 py-3 rounded-full hover:opacity-90 transition-all"
+                  >
+                    Mulai Tingkatkan Penjualan
+                  </button>
+                  <button 
+                    className="w-full md:w-auto bg-gray-100 text-gray-900 px-6 py-3 rounded-full hover:bg-gray-200 transition-all"
+                  >
+                    Lihat Kisah Sukses
+                  </button>
                 </div>
+              </div>
 
-                {/* Right Content - Floating Cards */}
-                <div className="relative h-[700px] hidden md:block">
-                  <div className="absolute top-0 right-0 w-full">
-                    <Image
-                      src="/images/18.png"
-                      alt="Hero Image"
-                      width={800}
-                      height={600}
-                      className="w-full object-cover rounded-l-3xl shadow-2xl"
-                      priority
-                    />
-                    
-                    {/* Floating Cards */}
-                    <div className="absolute -left-16 top-1/4 bg-white p-6 rounded-2xl max-w-xs shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-sm animate-card-float">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
-                          <Users className="w-6 h-6 text-red-500" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 text-lg">250+ Host</p>
-                          <p className="text-gray-500">Profesional Terverifikasi</p>
+              {/* Bento Grid Layout - Full Width */}
+              <div className="relative mt-8 md:mt-16 w-full max-w-[2000px] mx-auto">
+                <div className="grid grid-cols-12 gap-4 md:gap-8 px-4 md:px-12">
+                  {/* Left Column */}
+                  <div className="col-span-12 md:col-span-4 space-y-6">
+                    {/* Image Card */}
+                    <motion.div 
+                      className="relative z-30"
+                      initial={{ rotateX: 10, rotateY: -15 }}
+                      animate={{ rotateX: 10, rotateY: -15 }}
+                      style={{ 
+                        transformStyle: "preserve-3d",
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                        perspective: "1000px",
+                        willChange: "transform",
+                      }}
+                    >
+                      <div 
+                        className="relative h-[400px] rounded-2xl overflow-hidden"
+                        style={{
+                          transform: "translate3d(0, 0, 0)",
+                          WebkitTransform: "translate3d(0, 0, 0)",
+                        }}
+                      >
+                        <Image
+                          src="/images/16.png"
+                          alt="Success Story"
+                          fill
+                          className="object-cover select-none"
+                          priority
+                          quality={100}
+                          style={{ 
+                            backfaceVisibility: "hidden",
+                            WebkitBackfaceVisibility: "hidden",
+                            transform: "translate3d(0, 0, 0)",
+                            WebkitTransform: "translate3d(0, 0, 0)",
+                          }}
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                        />
+                      </div>
+                    </motion.div>
+
+                    {/* Testimonial Card */}
+                    <motion.div
+                      className="relative z-20"
+                      initial={{ rotateX: 10, rotateY: -10 }}
+                      animate={{ rotateX: 10, rotateY: -10 }}
+                      style={{ 
+                        transformStyle: "preserve-3d",
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                        perspective: "1000px",
+                        willChange: "transform",
+                      }}
+                    >
+                      <div 
+                        className="bg-white rounded-2xl p-8 border border-sky-100/50"
+                        style={{
+                          transform: "translate3d(0, 0, 0)",
+                          WebkitTransform: "translate3d(0, 0, 0)",
+                        }}
+                      >
+                        <div style={{ transform: "translateZ(40px)" }}>
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-sky-100 flex items-center justify-center">
+                              <Users className="w-6 h-6 text-sky-600" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900">Toko Bunga Mawar</h4>
+                              <p className="text-sm text-gray-500">Jakarta Selatan</p>
+                            </div>
+                          </div>
+                          <p className="text-gray-600 mb-4">
+                            "Penjualan kami meningkat 350% dalam 2 minggu pertama menggunakan platform ini. 
+                            Sangat membantu UMKM seperti kami."
+                          </p>
+                          <div className="flex justify-between items-center">
+                            <div className="flex gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} className="w-4 h-4 fill-sky-500 text-sky-500" />
+                              ))}
+                            </div>
+                            <p className="text-sm text-gray-500">2 minggu yang lalu</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
+                  </div>
 
-                    <div className="absolute -right-8 bottom-1/3 bg-white p-6 rounded-2xl max-w-xs shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-sm animate-card-float" style={{ animationDelay: '1s' }}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
-                          <Shield className="w-6 h-6 text-red-500" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 text-lg">Terpercaya</p>
-                          <p className="text-gray-500">Verifikasi & Monitoring 24/7</p>
+                  {/* Center Column */}
+                  <div className="col-span-12 md:col-span-4 space-y-6">
+                    {/* Testimonial Card */}
+                    <motion.div
+                      className="relative z-20"
+                      initial={{ rotateX: 10, rotateY: -10 }}
+                      animate={{ rotateX: 10, rotateY: -10 }}
+                      style={{ 
+                        transformStyle: "preserve-3d",
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                        perspective: "1000px",
+                        willChange: "transform",
+                      }}
+                    >
+                      <div 
+                        className="bg-white rounded-2xl p-8 border border-sky-100/50"
+                        style={{
+                          transform: "translate3d(0, 0, 0)",
+                          WebkitTransform: "translate3d(0, 0, 0)",
+                        }}
+                      >
+                        <div style={{ transform: "translateZ(40px)" }}>
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-sky-100 flex items-center justify-center">
+                              <Users className="w-6 h-6 text-sky-600" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900">Warung Kopi Kenangan</h4>
+                              <p className="text-sm text-gray-500">Bandung</p>
+                            </div>
+                          </div>
+                          <p className="text-gray-600 mb-4">
+                            "Platform yang sangat profesional. Tim support sangat membantu dalam 
+                            proses onboarding sampai eksekusi live streaming."
+                          </p>
+                          <div className="flex justify-between items-center">
+                            <div className="flex gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} className="w-4 h-4 fill-sky-500 text-sky-500" />
+                              ))}
+                            </div>
+                            <p className="text-sm text-gray-500">1 minggu yang lalu</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
+
+                    {/* Image Card */}
+                    <motion.div 
+                      className="relative z-30"
+                      initial={{ rotateX: 10, rotateY: -15 }}
+                      animate={{ rotateX: 10, rotateY: -15 }}
+                      style={{ 
+                        transformStyle: "preserve-3d",
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                        perspective: "1000px",
+                        willChange: "transform",
+                      }}
+                    >
+                      <div 
+                        className="relative h-[400px] rounded-2xl overflow-hidden"
+                        style={{
+                          transform: "translate3d(0, 0, 0)",
+                          WebkitTransform: "translate3d(0, 0, 0)",
+                        }}
+                      >
+                        <Image
+                          src="/images/17.png"
+                          alt="Success Story"
+                          fill
+                          className="object-cover select-none"
+                          priority
+                          quality={100}
+                          style={{ 
+                            backfaceVisibility: "hidden",
+                            WebkitBackfaceVisibility: "hidden",
+                            transform: "translate3d(0, 0, 0)",
+                            WebkitTransform: "translate3d(0, 0, 0)",
+                          }}
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                        />
+                      </div>
+                    </motion.div>
+                  </div>
+
+                  {/* Right Column */}
+                  <div className="col-span-12 md:col-span-4 space-y-6">
+                    {/* Image Card */}
+                    <motion.div 
+                      className="relative z-30"
+                      initial={{ rotateX: 10, rotateY: -15 }}
+                      animate={{ rotateX: 10, rotateY: -15 }}
+                      style={{ 
+                        transformStyle: "preserve-3d",
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                        perspective: "1000px",
+                        willChange: "transform",
+                      }}
+                    >
+                      <div 
+                        className="relative h-[400px] rounded-2xl overflow-hidden"
+                        style={{
+                          transform: "translate3d(0, 0, 0)",
+                          WebkitTransform: "translate3d(0, 0, 0)",
+                        }}
+                      >
+                        <Image
+                          src="/images/18.png"
+                          alt="Success Story"
+                          fill
+                          className="object-cover select-none"
+                          priority
+                          quality={100}
+                          style={{ 
+                            backfaceVisibility: "hidden",
+                            WebkitBackfaceVisibility: "hidden",
+                            transform: "translate3d(0, 0, 0)",
+                            WebkitTransform: "translate3d(0, 0, 0)",
+                          }}
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                        />
+                      </div>
+                    </motion.div>
+
+                    {/* Testimonial Card */}
+                    <motion.div
+                      className="relative z-20"
+                      initial={{ rotateX: 10, rotateY: -10 }}
+                      animate={{ rotateX: 10, rotateY: -10 }}
+                      style={{ 
+                        transformStyle: "preserve-3d",
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                        perspective: "1000px",
+                        willChange: "transform",
+                      }}
+                    >
+                      <div 
+                        className="bg-white rounded-2xl p-8 border border-sky-100/50"
+                        style={{
+                          transform: "translate3d(0, 0, 0)",
+                          WebkitTransform: "translate3d(0, 0, 0)",
+                        }}
+                      >
+                        <div style={{ transform: "translateZ(40px)" }}>
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-sky-100 flex items-center justify-center">
+                              <Users className="w-6 h-6 text-sky-600" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900">Toko Elektronik Jaya</h4>
+                              <p className="text-sm text-gray-500">Surabaya</p>
+                            </div>
+                          </div>
+                          <p className="text-gray-600 mb-4">
+                            "ROI yang kami dapatkan sangat luar biasa. Dalam sebulan, 
+                            omset meningkat hingga 300%."
+                          </p>
+                          <div className="flex justify-between items-center">
+                            <div className="flex gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} className="w-4 h-4 fill-sky-500 text-sky-500" />
+                              ))}
+                            </div>
+                            <p className="text-sm text-gray-500">3 hari yang lalu</p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
                   </div>
                 </div>
               </div>
@@ -428,7 +638,7 @@ export default function Home() {
         {/* Content Section - Updated with new colors and styling */}
         <section className="py-24 bg-white relative overflow-hidden">
           {/* Background decoration - Updated gradient */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50/50 via-white to-white opacity-70" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-50/50 via-white to-white opacity-70" />
           
           <div className="container mx-auto px-4 relative">
             <div className="text-center max-w-3xl mx-auto mb-20">
@@ -874,3 +1084,116 @@ const scrollToNextSection = () => {
     nextSection.scrollIntoView({ behavior: 'smooth' });
   }
 };
+
+// Create a new TiltCard component
+function TiltCard({ image, name, title, stats }) {
+  const { ref, rotateX, rotateY, handleMouse } = useTilt();
+
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMouse}
+      onMouseLeave={() => {
+        rotateX.set(0);
+        rotateY.set(0);
+      }}
+      style={{
+        rotateX,
+        rotateY,
+        transformStyle: "preserve-3d",
+      }}
+      className="relative h-[500px] rounded-2xl overflow-hidden bg-white shadow-2xl cursor-pointer"
+    >
+      {/* Background Image */}
+      <motion.div
+        style={{
+          backgroundImage: `url(${image})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+        className="absolute inset-0"
+      />
+      
+      {/* Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+      {/* Content */}
+      <div className="absolute bottom-0 left-0 right-0 p-6 text-white" style={{ transform: "translateZ(50px)" }}>
+        <h3 className="text-2xl font-bold mb-2">{name}</h3>
+        <p className="text-gray-300 mb-4">{title}</p>
+        
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <p className="text-sm text-gray-400">Avg. Viewers</p>
+            <p className="text-lg font-semibold">{stats.viewers}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400">Rating</p>
+            <p className="text-lg font-semibold">{stats.rating}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400">Monthly Sales</p>
+            <p className="text-lg font-semibold">{stats.sales}</p>
+          </div>
+        </div>
+
+        {/* Live Indicator */}
+        <div className="absolute top-6 right-6 flex items-center gap-2 bg-red-500/80 px-3 py-1 rounded-full">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          <span className="text-sm font-medium">LIVE</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// Helper Components
+const StatsItem = ({ label, value }) => (
+  <div>
+    <p className="text-sm text-gray-400">{label}</p>
+    <p className="text-lg font-semibold">{value}</p>
+  </div>
+);
+
+const StatsBlock = ({ title, subtitle, icon: Icon, iconColor = "text-sky-700", bgColor = "bg-sky-100" }) => (
+  <div className="text-center">
+    <div className={`w-12 h-12 rounded-full ${bgColor} flex items-center justify-center mx-auto mb-3`}>
+      <Icon className={`w-6 h-6 ${iconColor}`} />
+    </div>
+    <p className="text-xl font-semibold text-gray-900 mb-1">{title}</p>
+    <p className="text-sm text-gray-500">{subtitle}</p>
+  </div>
+);
+
+const LiveBadge = () => (
+  <div className="absolute top-6 right-6 flex items-center gap-2 bg-red-500/80 backdrop-blur-sm px-3 py-1 rounded-full">
+    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+    <span className="text-sm font-medium text-white">LIVE</span>
+  </div>
+);
+
+const StatsCard = ({ title, subtitle, icon: Icon }) => (
+  <motion.div
+    className="relative"
+    initial={{ rotateX: 15, rotateY: -10, z: 30 }}
+    animate={{ rotateX: 15, rotateY: -10, z: 30 }}
+    style={{ 
+      transformStyle: "preserve-3d",
+      transformOrigin: "center center",
+      filter: "drop-shadow(0 15px 15px rgb(0 0 0 / 0.1))"
+    }}
+  >
+    <div className="h-[120px] md:h-[150px] bg-white rounded-2xl shadow-xl p-4 md:p-6 border border-sky-100/50">
+      <div style={{ transform: "translateZ(40px)" }} className="h-full flex flex-col justify-between">
+        <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-sky-100 flex items-center justify-center">
+          <Icon className="w-4 h-4 md:w-5 md:h-5 text-sky-700" />
+        </div>
+        <div>
+          <p className="text-lg md:text-xl font-bold text-gray-900">{title}</p>
+          <p className="text-xs md:text-sm text-gray-500">{subtitle}</p>
+        </div>
+      </div>
+    </div>
+  </motion.div>
+);

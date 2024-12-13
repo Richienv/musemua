@@ -67,3 +67,261 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes float-1 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(20px, -20px); }
+}
+
+@keyframes float-2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-15px, -25px); }
+}
+
+@keyframes float-3 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(25px, -15px); }
+}
+
+@keyframes card-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(20px, -20px) rotate(5deg); }
+}
+
+@keyframes float-slower {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(-30px, -30px) rotate(-5deg); }
+}
+
+@keyframes float-slowest {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(25px, -40px) rotate(3deg); }
+}
+
+.animate-float-1 {
+  animation: float-1 12s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: float-2 15s ease-in-out infinite;
+}
+
+.animate-float-3 {
+  animation: float-3 18s ease-in-out infinite;
+}
+
+.animate-card-float {
+  animation: card-float 4s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float-slow 15s ease-in-out infinite;
+}
+
+.animate-float-slower {
+  animation: float-slower 20s ease-in-out infinite;
+}
+
+.animate-float-slowest {
+  animation: float-slowest 25s ease-in-out infinite;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.card-transition {
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.blur-3xl {
+  --tw-blur: blur(64px);
+  filter: var(--tw-blur);
+}
+
+.rotate-y-\[10deg\] {
+  transform: rotateY(10deg);
+}
+
+.rotate-y-\[-10deg\] {
+  transform: rotateY(-10deg);
+}
+
+.rotate-y-\[15deg\] {
+  transform: rotateY(15deg);
+}
+
+.rotate-y-\[-15deg\] {
+  transform: rotateY(-15deg);
+}
+
+.rotate-y-\[20deg\] {
+  transform: rotateY(20deg);
+}
+
+.rotate-y-\[-20deg\] {
+  transform: rotateY(-20deg);
+}
+
+.rotate-x-\[5deg\] {
+  transform: rotateX(5deg);
+}
+
+.rotate-x-\[-5deg\] {
+  transform: rotateX(-5deg);
+}
+
+.rotate-x-\[10deg\] {
+  transform: rotateX(10deg);
+}
+
+.rotate-x-\[-10deg\] {
+  transform: rotateX(-10deg);
+}
+
+.transform-gpu {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.group:hover .group-hover\:rotate-y-0 {
+  transform: rotateY(0deg);
+}
+
+.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Enhanced 3D transforms */
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+/* Smooth transitions for 3D hover effects */
+.transition-transform {
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced depth for cards */
+.shadow-2xl {
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Card hover effects */
+.hover\:shadow-3xl:hover {
+  box-shadow: 
+    0 35px 60px -15px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Enhanced animations for waveform */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1); }
+}
+
+.animate-wave {
+  animation: wave 1.5s ease-in-out infinite;
+}
+
+/* Gradient overlay for depth */
+.gradient-overlay {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+}
+
+/* Add smooth transitions for transform */
+.transform-smooth {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced card effects */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-10px);
+}
+
+/* Gradient overlays */
+.gradient-bottom {
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.8) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+/* Live indicator animation */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  80%, 100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Add these to improve rendering quality */
+.preserve-3d {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  perspective: 1000px;
+  -webkit-perspective: 1000px;
+}
+
+.gpu-accelerated {
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* Optimize image rendering */
+img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
