@@ -16,7 +16,7 @@ const onboardingSteps = [
       "Kelola jadwal live shopping dengan mudah",
       "Terima pembayaran secara aman dan tepat waktu"
     ],
-    video: "/videos/streamer 1.mp4"
+    video: "/videos/s1.mp4"
   },
   {
     title: "Komunikasi yang Aman 💬",
@@ -26,7 +26,7 @@ const onboardingSteps = [
       "Diskusikan detail live shopping dengan aman",
       "Semua percakapan tercatat dalam sistem"
     ],
-    video: "/videos/streamer 2.mp4"
+    video: "/videos/s2.mp4"
   },
   {
     title: "Dukungan Admin 🤝",
@@ -36,7 +36,7 @@ const onboardingSteps = [
       "Bantuan teknis selama live shopping",
       "Penyelesaian masalah dengan cepat"
     ],
-      video: "/videos/streamer 3.mp4"
+      video: "/videos/s3.mp4"
   },
   {
     title: "Mulai Live dengan Mudah 🎥",
@@ -46,7 +46,7 @@ const onboardingSteps = [
       "Interface yang user-friendly",
       "Panduan langkah demi langkah"
     ],
-    video: "/videos/streamer 4.mp4"
+    video: "/videos/s4.mp4"
   },
   {
     title: "Sistem Audit Otomatis ⚡",
@@ -56,7 +56,7 @@ const onboardingSteps = [
       "Monitoring status live secara real-time",
       "Laporan performa setiap sesi"
     ],
-    video: "/videos/streamer 5.mp4"
+    video: "/videos/s5.mp4"
   },
   {
     title: "Pembayaran Terjamin 💰",
@@ -66,7 +66,7 @@ const onboardingSteps = [
       "Rincian fee yang jelas dengan struktur komisi yang jelas",
       "Histori transaksi lengkap dan tidak terlihat oleh pihak lain"
     ],
-    video: "/videos/streamer 6.mp4"
+    video: "/videos/s6.mp4"
   },
   {
     title: "Kelola Booking dengan Mudah 📅",
@@ -76,7 +76,7 @@ const onboardingSteps = [
       "Dapatkan permintaan langsung dari brand-brand terpercaya",
       "Kelola sesi live kamu dengan fleksibel"
     ],
-    video: "/videos/streamer 7.mp4"
+    video: "/videos/s7.mp4"
   },
   {
     title: "Atur Jadwal Fleksibel ⏰",
@@ -86,7 +86,7 @@ const onboardingSteps = [
       "Blokir waktu untuk keperluan pribadi",
       "Semua jadwal kamu dapat dijadwalkan dengan mudah"
     ],
-    video: "/videos/streamer 8.mp4"
+    video: "/videos/s8.mp4"
   },
   {
     title: "⚠️ PENTING ⚠️",
