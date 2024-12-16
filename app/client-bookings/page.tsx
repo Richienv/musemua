@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw } f
 import Image from 'next/image';
 import RatingModal from '@/components/rating-modal';
 import { useRouter } from 'next/navigation';
+import CancelBookingModal from '@/components/cancel-booking-modal';
 
 interface Booking {
   id: number;
@@ -53,6 +54,8 @@ const getStatusInfo = (status: string) => {
 
 function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingSubmit: () => void }) {
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -112,23 +115,47 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
         </div>
       </div>
       
-      {/* Bottom layer - Updated button hover style */}
+      {/* Bottom layer - Updated with new buttons */}
       <div className="flex justify-between items-center">
         <div className="flex items-center">
           <DollarSign className="w-5 h-5 mr-2 text-green-500" />
           <span className="font-semibold text-lg">Rp {booking.price.toLocaleString()}</span>
         </div>
-        {booking.status.toLowerCase() === 'completed' && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-sm py-2 px-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white hover:from-blue-700 hover:to-blue-900 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 hover:text-white"
-            onClick={() => setIsRatingModalOpen(true)}
-          >
-            Give Rating
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {booking.status.toLowerCase() === 'completed' && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-sm py-2 px-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white hover:from-blue-700 hover:to-blue-900 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 hover:text-white"
+              onClick={() => setIsRatingModalOpen(true)}
+            >
+              Give Rating
+            </Button>
+          )}
+          {(booking.status.toLowerCase() === 'pending' || booking.status.toLowerCase() === 'accepted') && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-sm py-2 px-4 border-red-500 text-red-500 hover:bg-red-50"
+                onClick={() => setIsCancelModalOpen(true)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-sm py-2 px-4 border-orange-500 text-orange-500 hover:bg-orange-50"
+                onClick={() => setIsRescheduleModalOpen(true)}
+              >
+                Reschedule
+              </Button>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Modals */}
       {isRatingModalOpen && (
         <RatingModal 
           isOpen={isRatingModalOpen} 
@@ -142,6 +169,23 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
           onSubmit={onRatingSubmit}
         />
       )}
+      
+      <CancelBookingModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        bookingId={booking.id}
+        streamer_id={booking.streamer.id}
+        start_time={booking.start_time}
+      />
+
+      <CancelBookingModal
+        isOpen={isRescheduleModalOpen}
+        onClose={() => setIsRescheduleModalOpen(false)}
+        bookingId={booking.id}
+        streamer_id={booking.streamer.id}
+        start_time={booking.start_time}
+        isReschedule
+      />
     </div>
   );
 }

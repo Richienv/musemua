@@ -30,7 +30,7 @@ const onboardingSteps = [
     video: "/videos/c2.mp4"
   },
   {
-    title: "Keamanan Terjamin 🔒",
+    title: "Keamanan Terjamin ��",
     description: "Sistem yang melindungi transaksi dan kepentingan brand Anda.",
     points: [
       "Verifikasi ketat untuk setiap host",
@@ -160,88 +160,98 @@ export default function ClientOnboarding() {
   const renderSecurityStep = () => {
     if (currentStep === onboardingSteps.length - 1) {
       return (
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="relative"
-        >
-          <motion.div
-            animate={{
-              scale: [1, 1.02, 1],
-              opacity: [0.5, 0.8, 0.5],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-            className="absolute inset-0 bg-blue-100 rounded-lg lg:rounded-xl"
-          />
-
-          <div className="relative bg-white/95 backdrop-blur-sm rounded-lg lg:rounded-xl border-2 border-blue-500 p-4 lg:p-8 space-y-4 lg:space-y-6">
-            <motion.div
-              initial={{ y: 10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="flex items-center gap-3 text-blue-600"
+        <div className="space-y-6 lg:space-y-8">
+          <div className="flex items-center gap-3 text-blue-600">
+            <svg
+              className="w-6 h-6 lg:w-8 lg:h-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              <svg
-                className="w-6 h-6 lg:w-8 lg:h-8 animate-pulse"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <h1 className="text-2xl lg:text-4xl font-bold text-gray-900">
+              {onboardingSteps[currentStep].title}
+            </h1>
+          </div>
+          
+          <p className="text-base lg:text-lg text-gray-600">
+            {onboardingSteps[currentStep].description}
+          </p>
+
+          <div className="space-y-3 lg:space-y-4">
+            {onboardingSteps[currentStep].points.map((point, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ 
+                  opacity: 1, 
+                  y: 0,
+                  transition: { delay: index * 0.2 }
+                }}
+                className="flex items-center gap-3 text-gray-700 bg-blue-50 p-3 lg:p-4 rounded-lg border border-blue-200"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-              <h1 className="text-2xl lg:text-4xl font-bold">
-                {onboardingSteps[currentStep].title}
-              </h1>
-            </motion.div>
+                <div className="w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                  <CheckCircle2 className="w-3 h-3 lg:w-4 lg:h-4 text-blue-500" />
+                </div>
+                <span className="text-sm lg:text-base">{point}</span>
+              </motion.div>
+            ))}
+          </div>
 
-            <motion.p
-              initial={{ y: 10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-base lg:text-lg text-gray-700"
-            >
-              {onboardingSteps[currentStep].description}
-            </motion.p>
+          <div className="mt-4 lg:mt-6 p-3 lg:p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-xs lg:text-sm text-blue-600 font-medium">
+              Catatan: Salda tidak bertanggung jawab atas kerugian yang timbul akibat
+              transaksi di luar platform atau pembagian informasi pribadi kepada pihak lain.
+            </p>
+          </div>
 
-            <div className="space-y-3 lg:space-y-4">
-              {onboardingSteps[currentStep].points.map((point, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 + index * 0.1 }}
-                  className="flex items-center gap-3 text-gray-800 bg-blue-50 p-3 lg:p-4 rounded-lg border border-blue-200"
-                >
-                  <div className="w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <CheckCircle2 className="w-3 h-3 lg:w-4 lg:h-4 text-blue-500" />
-                  </div>
-                  <span className="text-sm lg:text-base font-medium">{point}</span>
-                </motion.div>
-              ))}
+          {/* Navigation Buttons */}
+          <div className="space-y-6 lg:space-y-8 mt-8">
+            <div className="flex gap-3 lg:gap-4">
+              <Button
+                onClick={handlePrevious}
+                variant="outline"
+                className="flex-1 flex items-center justify-center gap-2 h-12 lg:h-11 text-sm lg:text-base"
+                disabled={currentStep === 0}
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Kembali
+              </Button>
+              <Button
+                onClick={handleNext}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 flex items-center justify-center gap-2 h-12 lg:h-11 text-sm lg:text-base"
+              >
+                Mulai
+                <ArrowRight className="w-4 h-4" />
+              </Button>
             </div>
 
-            <motion.div
-              initial={{ y: 10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.7 }}
-              className="mt-4 lg:mt-6 p-3 lg:p-4 bg-blue-50 rounded-lg border border-blue-200"
-            >
-              <p className="text-xs lg:text-sm text-blue-600 font-medium">
-                Catatan: Salda tidak bertanggung jawab atas kerugian yang timbul akibat
-                transaksi di luar platform atau pembagian informasi pribadi kepada pihak lain.
-              </p>
-            </motion.div>
+            {/* Logo and Skip Link */}
+            <div className="text-center pt-4 lg:pt-0">
+              <button
+                onClick={handleSkip}
+                className="group inline-flex flex-col items-center gap-2"
+              >
+                <Image
+                  src="/images/salda-logoB.png"
+                  alt="Salda Logo"
+                  width={40}
+                  height={40}
+                  className="opacity-50 group-hover:opacity-100 transition-opacity lg:w-[60px] lg:h-[60px]"
+                />
+                <span className="text-xs lg:text-sm text-gray-500 underline group-hover:text-gray-700">
+                  Lewati semua pengenalan
+                </span>
+              </button>
+            </div>
           </div>
-        </motion.div>
+        </div>
       );
     }
 

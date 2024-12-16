@@ -29,7 +29,7 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: "border bg-background text-foreground",
+        default: "border bg-background",
         destructive:
           "destructive group border-destructive bg-destructive text-destructive-foreground",
       },
@@ -114,37 +114,13 @@ ToastDescription.displayName = ToastPrimitives.Description.displayName
 
 type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
 
-type ToastActionElement = React.ReactElement<typeof ToastAction>
-
-import { styled } from "@stitches/react";
-
-const StyledToast = styled(Toast, {
-  backgroundColor: "white",
-  borderRadius: "6px",
-  boxShadow: "hsl(206 22% 7% / 35%) 0px 10px 38px -10px, hsl(206 22% 7% / 20%) 0px 10px 20px -15px",
-  padding: "15px",
-  display: "grid",
-  gridTemplateAreas: '"title action" "description action"',
-  gridTemplateColumns: "auto max-content",
-  columnGap: "15px",
-  alignItems: "center",
-
-  "&[data-state='open']": {
-    animation: "slideIn 150ms cubic-bezier(0.16, 1, 0.3, 1)",
-  },
-  "&[data-state='closed']": {
-    animation: "hide 100ms ease-in",
-  },
-  "&[data-swipe='move']": {
-    transform: "translateX(var(--radix-toast-swipe-move-x))",
-  },
-  "&[data-swipe='cancel']": {
-    transform: "translateX(0)",
-    transition: "transform 200ms ease-out",
-  },
-  "&[data-swipe='end']": {
-    animation: "swipeOut 100ms ease-out",
-  },
-});
-
-export { ToastProvider, StyledToast as Toast };
+export {
+  type ToastProps,
+  ToastProvider,
+  ToastViewport,
+  Toast,
+  ToastTitle,
+  ToastDescription,
+  ToastClose,
+  ToastAction,
+}

@@ -1,7 +1,7 @@
 import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import { Navbar } from "@/components/ui/navbar";
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from "@/components/ui/toaster";
 import "react-datepicker/dist/react-datepicker.css";
 import { Inter, Playfair_Display } from 'next/font/google'
 import { CSSProperties } from 'react';
@@ -41,7 +41,7 @@ export default function RootLayout({
           '--primary-gradient-hover': 'linear-gradient(to right, #1d4ed8, #6d28d9)'
         } as CustomCSSProperties}
       >
-        <Toaster position="top-center" />
+        <Toaster />
         <main className="min-h-screen flex flex-col items-center w-full">
           {children}
         </main>
