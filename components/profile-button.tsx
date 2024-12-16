@@ -10,7 +10,7 @@ import {
 import { signOutAction } from "@/app/actions";
 import Image from "next/image";
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Settings, LogOut, Clock } from 'lucide-react';
 
 interface UserData {
   id: string;
@@ -38,7 +38,7 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
   };
 
   const getDashboardLink = () => {
-    return user?.user_type === 'streamer' ? '/streamer-dashboard' : '/protected';
+    return user?.user_type === 'streamer' ? '/streamer-dashboard' : '/client-bookings';
   };
 
   const getSettingsLink = () => {
@@ -103,8 +103,17 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuItem onClick={() => router.push(getDashboardLink())} className="cursor-pointer">
-          <LayoutDashboard className="mr-2 h-4 w-4" />
-          <span>Dashboard</span>
+          {user.user_type === 'streamer' ? (
+            <>
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              <span>Dashboard</span>
+            </>
+          ) : (
+            <>
+              <Clock className="mr-2 h-4 w-4" />
+              <span>My Bookings</span>
+            </>
+          )}
         </DropdownMenuItem>
         {/* Only show Settings option if not on streamer dashboard */}
         {!isStreamerDashboard && (

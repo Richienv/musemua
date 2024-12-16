@@ -135,10 +135,6 @@ html {
   scroll-behavior: smooth;
 }
 
-* {
-  transition: all 0.2s ease-in-out;
-}
-
 .backdrop-blur-md {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -324,4 +320,25 @@ html {
 img {
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
+}
+
+/* Remove the global transition */
+/* * {
+  transition: all 0.2s ease-in-out;
+} */
+
+/* Replace with specific transitions where needed */
+.card-hover,
+.transform-smooth,
+.transition-transform {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Add specific transitions for interactive elements */
+button:not(.no-transition),
+a:not(.no-transition),
+.interactive-element {
+  transition: background-color 0.2s ease-in-out,
+              border-color 0.2s ease-in-out,
+              opacity 0.2s ease-in-out;
 }

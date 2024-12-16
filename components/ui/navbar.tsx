@@ -26,11 +26,6 @@ interface UserData {
   image_url?: string | null;
 }
 
-interface ProfileButtonProps {
-  user: UserData | null;
-  showNameOnMobile?: boolean;
-}
-
 export function Navbar({ onFilterChange }: NavbarProps) {
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -48,7 +43,6 @@ export function Navbar({ onFilterChange }: NavbarProps) {
 
       if (user) {
         try {
-          // First get basic user data with profile picture
           const { data: userBasicData, error: userError } = await supabase
             .from('users')
             .select(`
@@ -73,7 +67,6 @@ export function Navbar({ onFilterChange }: NavbarProps) {
             if (userBasicData.user_type === 'streamer') {
               setDashboardLink("/streamer-dashboard");
               
-              // Get streamer-specific data including image
               const { data: streamerData, error: streamerError } = await supabase
                 .from('streamers')
                 .select(`
@@ -86,26 +79,17 @@ export function Navbar({ onFilterChange }: NavbarProps) {
               if (streamerError) throw streamerError;
 
               if (streamerData) {
-                // Now this won't cause TypeScript errors
                 finalUserData = {
                   ...finalUserData,
                   profile_picture_url: streamerData.image_url || userBasicData.profile_picture_url,
                   image_url: streamerData.image_url,
                   streamer_id: streamerData.id
                 };
-                
-                console.log('Streamer Data:', {
-                  streamerData,
-                  finalUserData,
-                  imageUrl: streamerData.image_url,
-                  fallbackUrl: userBasicData.profile_picture_url
-                });
               }
             } else {
               setDashboardLink("/protected");
             }
 
-            console.log('Final user data for navbar:', finalUserData);
             setUserData(finalUserData);
           }
         } catch (error) {
@@ -118,10 +102,6 @@ export function Navbar({ onFilterChange }: NavbarProps) {
   }, []);
 
   const isStreamerDashboard = pathname === '/streamer-dashboard';
-
-  const getSettingsUrl = (userType: string) => {
-    return userType === 'streamer' ? '/settings?type=streamer' : '/settings';
-  };
 
   return (
     <nav className="sticky top-0 z-50 bg-white text-black border-b border-black/5 w-full pt-2">
@@ -186,14 +166,6 @@ export function Navbar({ onFilterChange }: NavbarProps) {
             <div className="sm:hidden">
               <ProfileButton user={userData} showNameOnMobile={false} />
             </div>
-            {!isStreamerDashboard && userData && (
-              <Link
-                href={getSettingsUrl(userData.user_type)}
-                className="text-sm font-medium text-gray-700 hover:text-gray-800"
-              >
-                Settings
-              </Link>
-            )}
           </div>
         </div>
       </div>

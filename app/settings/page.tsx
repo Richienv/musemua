@@ -104,7 +104,7 @@ function SettingsContent() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState('');
-  const [userType, setUserType] = useState<'client' | 'streamer' | null>(null);
+  const [userType, setUserType] = useState<'streamer' | 'client' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
@@ -119,69 +119,68 @@ function SettingsContent() {
   const maxGalleryPhotos = 5;
   const [platform, setPlatform] = useState('');
 
+  // Move fetchUserData outside of useEffect
   const fetchUserData = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     try {
-      // First check if user is a streamer
-      const { data: streamerData, error: streamerError } = await supabase
-        .from("streamers")
-        .select(`
-          id,
-          first_name,
-          last_name,
-          image_url,
-          location,
-          platform,
-          category,
-          price,
-          video_url,
-          bio
-        `)
-        .eq("user_id", user.id)
-        .single();
+      const supabase = createClient();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-      if (streamerError && !streamerError.message.includes('No rows found')) {
-        console.error('Error fetching streamer data:', streamerError);
-        toast.error('Failed to fetch profile data');
+      if (authError || !user) {
+        console.error('Authentication error:', authError);
+        router.push('/sign-in');
         return;
       }
 
-      if (streamerData && type === 'streamer') {
-        console.log('Updating streamer data:', streamerData);
-        setUserType('streamer');
+      // First, get the user type
+      const { data: userTypeData, error: userTypeError } = await supabase
+        .from('users')
+        .select('user_type')
+        .eq('id', user.id)
+        .single();
 
-        // Fetch gallery photos using streamer.id instead of user.id
-        const { data: galleryData, error: galleryError } = await supabase
-          .from('streamer_gallery_photos')
-          .select('photo_url')
-          .eq('streamer_id', streamerData.id)
-          .order('order_number');
+      if (userTypeError) {
+        console.error('Error fetching user type:', userTypeError);
+        return;
+      }
 
-        if (galleryError) {
-          console.error('Error fetching gallery photos:', galleryError);
+      setUserType(userTypeData.user_type);
+
+      // If user is a streamer and type param is streamer, fetch streamer data
+      if (userTypeData.user_type === 'streamer' && type === 'streamer') {
+        const { data: streamerData, error: streamerError } = await supabase
+          .from('streamers')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (streamerError) {
+          console.error('Error fetching streamer data:', streamerError);
+          return;
         }
 
-        // Update all form fields with streamer data
-        setPlatform(streamerData.platform || '');
-        setFirstName(streamerData.first_name || '');
-        setLastName(streamerData.last_name || '');
-        setLocation(streamerData.location || '');
-        setYoutubeVideoUrl(streamerData.video_url || '');
-        setImageUrl(streamerData.image_url || '');
-        setBio(streamerData.bio || '');
-        // Set gallery photos if available
-        setGalleryPhotos(galleryData?.map(item => item.photo_url) || []);
+        if (streamerData) {
+          // Update streamer form fields
+          setPlatform(streamerData.platform || '');
+          setFirstName(streamerData.first_name || '');
+          setLastName(streamerData.last_name || '');
+          setLocation(streamerData.location || '');
+          setYoutubeVideoUrl(streamerData.video_url || '');
+          setImageUrl(streamerData.image_url || '');
+          setBio(streamerData.bio || '');
+          
+          // Fetch gallery photos
+          const { data: galleryData } = await supabase
+            .from('streamer_gallery_photos')
+            .select('photo_url')
+            .eq('streamer_id', streamerData.id)
+            .order('order_number');
+
+          setGalleryPhotos(galleryData?.map(item => item.photo_url) || []);
+        }
       } else {
-        // Regular user data fetch
+        // Regular user data fetch for clients
         const { data: userData, error: userError } = await supabase
-          .from("users")
+          .from('users')
           .select(`
             first_name,
             last_name,
@@ -189,7 +188,7 @@ function SettingsContent() {
             location,
             brand_guidelines_url
           `)
-          .eq("id", user.id)
+          .eq('id', user.id)
           .single();
 
         if (userError) {
@@ -199,7 +198,6 @@ function SettingsContent() {
         }
 
         if (userData) {
-          console.log('Updating user data:', userData);
           setFirstName(userData.first_name || '');
           setLastName(userData.last_name || '');
           setLocation(userData.location || '');
@@ -216,10 +214,8 @@ function SettingsContent() {
   };
 
   useEffect(() => {
-    if (type) {
-      fetchUserData();
-    }
-  }, [type]);
+    fetchUserData();
+  }, [router, type]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -214,6 +214,58 @@ function useTilt(initial = 0) {
   return { ref, rotateX, rotateY, handleMouse };
 }
 
+// Update the Navbar component to accept router as a prop
+const Navbar = ({ router }: { router: any }) => (
+  <nav className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md z-50 border-b border-gray-100">
+    <div className="container mx-auto px-4">
+      <div className="flex items-center justify-between h-16 md:h-20">
+        {/* Logo */}
+        <div className="flex items-center">
+          <Image
+            src="/images/salda-logoB.png"
+            alt="Salda"
+            width={120}
+            height={40}
+            className="h-8 w-auto"
+          />
+        </div>
+
+        {/* Navigation Links - Hidden on mobile */}
+        <div className="hidden md:flex items-center space-x-8">
+          <a href="#about-section" className="text-gray-600 hover:text-gray-900 text-sm font-medium">
+            About
+          </a>
+          <a href="#features" className="text-gray-600 hover:text-gray-900 text-sm font-medium">
+            Features
+          </a>
+          <a href="#pricing" className="text-gray-600 hover:text-gray-900 text-sm font-medium">
+            Pricing
+          </a>
+          <a href="#contact" className="text-gray-600 hover:text-gray-900 text-sm font-medium">
+            Contact
+          </a>
+        </div>
+
+        {/* Auth Buttons */}
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => router.push('/sign-in')}
+            className="hidden md:block text-gray-600 hover:text-gray-900 text-sm font-medium"
+          >
+            Sign In
+          </button>
+          <button 
+            onClick={() => router.push('/sign-up')}
+            className="bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
+          >
+            Get Started
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+);
+
 export default function Home() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -240,41 +292,39 @@ export default function Home() {
     fetchUserData();
   }, []);
 
-  const content = (
+  return (
     <>
       <main className="flex flex-col min-h-screen bg-white w-full">
-        {/* Hero Section */}
-        <section className="relative min-h-screen bg-white">
-          {/* Top announcement banner */}
-          <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 z-20 w-[90%] md:w-auto">
-            <div className="bg-[#6366F1]/10 rounded-full py-1.5 px-4 flex items-center gap-2 justify-center">
-              <div className="w-2 h-2 bg-[#6366F1] rounded-full animate-pulse" />
+        {/* Pass router to Navbar */}
+        <Navbar router={router} />
+
+        {/* Hero Section - Updated */}
+        <section className="relative min-h-screen bg-white pt-20"> {/* Added pt-20 for navbar spacing */}
+          {/* Top announcement banner - Adjusted positioning */}
+          <div className="absolute top-24 md:top-28 left-1/2 -translate-x-1/2 z-20 w-[90%] md:w-auto">
+            <div className="bg-gray-100 rounded-full py-1.5 px-4 flex items-center gap-2 justify-center">
+              <div className="w-2 h-2 bg-gray-900 rounded-full animate-pulse" />
               <span className="text-xs md:text-sm text-gray-600">Rata-rata penjualan meningkat 300%</span>
             </div>
           </div>
 
-          {/* Main hero content */}
+          {/* Main hero content - Updated colors */}
           <div className="container mx-auto px-4 pt-24 md:pt-32">
             <div className="max-w-[1200px] mx-auto">
               {/* Text content */}
               <div className="text-center mb-12 md:mb-20">
                 <h1 className="text-4xl md:text-[64px] leading-[1.1] tracking-[-0.02em] font-medium mb-4 md:mb-6">
-                  <span className="text-[#6366F1]/60 font-serif">Tingkatkan Penjualan</span>
+                  <span className="text-gray-900">Tingkatkan Penjualan Anda</span>
                   <br />
-                  <span className="text-black font-serif">UMKM Anda</span>
-                  <br />
-                  <span className="bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] text-transparent bg-clip-text font-serif">
-                    hingga 3x lipat
-                  </span>
+                  <span className="text-gray-900 font-serif text-[40px] md:text-[48px]">Dengan Host Shopee/Tiktok Live Professional</span>
                 </h1>
-                <p className="text-gray-500 text-base md:text-lg max-w-2xl mx-auto mb-6 md:mb-8 px-4">
-                  Platform yang membantu UMKM meningkatkan penjualan melalui live streaming bersama influencer profesional. 
-                  Rata-rata mitra kami mengalami peningkatan penjualan 300% dalam 30 hari pertama.
+                <p className="text-gray-600 text-base md:text-lg max-w-2xl mx-auto mb-6 md:mb-8 px-4">
+                  Platform yang membantu UMKM meningkatkan penjualan melalui live streaming bersama host profesional.
                 </p>
                 <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-4">
                   <button 
                     onClick={() => router.push('/sign-in')}
-                    className="w-full md:w-auto bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] text-white px-6 py-3 rounded-full hover:opacity-90 transition-all"
+                    className="w-full md:w-auto bg-gray-900 text-white px-6 py-3 rounded-full hover:bg-gray-800 transition-all"
                   >
                     Mulai Tingkatkan Penjualan
                   </button>
@@ -1087,8 +1137,6 @@ export default function Home() {
       </main>
     </>
   );
-
-  return content;
 }
 
 const scrollToNextSection = () => {

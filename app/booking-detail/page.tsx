@@ -312,7 +312,7 @@ function BookingDetailContent() {
 
       const notifications = [
         {
-          user_id: streamerData.user_id, // Use the direct user_id from streamer
+          user_id: streamerData.user_id,
           streamer_id: streamerData.id,
           message: `New booking request from ${bookingData.client_first_name} ${bookingData.client_last_name}. Payment confirmed.`,
           type: 'confirmation',
@@ -336,18 +336,37 @@ function BookingDetailContent() {
 
       if (notificationError) {
         console.error('Error creating notifications:', notificationError);
-        throw new Error('Failed to create notifications');
       }
 
-      toast.success('Payment successful! Booking request has been sent.');
-      router.push('/client-bookings');
+      // Show success message and handle redirection
+      toast.success('Payment successful! Redirecting to bookings...');
+      
+      // Clean up states before redirect
+      setIsLoading(false);
+      setIsProcessing(false);
+      setPaymentToken(null);
+
+      // Use a simpler, more reliable redirection approach
+      setTimeout(async () => {
+        const redirectPath = '/client-bookings';
+        
+        try {
+          // First try router push
+          await router.push(redirectPath);
+        } catch (error) {
+          // If router push fails, use window.location with path only
+          window.location.pathname = redirectPath;
+        }
+      }, 1500);
 
     } catch (error) {
       console.error('Error handling payment success:', error);
       toast.error('Payment successful but encountered an error. Please contact support.');
-    } finally {
-      setIsLoading(false);
-      setIsProcessing(false);
+      
+      // Even on error, attempt to redirect
+      setTimeout(() => {
+        window.location.pathname = '/client-bookings';
+      }, 2000);
     }
   };
 
@@ -365,6 +384,8 @@ function BookingDetailContent() {
     setPaymentToken(null);
     setIsLoading(false);
     setIsProcessing(false);
+    // Use window.location.reload() instead of router.refresh()
+    window.location.reload();
   };
 
   const isHourSelected = (hour: string) => selectedHours.includes(hour);

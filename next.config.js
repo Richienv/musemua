@@ -27,6 +27,20 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/undefined/:path*',
+        destination: '/:path*',
+        permanent: false,
+      },
+      {
+        source: '/undefined/client-bookings',
+        destination: '/client-bookings',
+        permanent: false,
+      }
+    ];
+  },
   reactStrictMode: true,
   swcMinify: true,
 }
