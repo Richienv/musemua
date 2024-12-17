@@ -2,16 +2,22 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from "@/utils/supabase/client";
-import { format } from 'date-fns';
+import { format, differenceInHours, isBefore, startOfDay } from 'date-fns';
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X } from 'lucide-react';
 import Image from 'next/image';
 import RatingModal from '@/components/rating-modal';
 import { useRouter } from 'next/navigation';
 import CancelBookingModal from '@/components/cancel-booking-modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "react-hot-toast";
+import { BookingCalendar } from '@/components/booking-calendar';
 
 interface Booking {
   id: number;
+  client_id: string;
   start_time: string;
   end_time: string;
   platform: string;
@@ -28,6 +34,8 @@ interface Booking {
     rating?: number;
     image_url: string;
   };
+  items_received?: boolean;
+  items_received_at?: string | null;
 }
 
 interface RatingData {
@@ -52,10 +60,309 @@ const getStatusInfo = (status: string) => {
   }
 };
 
+interface RescheduleTimeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (newStartTime: Date, newEndTime: Date) => void;
+  currentStartTime: string;
+  currentEndTime: string;
+}
+
+function RescheduleTimeModal({ 
+  isOpen, 
+  onClose, 
+  onConfirm,
+  currentStartTime,
+  currentEndTime 
+}: RescheduleTimeModalProps) {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date(currentStartTime));
+  const [selectedHours, setSelectedHours] = useState<string[]>([format(new Date(currentStartTime), 'HH:00')]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Generate time options based on the selected date
+  const generateTimeOptions = () => {
+    const options = [];
+    for (let i = 0; i < 24; i++) {
+      options.push(`${i.toString().padStart(2, '0')}:00`);
+    }
+    return options;
+  };
+
+  const timeOptions = generateTimeOptions();
+
+  const handleHourSelection = (hour: string) => {
+    setSelectedHours((prevSelected) => {
+      const hourNum = parseInt(hour);
+      
+      if (prevSelected.includes(hour)) {
+        const newSelected = prevSelected.filter(h => h !== hour);
+        
+        if (newSelected.length > 0) {
+          const selectedHourNums = newSelected.map(h => parseInt(h));
+          const minHour = Math.min(...selectedHourNums);
+          const maxHour = Math.max(...selectedHourNums);
+          
+          return Array.from(
+            { length: maxHour - minHour + 1 }, 
+            (_, i) => `${(minHour + i).toString().padStart(2, '0')}:00`
+          );
+        }
+        return newSelected;
+      } else {
+        if (prevSelected.length === 0) {
+          return [hour];
+        }
+        
+        const selectedHourNums = prevSelected.map(h => parseInt(h));
+        const minHour = Math.min(...selectedHourNums);
+        const maxHour = Math.max(...selectedHourNums);
+        
+        if (hourNum === maxHour + 1 || hourNum === minHour - 1) {
+          const newSelected = [...prevSelected, hour];
+          return newSelected.sort((a, b) => parseInt(a) - parseInt(b));
+        }
+        
+        return [hour];
+      }
+    });
+  };
+
+  const isHourSelected = (hour: string) => selectedHours.includes(hour);
+
+  const isHourDisabled = (hour: string) => {
+    const hourNum = parseInt(hour);
+    const selectedDateTime = new Date(selectedDate);
+    selectedDateTime.setHours(hourNum, 0, 0, 0);
+    const now = new Date();
+    
+    if (isBefore(selectedDateTime, now)) return true;
+    
+    if (selectedHours.length === 0) return false;
+    
+    const selectedHourNums = selectedHours.map(h => parseInt(h));
+    const minHour = Math.min(...selectedHourNums);
+    const maxHour = Math.max(...selectedHourNums);
+    
+    return hourNum !== maxHour + 1 && hourNum !== minHour - 1;
+  };
+
+  const getSelectedTimeRange = () => {
+    if (selectedHours.length === 0) return '';
+    const startTime = selectedHours[0];
+    const endTime = selectedHours[selectedHours.length - 1];
+    const duration = selectedHours.length;
+    return `${startTime} - ${endTime} (${duration} hour${duration !== 1 ? 's' : ''})`;
+  };
+
+  const handleSubmit = () => {
+    if (selectedHours.length < 1) {
+      toast.error("Please select at least one hour");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const startTime = new Date(selectedDate);
+      startTime.setHours(parseInt(selectedHours[0]), 0, 0, 0);
+      
+      const endTime = new Date(selectedDate);
+      endTime.setHours(parseInt(selectedHours[selectedHours.length - 1]) + 1, 0, 0, 0);
+      
+      onConfirm(startTime, endTime);
+    } catch (error) {
+      console.error('Error processing reschedule:', error);
+      toast.error("Failed to reschedule");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
+        <DialogHeader>
+          <DialogTitle className="text-lg sm:text-2xl font-semibold mb-0.5">
+            Reschedule Booking
+          </DialogTitle>
+          <DialogDescription className="text-sm sm:text-base">
+            Select your new preferred date and time
+          </DialogDescription>
+        </DialogHeader>
+
+        <BookingCalendar 
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          isDayOff={(date) => isBefore(date, startOfDay(new Date()))}
+          selectedClassName="bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]"
+        />
+
+        <div className="h-px bg-gray-200" />
+
+        <div className="space-y-3 sm:space-y-4">
+          {['Morning', 'Afternoon', 'Evening', 'Night'].map((timeOfDay) => (
+            <div key={timeOfDay}>
+              <h4 className="text-xs sm:text-sm font-semibold mb-2">{timeOfDay}</h4>
+              <div className="grid grid-cols-4 gap-1 sm:gap-2">
+                {timeOptions
+                  .filter((hour) => {
+                    const hourNum = parseInt(hour);
+                    return (
+                      (timeOfDay === 'Night' && (hourNum >= 0 && hourNum < 6)) ||
+                      (timeOfDay === 'Morning' && (hourNum >= 6 && hourNum < 12)) ||
+                      (timeOfDay === 'Afternoon' && (hourNum >= 12 && hourNum < 18)) ||
+                      (timeOfDay === 'Evening' && (hourNum >= 18 && hourNum < 24))
+                    );
+                  })
+                  .map((hour) => (
+                    <Button
+                      key={hour}
+                      variant={isHourSelected(hour) ? "default" : "outline"}
+                      className={`text-[10px] sm:text-sm p-1 sm:p-2 h-auto ${
+                        isHourSelected(hour) 
+                          ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]' 
+                          : 'hover:bg-blue-50'
+                      }`}
+                      onClick={() => handleHourSelection(hour)}
+                      disabled={isHourDisabled(hour)}
+                    >
+                      {hour}
+                    </Button>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {selectedHours.length > 0 && (
+          <div className="text-xs sm:text-sm font-medium mt-4">
+            Selected time: {getSelectedTimeRange()}
+          </div>
+        )}
+
+        <DialogFooter className="mt-4">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || selectedHours.length < 1}
+            className="flex-1 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white"
+          >
+            {isSubmitting ? 'Processing...' : 'Confirm Reschedule'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface CancelConfirmationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+  isSubmitting: boolean;
+}
+
+function CancelConfirmationModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  isSubmitting
+}: CancelConfirmationModalProps) {
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = () => {
+    if (!reason.trim()) {
+      setError('Alasan pembatalan harus diisi');
+      return;
+    }
+    onConfirm(reason);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-3 sm:p-6 bg-white/95">
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-gray-100"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </button>
+
+        <DialogHeader>
+          <DialogTitle className="text-lg sm:text-2xl font-semibold mb-0.5 text-red-600">
+            Konfirmasi Pembatalan
+          </DialogTitle>
+          <DialogDescription className="text-sm sm:text-base space-y-2">
+            <p className="text-red-500 font-medium">
+              Peringatan:
+            </p>
+            <ul className="list-disc pl-4 space-y-1 text-gray-600">
+              <li>Pembatalan akan mempengaruhi reputasi Anda sebagai client</li>
+              <li>Pembatalan mendadak dapat menyebabkan kerugian bagi streamer</li>
+              <li>Mohon pertimbangkan kembali sebelum membatalkan pesanan</li>
+            </ul>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="cancel-reason" className="text-sm font-medium">
+              Alasan Pembatalan<span className="text-red-500">*</span>
+            </Label>
+            <textarea
+              id="cancel-reason"
+              className={`w-full min-h-[100px] p-3 rounded-md border ${
+                error ? 'border-red-500' : 'border-gray-300'
+              } focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white`}
+              placeholder="Mohon jelaskan alasan pembatalan Anda..."
+              value={reason}
+              onChange={(e) => {
+                setReason(e.target.value);
+                if (error) setError('');
+              }}
+            />
+            {error && (
+              <p className="text-xs text-red-500">{error}</p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="mt-4 space-x-2">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="flex-1 border-gray-300 hover:bg-gray-50"
+          >
+            Kembali
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !reason.trim()}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+          >
+            {isSubmitting ? 'Memproses...' : 'Lanjutkan Pembatalan'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingSubmit: () => void }) {
+  const router = useRouter();
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -71,6 +378,88 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
 
   // Parse the rating to ensure it's a number
   const rating = parseFloat(booking.streamer.rating as unknown as string);
+
+  const handleReschedule = async (newStartTime: Date, newEndTime: Date) => {
+    try {
+      const supabase = createClient();
+      
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ 
+          start_time: newStartTime.toISOString(),
+          end_time: newEndTime.toISOString(),
+          status: 'accepted',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', booking.id);
+
+      if (updateError) throw updateError;
+
+      // Create notification for streamer
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: booking.streamer_id,
+          message: `Client telah menyetujui jadwal baru untuk sesi live streaming.`,
+          type: 'reschedule_accepted',
+          booking_id: booking.id,
+          created_at: new Date().toISOString()
+        });
+
+      if (notificationError) {
+        console.error('Notification error:', notificationError);
+      }
+
+      setIsRescheduleModalOpen(false);
+      toast.success("Jadwal berhasil diperbarui");
+      router.refresh();
+    } catch (error) {
+      console.error('Error updating schedule:', error);
+      toast.error("Gagal memperbarui jadwal");
+    }
+  };
+
+  const handleCancel = async (reason: string) => {
+    setIsSubmittingCancel(true);
+    try {
+      const supabase = createClient();
+      
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ 
+          status: 'cancelled',
+          cancel_reason: reason,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', booking.id);
+
+      if (updateError) throw updateError;
+
+      // Create notification for streamer
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: booking.streamer_id,
+          message: `Client telah membatalkan permintaan reschedule dengan alasan: ${reason}`,
+          type: 'reschedule_cancelled',
+          booking_id: booking.id,
+          created_at: new Date().toISOString()
+        });
+
+      if (notificationError) {
+        console.error('Notification error:', notificationError);
+      }
+
+      setIsCancelModalOpen(false);
+      toast.success("Booking berhasil dibatalkan");
+      router.refresh();
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      toast.error("Gagal membatalkan booking");
+    } finally {
+      setIsSubmittingCancel(false);
+    }
+  };
 
   return (
     <div className="border rounded-lg shadow-sm p-4 mb-4 text-sm hover:shadow-md transition-shadow">
@@ -132,28 +521,30 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
               Give Rating
             </Button>
           )}
-          {(booking.status.toLowerCase() === 'pending' || booking.status.toLowerCase() === 'accepted') && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm py-2 px-4 border-red-500 text-red-500 hover:bg-red-50"
-                onClick={() => setIsCancelModalOpen(true)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm py-2 px-4 border-orange-500 text-orange-500 hover:bg-orange-50"
-                onClick={() => setIsRescheduleModalOpen(true)}
-              >
-                Reschedule
-              </Button>
-            </>
-          )}
         </div>
       </div>
+
+      {/* Add these buttons only for reschedule_requested status */}
+      {booking.status === 'reschedule_requested' && (
+        <div className="flex justify-end gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-sm py-2 px-4 border-red-500 text-red-500 hover:bg-red-50"
+            onClick={() => setIsCancelModalOpen(true)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-sm py-2 px-4 border-[#E23744] text-[#E23744] hover:bg-[#E23744]/5"
+            onClick={() => setIsRescheduleModalOpen(true)}
+          >
+            Reschedule
+          </Button>
+        </div>
+      )}
 
       {/* Modals */}
       {isRatingModalOpen && (
@@ -178,13 +569,19 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
         start_time={booking.start_time}
       />
 
-      <CancelBookingModal
+      <RescheduleTimeModal
         isOpen={isRescheduleModalOpen}
         onClose={() => setIsRescheduleModalOpen(false)}
-        bookingId={booking.id}
-        streamer_id={booking.streamer.id}
-        start_time={booking.start_time}
-        isReschedule
+        onConfirm={handleReschedule}
+        currentStartTime={booking.start_time}
+        currentEndTime={booking.end_time}
+      />
+
+      <CancelConfirmationModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        onConfirm={handleCancel}
+        isSubmitting={isSubmittingCancel}
       />
     </div>
   );
