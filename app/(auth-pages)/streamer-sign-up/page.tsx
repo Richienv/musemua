@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link";
 import { useState, useRef } from "react";
 import Image from "next/image";
-import { Info, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Info, ArrowLeft, ArrowRight, Youtube, HelpCircle } from 'lucide-react';
 import { StreamerCard, Streamer } from "@/components/streamer-card";
 import { motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SignUpResponse } from "@/app/types/auth";
+import { createClient } from "@/utils/supabase/client";
 
 const platforms = ["TikTok", "Shopee"];
 const categories = ["Fashion", "Technology", "Beauty", "Gaming", "Cooking", "Fitness", "Music", "Others"];
@@ -33,6 +34,11 @@ const indonesiaCities = [
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+interface GalleryImage {
+  file: File;
+  preview: string;
+}
 
 interface FormData {
   basicInfo: {
@@ -53,7 +59,7 @@ interface FormData {
     price: string;
     bio: string;
     video_url: string;
-    gallery: File[];
+    gallery: GalleryImage[];
   };
 }
 
@@ -152,6 +158,25 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
           return false;
         }
         break;
+
+      case 4: // Video
+        if (!formData.profile.video_url) {
+          setError('Please add your introduction video URL');
+          return false;
+        }
+        const videoId = getYouTubeVideoId(formData.profile.video_url);
+        if (!videoId) {
+          setError('Please enter a valid YouTube video URL');
+          return false;
+        }
+        break;
+
+      case 5: // Gallery
+        if (formData.profile.gallery.length === 0) {
+          setError('Please add at least one photo to your gallery');
+          return false;
+        }
+        break;
     }
     
     return true;
@@ -159,7 +184,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 4));
+      setCurrentStep(prev => Math.min(prev + 1, 6));
     }
   };
 
@@ -188,6 +213,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
       setError(null);
       setIsSigningUp(true);
 
+      const supabase = createClient();
       const submitFormData = new FormData();
 
       // Add basic info
@@ -200,17 +226,16 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
       // Add security info
       submitFormData.append('password', formData.security.password);
 
-      // Validate and add profile image
-      if (!formData.profile.image) {
-        setError('Please upload a profile image');
-        return;
+      // Handle profile image upload to Supabase storage
+      if (formData.profile.image) {
+        const profileImageFile = formData.profile.image;
+        submitFormData.append('image', profileImageFile);
       }
-      const imageError = validateFile(formData.profile.image, 'image');
-      if (imageError) {
-        setError(imageError);
-        return;
-      }
-      submitFormData.append('image', formData.profile.image);
+
+      // Handle gallery photos
+      formData.profile.gallery.forEach(item => {
+        submitFormData.append('gallery', item.file);
+      });
 
       // Add platforms
       formData.profile.platforms.forEach(platform => {
@@ -220,16 +245,6 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
       // Add categories
       formData.profile.categories.forEach(category => {
         submitFormData.append('categories', category);
-      });
-
-      // Add gallery images
-      formData.profile.gallery.forEach((file, index) => {
-        const galleryError = validateFile(file, 'gallery');
-        if (galleryError) {
-          setError(galleryError);
-          return;
-        }
-        submitFormData.append('gallery', file);
       });
 
       // Add other profile fields
@@ -265,21 +280,45 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   const handleGalleryImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const newPreviews: string[] = [];
-      const fileArray = Array.from(files).slice(0, 5); // Limit to 5 files
+    if (!files) return;
 
-      fileArray.forEach((file, index) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          newPreviews[index] = reader.result as string;
-          if (newPreviews.filter(Boolean).length === fileArray.length) {
-            setGalleryPreviews(newPreviews);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+    const remainingSlots = 5 - formData.profile.gallery.length;
+    if (remainingSlots <= 0) {
+      setError('Maximum 5 photos allowed');
+      return;
     }
+
+    const newFiles = Array.from(files).slice(0, remainingSlots);
+    
+    newFiles.forEach(file => {
+      if (file.size > MAX_FILE_SIZE) {
+        setError('Each file must be less than 5MB');
+        return;
+      }
+
+      if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        setError('Only JPG and PNG files are allowed');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            gallery: [
+              ...prev.profile.gallery,
+              {
+                file: file,
+                preview: reader.result as string
+              }
+            ]
+          }
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const formatPrice = (value: string) => {
@@ -302,7 +341,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
   const renderStepIndicator = () => {
     return (
       <div className="flex items-center justify-center mb-8">
-        {[1, 2, 3, 4].map((step) => (
+        {[1, 2, 3, 4, 5, 6].map((step) => (
           <div key={step} className="flex items-center">
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -315,7 +354,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             >
               {step < currentStep ? '✓' : step}
             </div>
-            {step < 4 && (
+            {step < 6 && (
               <div
                 className={`w-12 h-1 ${
                   step < currentStep ? 'bg-green-500' : 'bg-gray-200'
@@ -439,30 +478,82 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   const renderProfile = () => {
     return (
-      <div className="space-y-5">
+      <div className="space-y-8">
         {/* Profile Image Upload */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-32 h-32 rounded-full overflow-hidden mb-3 border-2 border-gray-100 shadow-lg">
-            {imagePreview ? (
-              <Image 
-                src={imagePreview} 
-                alt="Profile preview" 
-                width={128} 
-                height={128} 
-                className="w-full h-full object-cover" 
-              />
-            ) : (
-              <div className="w-full h-full bg-gray-50 flex items-center justify-center">
-                <span className="text-gray-400">Upload Photo</span>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-gray-700">Foto Profil</Label>
+            <p className="text-xs text-gray-500 italic flex items-center gap-1.5">
+              <svg 
+                className="w-4 h-4 text-blue-500" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                />
+              </svg>
+              Upload foto profil terbaik Anda
+            </p>
+          </div>
+
+          <div 
+            onClick={() => fileInputRef.current?.click()}
+            className="relative cursor-pointer group"
+          >
+            <div className={`
+              aspect-[4/3] rounded-xl overflow-hidden border-2 border-dashed
+              transition-all duration-200
+              ${imagePreview 
+                ? 'border-transparent' 
+                : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50/50'
+              }
+            `}>
+              {imagePreview ? (
+                <Image 
+                  src={imagePreview} 
+                  alt="Profile preview" 
+                  fill
+                  className="object-cover" 
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="p-3 rounded-full bg-blue-50 mb-2 group-hover:bg-blue-100 transition-colors">
+                    <svg 
+                      className="w-6 h-6 text-blue-600" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" 
+                      />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-gray-600 group-hover:text-blue-600 transition-colors">
+                    Upload Foto
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Klik untuk memilih foto
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {imagePreview && (
+              <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
+                <p className="text-white font-medium">Ganti Foto</p>
               </div>
             )}
           </div>
-          <Label 
-            htmlFor="image" 
-            className="cursor-pointer text-red-600 hover:text-red-700 font-medium"
-          >
-            {imagePreview ? "Change Profile Photo" : "Upload Profile Photo"}
-          </Label>
+
           <Input 
             id="image"
             name="image" 
@@ -480,7 +571,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
           />
         </div>
 
-        {/* Platforms */}
+        {/* Platform */}
         <div className="space-y-2">
           <div className="space-y-1">
             <Label className="text-gray-700">Platform</Label>
@@ -641,6 +732,238 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
     );
   };
 
+  const renderVideoIntro = () => {
+    return (
+      <div className="space-y-8">
+        {/* Header Section */}
+        <div className="text-center space-y-3 pb-4">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Video Perkenalan
+          </h2>
+          <p className="text-gray-600 max-w-md mx-auto">
+            Buat video perkenalan yang menarik untuk meningkatkan peluang Anda dipilih oleh brand
+          </p>
+        </div>
+
+        {/* Main Content */}
+        <div className="space-y-6">
+          {/* Title and Help Link */}
+          <div className="flex items-center justify-between pb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-50 rounded-lg">
+                <Youtube className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-900">
+                  Upload Video YouTube
+                </h3>
+                <p className="text-sm text-gray-500">Format landscape (16:9) • Durasi: 2-3 menit</p>
+              </div>
+            </div>
+            <Link 
+              href="/tutorial/video-guide" 
+              target="_blank"
+              className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all"
+              title="Panduan Lengkap"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </Link>
+          </div>
+
+          {/* Instructions Card */}
+          <div className="bg-gradient-to-r from-blue-50 to-blue-50/50 border border-blue-100 
+            rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2 text-blue-800 font-medium">
+              <Info className="w-4 h-4" />
+              <span>Langkah-langkah Upload</span>
+            </div>
+            <ol className="space-y-2 text-sm text-blue-700 list-decimal list-inside pl-1">
+              <li>Rekam video perkenalan dengan format landscape (16:9)</li>
+              <li>Upload video ke YouTube sebagai "Unlisted"</li>
+              <li>Klik tombol "SHARE" dan salin link video</li>
+              <li>Paste link video pada form dibawah ini</li>
+            </ol>
+          </div>
+
+          {/* Video Input and Preview */}
+          <div className="space-y-4 bg-white rounded-xl border border-gray-200 p-4">
+            <div className="relative">
+              <Input
+                id="video_url"
+                name="video_url"
+                value={formData.profile.video_url}
+                onChange={(e) => updateFormData('profile', 'video_url', e.target.value)}
+                placeholder="Contoh: https://youtube.com/watch?v=..."
+                className="pl-10 h-12 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+              />
+              <Youtube className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            </div>
+            
+            {formData.profile.video_url && (
+              <div className="aspect-video rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src={`https://www.youtube.com/embed/${getYouTubeVideoId(formData.profile.video_url)}`}
+                  title="YouTube video preview"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              </div>
+            )}
+          </div>
+
+          {/* Tips Section */}
+          <div className="flex items-start gap-3 p-4 bg-yellow-50/50 border border-yellow-100 rounded-xl">
+            <div className="p-2 bg-yellow-100 rounded-lg shrink-0">
+              <span className="text-xl">💡</span>
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium text-yellow-800">Tips untuk Video yang Menarik:</p>
+              <ul className="text-sm text-yellow-700 space-y-1">
+                <li>• Gunakan pencahayaan yang baik</li>
+                <li>• Pastikan suara jernih dan jelas</li>
+                <li>• Tunjukkan kepribadian Anda</li>
+                <li>• Tampilkan contoh cara Anda mempromosikan produk</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGallery = () => {
+    return (
+      <div className="space-y-8">
+        {/* Header Section */}
+        <div className="text-center space-y-3 pb-4">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Galeri Foto
+          </h2>
+          <p className="text-gray-600 max-w-md mx-auto">
+            Tambahkan foto-foto terbaik Anda untuk menarik perhatian brand
+          </p>
+        </div>
+
+        {/* Gallery Upload Section */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between pb-2">
+            <div>
+              <h3 className="font-medium text-gray-900">Upload Foto</h3>
+              <p className="text-sm text-gray-500">
+                Maksimal 5 foto • Format: JPG, PNG • Maks. 5MB per foto
+              </p>
+            </div>
+            <div className="text-sm text-gray-500">
+              {formData.profile.gallery.length}/5 foto
+            </div>
+          </div>
+
+          {/* Upload Area */}
+          {formData.profile.gallery.length < 5 && (
+            <div 
+              onClick={() => galleryInputRef.current?.click()}
+              className="cursor-pointer group"
+            >
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6
+                hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200">
+                <div className="flex flex-col items-center">
+                  <div className="p-3 rounded-full bg-blue-50 mb-3 group-hover:bg-blue-100 transition-colors">
+                    <svg 
+                      className="w-6 h-6 text-blue-600" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M12 4v16m8-8H4" 
+                      />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-gray-600 group-hover:text-blue-600 transition-colors">
+                    Tambah Foto
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Klik untuk memilih foto
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <input
+            type="file"
+            ref={galleryInputRef}
+            className="hidden"
+            accept="image/jpeg,image/png"
+            multiple
+            onChange={handleGalleryImageChange}
+          />
+
+          {/* Gallery Preview */}
+          {formData.profile.gallery.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {formData.profile.gallery.map((item, index) => (
+                <div key={index} className="relative aspect-square group">
+                  <Image
+                    src={item.preview}
+                    alt={`Gallery photo ${index + 1}`}
+                    fill
+                    className="object-cover rounded-lg"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 
+                    transition-opacity rounded-lg flex items-center justify-center">
+                    <button
+                      type="button"
+                      onClick={() => removeGalleryPhoto(index)}
+                      className="p-2 bg-white/10 hover:bg-white/20 rounded-full 
+                        transition-colors text-white"
+                    >
+                      <svg 
+                        className="w-5 h-5" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round" 
+                          strokeWidth={2} 
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Tips Section */}
+          <div className="flex items-start gap-3 p-4 bg-yellow-50/50 border border-yellow-100 rounded-xl">
+            <div className="p-2 bg-yellow-100 rounded-lg shrink-0">
+              <span className="text-xl">💡</span>
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium text-yellow-800">Tips untuk Foto Galeri:</p>
+              <ul className="text-sm text-yellow-700 space-y-1">
+                <li>• Gunakan foto dengan kualitas tinggi</li>
+                <li>• Tunjukkan pengalaman live streaming Anda</li>
+                <li>• Tampilkan interaksi dengan penonton</li>
+                <li>• Pastikan pencahayaan yang baik</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderPreview = () => {
     const previewStreamer: Streamer = {
       id: 0,
@@ -697,7 +1020,44 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
           </div>
         </motion.div>
 
-        {/* Additional Information with enhanced styling */}
+        {/* Video Preview Section */}
+        {formData.profile.video_url && (
+          <div className="space-y-3">
+            <h4 className="font-semibold text-gray-900">Video Perkenalan</h4>
+            <div className="aspect-video rounded-xl overflow-hidden border border-gray-200">
+              <iframe
+                width="100%"
+                height="100%"
+                src={`https://www.youtube.com/embed/${getYouTubeVideoId(formData.profile.video_url)}`}
+                title="Introduction Video"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+          </div>
+        )}
+
+        {/* Gallery Preview Section */}
+        {formData.profile.gallery.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="font-semibold text-gray-900">Galeri Foto</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {formData.profile.gallery.map((item, index) => (
+                <div key={index} className="relative aspect-square">
+                  <Image
+                    src={item.preview}
+                    alt={`Gallery photo ${index + 1}`}
+                    fill
+                    className="object-cover rounded-lg"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Additional Information Section */}
         <div className="mt-12 space-y-6">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
             <h4 className="font-semibold text-blue-700 mb-3">Informasi Tambahan</h4>
@@ -705,6 +1065,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
               <p>Platform: {formData.profile.platforms.join(', ')}</p>
               <p>Kategori: {formData.profile.categories.join(', ')}</p>
               <p>Alamat: {formData.basicInfo.full_address}</p>
+              <p>Jumlah Foto Galeri: {formData.profile.gallery.length}</p>
             </div>
           </div>
 
@@ -758,6 +1119,16 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
     );
   };
 
+  const removeGalleryPhoto = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      profile: {
+        ...prev.profile,
+        gallery: prev.profile.gallery.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
   return (
     <div className="w-full max-w-[480px]">
       <div className="mb-8 flex justify-center lg:hidden">
@@ -791,7 +1162,9 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             {currentStep === 1 && renderBasicInfo()}
             {currentStep === 2 && renderSecurity()}
             {currentStep === 3 && renderProfile()}
-            {currentStep === 4 && renderPreview()}
+            {currentStep === 4 && renderVideoIntro()}
+            {currentStep === 5 && renderGallery()}
+            {currentStep === 6 && renderPreview()}
 
             {error && (
               <div className="p-3 rounded-lg bg-red-50 border border-red-200">
@@ -813,15 +1186,15 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
               
               <Button
                 type="button"
-                onClick={currentStep === 4 ? handleSignUp : handleNext}
-                disabled={currentStep === 4 && !acceptedTerms}
+                onClick={currentStep === 6 ? handleSignUp : handleNext}
+                disabled={currentStep === 6 && !acceptedTerms}
                 className={`flex-1 h-11 bg-gradient-to-r from-red-600 to-red-500 
-                  ${currentStep === 4 && !acceptedTerms 
+                  ${currentStep === 6 && !acceptedTerms 
                     ? 'opacity-50 cursor-not-allowed' 
                     : 'hover:from-red-700 hover:to-red-600'
                   } text-white`}
               >
-                {currentStep === 4 ? (
+                {currentStep === 6 ? (
                   isSigningUp ? "Membuat Akun..." : "Buat Akun"
                 ) : (
                   <>

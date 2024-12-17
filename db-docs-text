@@ -99,6 +99,7 @@ Stores photos associated with livestreamers for their gallery or portfolio.
 	•	streamer_id (bigint): Foreign key referencing the streamers table.
 	•	photo_url (text): URL of the photo.
 	•	order_number (integer): The display order of the photo in the gallery.
+	•	caption (text): Optional caption or description for the photo.
 	•	created_at (timestamp): Timestamp when the photo was added.
 	•	updated_at (timestamp): Timestamp when the photo entry was last updated.
 
