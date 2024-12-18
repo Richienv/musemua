@@ -180,54 +180,25 @@ function RescheduleModal({
 }: { 
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (startTime: Date, endTime: Date) => void;
+  onConfirm: (reason: string) => void;
   booking: Booking;
 }) {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedHours, setSelectedHours] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Time options from 00:00 to 23:00
-  const timeOptions = Array.from({ length: 24 }, (_, i) => 
-    `${i.toString().padStart(2, '0')}:00`
-  );
-
-  const handleHourSelection = (hour: string) => {
-    if (selectedHours.includes(hour)) {
-      setSelectedHours(selectedHours.filter(h => h !== hour));
-    } else {
-      const hourNum = parseInt(hour);
-      const selectedHourNums = selectedHours.map(h => parseInt(h));
-      
-      if (selectedHours.length === 0) {
-        setSelectedHours([hour]);
-      } else {
-        const minHour = Math.min(...selectedHourNums);
-        const maxHour = Math.max(...selectedHourNums);
-        
-        if (hourNum === maxHour + 1 || hourNum === minHour - 1) {
-          setSelectedHours([...selectedHours, hour].sort());
-        }
-      }
-    }
-  };
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
 
   const handleSubmit = () => {
+    if (!reason.trim()) {
+      setError('Alasan reschedule harus diisi');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const [startHour] = selectedHours[0].split(':').map(Number);
-      const [endHour] = selectedHours[selectedHours.length - 1].split(':').map(Number);
-      
-      const startTime = new Date(selectedDate);
-      startTime.setHours(startHour, 0, 0, 0);
-      
-      const endTime = new Date(selectedDate);
-      endTime.setHours(endHour + 1, 0, 0, 0);
-      
-      onConfirm(startTime, endTime);
+      onConfirm(reason);
     } catch (error) {
       console.error('Error processing reschedule:', error);
-      toast.error('Gagal mengatur ulang jadwal');
+      toast.error('Gagal mengajukan reschedule');
     } finally {
       setIsSubmitting(false);
     }
@@ -235,79 +206,72 @@ function RescheduleModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle>Pengajuan Reschedule</DialogTitle>
-          <DialogDescription>
-            Pilih waktu baru untuk sesi live streaming
+          <DialogTitle className="text-lg sm:text-2xl font-semibold mb-0.5">
+            Pengajuan Reschedule
+          </DialogTitle>
+          <DialogDescription className="text-sm sm:text-base">
+            Mohon berikan alasan untuk pengajuan reschedule
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <BookingCalendar 
-            selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-            isDayOff={() => false}
-            selectedClassName="bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]"
-          />
-
-          <div className="space-y-4">
-            {['Morning', 'Afternoon', 'Evening', 'Night'].map((timeOfDay) => (
-              <div key={timeOfDay}>
-                <h4 className="text-sm font-semibold mb-2">{timeOfDay}</h4>
-                <div className="grid grid-cols-4 gap-2">
-                  {timeOptions
-                    .filter((hour) => {
-                      const hourNum = parseInt(hour);
-                      return (
-                        (timeOfDay === 'Night' && (hourNum >= 0 && hourNum < 6)) ||
-                        (timeOfDay === 'Morning' && (hourNum >= 6 && hourNum < 12)) ||
-                        (timeOfDay === 'Afternoon' && (hourNum >= 12 && hourNum < 18)) ||
-                        (timeOfDay === 'Evening' && (hourNum >= 18 && hourNum < 24))
-                      );
-                    })
-                    .map((hour) => (
-                      <Button
-                        key={hour}
-                        variant={selectedHours.includes(hour) ? "default" : "outline"}
-                        className={`text-sm p-2 h-auto ${
-                          selectedHours.includes(hour)
-                            ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]'
-                            : 'hover:bg-gray-100'
-                        }`}
-                        onClick={() => handleHourSelection(hour)}
-                      >
-                        {hour}
-                      </Button>
-                    ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {selectedHours.length > 0 && (
-            <div className="text-sm font-medium">
-              Selected time: {selectedHours[0]} - {selectedHours[selectedHours.length - 1]}
+        {/* Policy Notice */}
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-red-800">
+                Kebijakan Reschedule:
+              </p>
+              <ul className="text-xs text-red-700 space-y-1 list-disc pl-4">
+                <li>Pengajuan reschedule akan mempengaruhi performa dan reputasi Anda sebagai streamer</li>
+                <li>Reschedule mendadak dapat mengurangi tingkat kepercayaan client</li>
+                <li>Pastikan Anda memiliki alasan yang kuat sebelum mengajukan reschedule</li>
+                <li>Pengajuan reschedule yang terlalu sering dapat mempengaruhi visibilitas profil Anda</li>
+              </ul>
             </div>
+          </div>
+        </div>
+
+        {/* Reason Field */}
+        <div className="space-y-2">
+          <Label htmlFor="reschedule-reason" className="text-sm font-medium">
+            Alasan Reschedule<span className="text-red-500">*</span>
+          </Label>
+          <textarea
+            id="reschedule-reason"
+            className={`w-full min-h-[100px] p-3 rounded-md border ${
+              error ? 'border-red-500' : 'border-gray-300'
+            } focus:outline-none focus:ring-2 focus:ring-red-500 bg-white text-sm`}
+            placeholder="Mohon jelaskan alasan Anda mengajukan reschedule..."
+            value={reason}
+            onChange={(e) => {
+              setReason(e.target.value);
+              if (error) setError('');
+            }}
+          />
+          {error && (
+            <p className="text-xs text-red-500">{error}</p>
           )}
         </div>
 
         <DialogFooter className="mt-6">
-          <div className="flex gap-4 w-full">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
             <Button
               variant="outline"
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-100"
+              className="w-full sm:w-auto border-red-500 text-red-500 hover:bg-red-50"
             >
-              Cancel
+              Batal
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || selectedHours.length < 1}
-              className="flex-1 h-10 sm:h-12 text-xs sm:text-sm bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              disabled={isSubmitting || !reason.trim()}
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
             >
-              {isSubmitting ? 'Processing...' : 'Confirm Reschedule'}
+              {isSubmitting ? 'Memproses...' : 'Ajukan Reschedule'}
             </Button>
           </div>
         </DialogFooter>
@@ -436,18 +400,17 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: {
     }
   };
 
-  const handleReschedule = async (startTime: Date, endTime: Date) => {
+  const handleReschedule = async (reason: string) => {
     try {
       const supabase = createClient();
       
-      // Update booking status and new times
+      // Update booking status with reason
       const { error: updateError } = await supabase
         .from('bookings')
         .update({ 
           status: 'reschedule_requested',
-          start_time: startTime.toISOString(),
-          end_time: endTime.toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          reschedule_reason: reason
         })
         .eq('id', booking.id);
 
@@ -458,7 +421,7 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: {
         .from('notifications')
         .insert({
           user_id: booking.client_id,
-          message: `Streamer mengajukan perubahan jadwal untuk sesi live streaming Anda ke ${format(startTime, 'dd MMMM yyyy HH:mm')} - ${format(endTime, 'HH:mm')}.`,
+          message: `Streamer mengajukan reschedule untuk sesi live streaming Anda. Alasan: ${reason}`,
           type: 'reschedule_request',
           booking_id: booking.id,
           created_at: new Date().toISOString(),
