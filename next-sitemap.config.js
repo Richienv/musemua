@@ -5,10 +5,17 @@ module.exports = {
   changefreq: 'daily',
   priority: 0.7,
   sitemapSize: 5000,
-  exclude: ['/server-sitemap.xml'],
+  generateIndexSitemap: false,
+  outDir: 'public',
   robotsTxtOptions: {
+    policies: [
+      {
+        userAgent: '*',
+        allow: '/',
+      },
+    ],
     additionalSitemaps: [
-      'https://salda.gg/server-sitemap.xml',
+      'https://salda.gg/sitemap.xml',
     ],
   },
 } 
