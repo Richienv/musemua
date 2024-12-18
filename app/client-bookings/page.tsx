@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from "@/utils/supabase/client";
-import { format, differenceInHours, isBefore, startOfDay } from 'date-fns';
+import { format, differenceInHours, isBefore, startOfDay, isSameDay } from 'date-fns';
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X } from 'lucide-react';
 import Image from 'next/image';
@@ -18,14 +18,15 @@ import { BookingCalendar } from '@/components/booking-calendar';
 interface Booking {
   id: number;
   client_id: string;
+  streamer_id: number;
   start_time: string;
   end_time: string;
   platform: string;
   status: string;
   created_at: string;
+  updated_at?: string;
   price: number;
-  special_request: string;
-  streamer_id: number;
+  special_request: string | null;
   streamer: {
     id: number;
     first_name: string;
@@ -41,6 +42,26 @@ interface Booking {
 interface RatingData {
   streamer_id: number;
   rating: number;
+}
+
+interface TimeSlot {
+  start: string;
+  end: string;
+}
+
+interface DaySchedule {
+  slots: TimeSlot[];
+}
+
+interface Schedule {
+  [key: number]: DaySchedule;
+}
+
+interface BookingRecord {
+  id: number;
+  start_time: string;
+  end_time: string;
+  status: string;
 }
 
 const getStatusInfo = (status: string) => {
@@ -66,6 +87,7 @@ interface RescheduleTimeModalProps {
   onConfirm: (newStartTime: Date, newEndTime: Date) => void;
   currentStartTime: string;
   currentEndTime: string;
+  booking: Booking;
 }
 
 function RescheduleTimeModal({ 
@@ -73,19 +95,120 @@ function RescheduleTimeModal({
   onClose, 
   onConfirm,
   currentStartTime,
-  currentEndTime 
+  currentEndTime,
+  booking
 }: RescheduleTimeModalProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(currentStartTime));
-  const [selectedHours, setSelectedHours] = useState<string[]>([format(new Date(currentStartTime), 'HH:00')]);
+  const [selectedHours, setSelectedHours] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeSchedule, setActiveSchedule] = useState<Schedule | null>(null);
+  const [daysOff, setDaysOff] = useState<string[]>([]);
+  const [bookings, setBookings] = useState<BookingRecord[]>([]);
 
-  // Generate time options based on the selected date
-  const generateTimeOptions = () => {
-    const options = [];
-    for (let i = 0; i < 24; i++) {
-      options.push(`${i.toString().padStart(2, '0')}:00`);
+  useEffect(() => {
+    if (isOpen) {
+      fetchActiveSchedule();
+      fetchDaysOff();
+      fetchAcceptedBookings();
     }
-    return options;
+  }, [booking.streamer_id, isOpen]);
+
+  const fetchActiveSchedule = async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('streamer_active_schedules')
+      .select('schedule')
+      .eq('streamer_id', booking.streamer_id);
+
+    if (error) {
+      console.error('Error fetching active schedule:', error);
+      setActiveSchedule(null);
+    } else if (data && data.length > 0) {
+      try {
+        const schedule = typeof data[0].schedule === 'string' 
+          ? JSON.parse(data[0].schedule)
+          : data[0].schedule;
+        setActiveSchedule(schedule);
+      } catch (e) {
+        console.error('Error parsing schedule:', e);
+        setActiveSchedule(null);
+      }
+    } else {
+      setActiveSchedule(null);
+    }
+  };
+
+  const fetchDaysOff = async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('streamer_day_offs')
+      .select('date')
+      .eq('streamer_id', booking.streamer_id);
+
+    if (error) {
+      console.error('Error fetching days off:', error);
+    } else if (data) {
+      setDaysOff(data.map(d => d.date));
+    }
+  };
+
+  const fetchAcceptedBookings = async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('streamer_id', booking.streamer_id)
+      .in('status', ['accepted', 'pending'])
+      .neq('id', booking.id);
+
+    if (error) {
+      console.error('Error fetching bookings:', error);
+      toast.error('Failed to fetch bookings');
+    } else {
+      setBookings(data || []);
+    }
+  };
+
+  const isSlotAvailable = useCallback((date: Date, hour: number): boolean => {
+    if (!activeSchedule) return false;
+    const dayOfWeek = date.getDay();
+    const daySchedule = activeSchedule[dayOfWeek];
+    if (!daySchedule || !daySchedule.slots) return false;
+  
+    const isInSchedule = daySchedule.slots.some((slot: TimeSlot) => {
+      const start = parseInt(slot.start.split(':')[0]);
+      const end = parseInt(slot.end.split(':')[0]);
+      return hour >= start && hour < end;
+    });
+
+    const bookingExists = bookings.some((booking: BookingRecord) => {
+      const bookingStart = new Date(booking.start_time);
+      const bookingEnd = new Date(booking.end_time);
+      return (
+        isSameDay(date, bookingStart) &&
+        (
+          (hour >= bookingStart.getHours() && hour < bookingEnd.getHours()) ||
+          (hour === bookingEnd.getHours() && bookingEnd.getMinutes() > 0)
+        )
+      );
+    });
+
+    return isInSchedule && !bookingExists;
+  }, [activeSchedule, bookings] as const);
+
+  const generateTimeOptions = (): string[] => {
+    if (!selectedDate || !activeSchedule) return [];
+    const dayOfWeek = selectedDate.getDay();
+    const daySchedule = activeSchedule[dayOfWeek];
+    if (!daySchedule || !daySchedule.slots) return [];
+  
+    const options = daySchedule.slots.flatMap((slot: TimeSlot) => {
+      const start = parseInt(slot.start.split(':')[0]);
+      const end = parseInt(slot.end.split(':')[0]);
+      return Array.from({ length: end - start }, (_, i) => `${(start + i).toString().padStart(2, '0')}:00`);
+    });
+
+    return options.filter((hour: string) => isSlotAvailable(selectedDate, parseInt(hour)));
   };
 
   const timeOptions = generateTimeOptions();
@@ -127,15 +250,19 @@ function RescheduleTimeModal({
     });
   };
 
-  const isHourSelected = (hour: string) => selectedHours.includes(hour);
+  const isHourSelected = (hour: string): boolean => {
+    return selectedHours.includes(hour);
+  };
 
-  const isHourDisabled = (hour: string) => {
+  const isHourDisabled = (hour: string): boolean => {
     const hourNum = parseInt(hour);
     const selectedDateTime = new Date(selectedDate);
     selectedDateTime.setHours(hourNum, 0, 0, 0);
     const now = new Date();
     
     if (isBefore(selectedDateTime, now)) return true;
+    
+    if (!isSlotAvailable(selectedDate, hourNum)) return true;
     
     if (selectedHours.length === 0) return false;
     
@@ -146,7 +273,7 @@ function RescheduleTimeModal({
     return hourNum !== maxHour + 1 && hourNum !== minHour - 1;
   };
 
-  const getSelectedTimeRange = () => {
+  const getSelectedTimeRange = (): string => {
     if (selectedHours.length === 0) return '';
     const startTime = selectedHours[0];
     const endTime = selectedHours[selectedHours.length - 1];
@@ -154,7 +281,7 @@ function RescheduleTimeModal({
     return `${startTime} - ${endTime} (${duration} hour${duration !== 1 ? 's' : ''})`;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = (): void => {
     if (selectedHours.length < 1) {
       toast.error("Please select at least one hour");
       return;
@@ -220,7 +347,9 @@ function RescheduleTimeModal({
                       className={`text-[10px] sm:text-sm p-1 sm:p-2 h-auto ${
                         isHourSelected(hour) 
                           ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]' 
-                          : 'hover:bg-blue-50'
+                          : isHourDisabled(hour)
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:bg-blue-50'
                       }`}
                       onClick={() => handleHourSelection(hour)}
                       disabled={isHourDisabled(hour)}
@@ -239,19 +368,19 @@ function RescheduleTimeModal({
           </div>
         )}
 
-        <DialogFooter className="mt-4">
+        <DialogFooter className="mt-4 flex flex-col sm:flex-row gap-2 sm:space-x-2">
           <Button
             variant="outline"
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex-1"
+            className="w-full sm:flex-1 text-xs sm:text-sm py-1.5 sm:py-2 h-8 sm:h-9"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting || selectedHours.length < 1}
-            className="flex-1 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white"
+            className="w-full sm:flex-1 text-xs sm:text-sm py-1.5 sm:py-2 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white h-8 sm:h-9"
           >
             {isSubmitting ? 'Processing...' : 'Confirm Reschedule'}
           </Button>
@@ -287,7 +416,7 @@ function CancelConfirmationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-3 sm:p-6 bg-white/95">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-3 sm:p-6 bg-background">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-gray-100"
@@ -335,19 +464,19 @@ function CancelConfirmationModal({
           </div>
         </div>
 
-        <DialogFooter className="mt-4 space-x-2">
+        <DialogFooter className="mt-4 flex flex-col sm:flex-row gap-2 sm:space-x-2">
           <Button
             variant="outline"
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex-1 border-gray-300 hover:bg-gray-50"
+            className="w-full sm:flex-1 text-xs sm:text-sm py-1.5 sm:py-2 border-gray-300 hover:bg-gray-50 h-8 sm:h-9"
           >
             Kembali
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting || !reason.trim()}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            className="w-full sm:flex-1 text-xs sm:text-sm py-1.5 sm:py-2 bg-red-600 hover:bg-red-700 text-white h-8 sm:h-9"
           >
             {isSubmitting ? 'Memproses...' : 'Lanjutkan Pembatalan'}
           </Button>
@@ -357,7 +486,13 @@ function CancelConfirmationModal({
   );
 }
 
-function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingSubmit: () => void }) {
+interface BookingEntryProps {
+  booking: Booking;
+  onRatingSubmit: () => void;
+  onStatusUpdate: (bookingId: number, newStatus: string) => void;
+}
+
+function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryProps) {
   const router = useRouter();
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -383,12 +518,30 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
     try {
       const supabase = createClient();
       
+      // First create a new booking with pending status
+      const { data: newBooking, error: bookingError } = await supabase
+        .from('bookings')
+        .insert({
+          client_id: booking.client_id,
+          streamer_id: booking.streamer_id,
+          start_time: newStartTime.toISOString(),
+          end_time: newEndTime.toISOString(),
+          platform: booking.platform,
+          price: booking.price,
+          status: 'pending',
+          special_request: booking.special_request,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (bookingError) throw bookingError;
+
+      // Update the original booking status to rescheduled
       const { error: updateError } = await supabase
         .from('bookings')
         .update({ 
-          start_time: newStartTime.toISOString(),
-          end_time: newEndTime.toISOString(),
-          status: 'accepted',
+          status: 'rescheduled',
           updated_at: new Date().toISOString()
         })
         .eq('id', booking.id);
@@ -400,22 +553,23 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
         .from('notifications')
         .insert({
           user_id: booking.streamer_id,
-          message: `Client telah menyetujui jadwal baru untuk sesi live streaming.`,
-          type: 'reschedule_accepted',
-          booking_id: booking.id,
-          created_at: new Date().toISOString()
+          type: 'booking_reschedule',
+          message: `Client has requested to reschedule booking #${booking.id} to ${format(newStartTime, 'MMM d, yyyy HH:mm')} - ${format(newEndTime, 'HH:mm')}`,
+          booking_id: newBooking?.id,
+          created_at: new Date().toISOString(),
+          is_read: false
         });
 
       if (notificationError) {
-        console.error('Notification error:', notificationError);
+        console.error('Error creating notification:', notificationError);
       }
 
       setIsRescheduleModalOpen(false);
-      toast.success("Jadwal berhasil diperbarui");
+      toast.success("Reschedule request sent successfully");
       router.refresh();
     } catch (error) {
-      console.error('Error updating schedule:', error);
-      toast.error("Gagal memperbarui jadwal");
+      console.error('Error rescheduling booking:', error);
+      toast.error("Failed to reschedule booking");
     }
   };
 
@@ -428,7 +582,7 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
         .from('bookings')
         .update({ 
           status: 'cancelled',
-          cancel_reason: reason,
+          reason: reason,
           updated_at: new Date().toISOString()
         })
         .eq('id', booking.id);
@@ -443,16 +597,21 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
           message: `Client telah membatalkan permintaan reschedule dengan alasan: ${reason}`,
           type: 'reschedule_cancelled',
           booking_id: booking.id,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          is_read: false
         });
 
       if (notificationError) {
-        console.error('Notification error:', notificationError);
+        console.error('Error creating notification:', notificationError);
       }
 
       setIsCancelModalOpen(false);
       toast.success("Booking berhasil dibatalkan");
-      router.refresh();
+      
+      // Update the booking status locally
+      if (typeof onStatusUpdate === 'function') {
+        onStatusUpdate(booking.id, 'cancelled');
+      }
     } catch (error) {
       console.error('Error cancelling booking:', error);
       toast.error("Gagal membatalkan booking");
@@ -526,11 +685,11 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
 
       {/* Add these buttons only for reschedule_requested status */}
       {booking.status === 'reschedule_requested' && (
-        <div className="flex justify-end gap-2 mt-4">
+        <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
           <Button
             variant="outline"
             size="sm"
-            className="text-sm py-2 px-4 border-red-500 text-red-500 hover:bg-red-50"
+            className="text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 border-red-500 text-red-500 hover:bg-red-50 h-8 sm:h-9"
             onClick={() => setIsCancelModalOpen(true)}
           >
             Cancel
@@ -538,7 +697,7 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
           <Button
             variant="outline"
             size="sm"
-            className="text-sm py-2 px-4 border-[#E23744] text-[#E23744] hover:bg-[#E23744]/5"
+            className="text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 border-[#E23744] text-[#E23744] hover:bg-[#E23744]/5 h-8 sm:h-9"
             onClick={() => setIsRescheduleModalOpen(true)}
           >
             Reschedule
@@ -575,6 +734,7 @@ function BookingEntry({ booking, onRatingSubmit }: { booking: Booking; onRatingS
         onConfirm={handleReschedule}
         currentStartTime={booking.start_time}
         currentEndTime={booking.end_time}
+        booking={booking}
       />
 
       <CancelConfirmationModal
@@ -708,6 +868,16 @@ export default function ClientBookings() {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
+  const handleStatusUpdate = (bookingId: number, newStatus: string) => {
+    setBookings(prevBookings => 
+      prevBookings.map(booking => 
+        booking.id === bookingId 
+          ? { ...booking, status: newStatus }
+          : booking
+      )
+    );
+  };
+
   if (isLoading) {
     return <div className="container mx-auto p-4 text-sm">Loading...</div>;
   }
@@ -744,7 +914,12 @@ export default function ClientBookings() {
 
       <div className="space-y-3">
         {currentBookings.map((booking) => (
-          <BookingEntry key={booking.id} booking={booking} onRatingSubmit={refreshBookings} />
+          <BookingEntry 
+            key={booking.id} 
+            booking={booking} 
+            onRatingSubmit={refreshBookings}
+            onStatusUpdate={handleStatusUpdate}
+          />
         ))}
         {bookings.length === 0 && (
           <p className="text-center mt-4 text-gray-500">No bookings found.</p>
