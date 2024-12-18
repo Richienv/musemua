@@ -27,6 +27,8 @@ import { Navbar } from "@/components/ui/navbar";
 import { streamerService, type StreamerStats, type StreamerGalleryPhoto } from "@/services/streamer/streamer-service";
 import { format as formatDate } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
+import Image from 'next/image';
+import { BookingCalendar } from "@/components/booking-calendar";
 
 interface UserData {
   user_type: string;
@@ -48,6 +50,8 @@ interface Booking {
   stream_link?: string | null;
   sub_acc_link?: string | null;
   sub_acc_pass?: string | null;
+  items_received?: boolean;
+  items_received_at?: string | null;
 }
 
 // Add these utility functions at the top of the file
@@ -91,11 +95,285 @@ function SubAccountLink({ link }: { link: string }) {
   );
 }
 
-function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Booking, onStreamStart: () => void, onStreamEnd: () => void }) {
-  console.log('Schedule Card Booking:', booking);
+function ItemAcceptanceModal({ 
+  isOpen, 
+  onClose, 
+  onConfirm 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onConfirm: (confirmed: boolean) => void;
+}) {
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  const handleSubmit = async () => {
+    setIsConfirming(true);
+    try {
+      onConfirm(true);
+    } catch (error) {
+      console.error('Error confirming item acceptance:', error);
+      toast.error('Gagal mengkonfirmasi penerimaan barang');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Konfirmasi Penerimaan Barang</DialogTitle>
+          <DialogDescription>
+            Mohon konfirmasi bahwa Anda telah menerima barang dari client.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="bg-[#E23744]/5 p-4 rounded-lg space-y-3 text-sm">
+            <p className="font-medium text-[#E23744]">Panduan Penerimaan Barang:</p>
+            <ul className="list-disc pl-4 text-[#E23744]/90 space-y-2">
+              <li>Pastikan barang dalam kondisi baik dan sesuai dengan deskripsi</li>
+              <li>Periksa kelengkapan dan kualitas setiap item</li>
+              <li>Simpan foto kemasan dan isi paket sebagai dokumentasi</li>
+            </ul>
+          </div>
+
+          <div className="bg-yellow-50 p-4 rounded-lg text-sm">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-[#E23744] flex-shrink-0 mt-0.5" />
+              <p className="text-gray-800">
+                <span className="font-semibold block mb-1 text-gray-900">Penting:</span>
+                Pastikan Anda telah menyimpan foto bukti penerimaan barang sebelum melanjutkan. 
+                Foto ini diperlukan untuk dokumentasi dan perlindungan Anda sebagai streamer.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isConfirming}
+            className="border-[#E23744] text-[#E23744] hover:bg-[#E23744]/5"
+          >
+            Batal
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isConfirming}
+            className="bg-[#E23744] hover:bg-[#E23744]/90 text-white"
+          >
+            {isConfirming ? 'Memproses...' : 'Konfirmasi Penerimaan'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RescheduleModal({ 
+  isOpen, 
+  onClose, 
+  onConfirm,
+  booking 
+}: { 
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (startTime: Date, endTime: Date) => void;
+  booking: Booking;
+}) {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedHours, setSelectedHours] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Time options from 00:00 to 23:00
+  const timeOptions = Array.from({ length: 24 }, (_, i) => 
+    `${i.toString().padStart(2, '0')}:00`
+  );
+
+  const handleHourSelection = (hour: string) => {
+    if (selectedHours.includes(hour)) {
+      setSelectedHours(selectedHours.filter(h => h !== hour));
+    } else {
+      const hourNum = parseInt(hour);
+      const selectedHourNums = selectedHours.map(h => parseInt(h));
+      
+      if (selectedHours.length === 0) {
+        setSelectedHours([hour]);
+      } else {
+        const minHour = Math.min(...selectedHourNums);
+        const maxHour = Math.max(...selectedHourNums);
+        
+        if (hourNum === maxHour + 1 || hourNum === minHour - 1) {
+          setSelectedHours([...selectedHours, hour].sort());
+        }
+      }
+    }
+  };
+
+  const handleSubmit = () => {
+    setIsSubmitting(true);
+    try {
+      const [startHour] = selectedHours[0].split(':').map(Number);
+      const [endHour] = selectedHours[selectedHours.length - 1].split(':').map(Number);
+      
+      const startTime = new Date(selectedDate);
+      startTime.setHours(startHour, 0, 0, 0);
+      
+      const endTime = new Date(selectedDate);
+      endTime.setHours(endHour + 1, 0, 0, 0);
+      
+      onConfirm(startTime, endTime);
+    } catch (error) {
+      console.error('Error processing reschedule:', error);
+      toast.error('Gagal mengatur ulang jadwal');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+        <DialogHeader>
+          <DialogTitle>Pengajuan Reschedule</DialogTitle>
+          <DialogDescription>
+            Pilih waktu baru untuk sesi live streaming
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          <BookingCalendar 
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            isDayOff={() => false}
+            selectedClassName="bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]"
+          />
+
+          <div className="space-y-4">
+            {['Morning', 'Afternoon', 'Evening', 'Night'].map((timeOfDay) => (
+              <div key={timeOfDay}>
+                <h4 className="text-sm font-semibold mb-2">{timeOfDay}</h4>
+                <div className="grid grid-cols-4 gap-2">
+                  {timeOptions
+                    .filter((hour) => {
+                      const hourNum = parseInt(hour);
+                      return (
+                        (timeOfDay === 'Night' && (hourNum >= 0 && hourNum < 6)) ||
+                        (timeOfDay === 'Morning' && (hourNum >= 6 && hourNum < 12)) ||
+                        (timeOfDay === 'Afternoon' && (hourNum >= 12 && hourNum < 18)) ||
+                        (timeOfDay === 'Evening' && (hourNum >= 18 && hourNum < 24))
+                      );
+                    })
+                    .map((hour) => (
+                      <Button
+                        key={hour}
+                        variant={selectedHours.includes(hour) ? "default" : "outline"}
+                        className={`text-sm p-2 h-auto ${
+                          selectedHours.includes(hour)
+                            ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]'
+                            : 'hover:bg-gray-100'
+                        }`}
+                        onClick={() => handleHourSelection(hour)}
+                      >
+                        {hour}
+                      </Button>
+                    ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {selectedHours.length > 0 && (
+            <div className="text-sm font-medium">
+              Selected time: {selectedHours[0]} - {selectedHours[selectedHours.length - 1]}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="mt-6">
+          <div className="flex gap-4 w-full">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || selectedHours.length < 1}
+              className="flex-1 h-10 sm:h-12 text-xs sm:text-sm bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+            >
+              {isSubmitting ? 'Processing...' : 'Confirm Reschedule'}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { 
+  booking: Booking; 
+  onStreamStart: () => void; 
+  onStreamEnd: () => void;
+}) {
   const [isStartLiveModalOpen, setIsStartLiveModalOpen] = useState(false);
+  const [isItemAcceptanceModalOpen, setIsItemAcceptanceModalOpen] = useState(false);
   const [streamLink, setStreamLink] = useState(booking.stream_link || '');
   const [isStarting, setIsStarting] = useState(false);
+  const [hasAcceptedItems, setHasAcceptedItems] = useState(booking.items_received || false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+
+  const handleItemAcceptance = async (confirmed: boolean) => {
+    if (!confirmed) return;
+    
+    try {
+      const supabase = createClient();
+      
+      // Update booking with item acceptance
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ 
+          items_received: true,
+          items_received_at: new Date().toISOString()
+        })
+        .eq('id', booking.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw updateError;
+      }
+
+      // Create notification for client
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: booking.client_id,
+          message: 'Streamer telah menerima barang Anda dan siap untuk memulai live streaming.',
+          type: 'item_received',
+          booking_id: booking.id,
+          created_at: new Date().toISOString()
+        });
+
+      if (notificationError) {
+        console.error('Notification error:', notificationError);
+        // Don't throw here, just log the error
+      }
+
+      setHasAcceptedItems(true);
+      setIsItemAcceptanceModalOpen(false);
+      toast.success('Konfirmasi penerimaan barang berhasil');
+    } catch (error) {
+      console.error('Error confirming item acceptance:', error);
+      toast.error('Gagal mengkonfirmasi penerimaan barang');
+    }
+  };
 
   const handleStartLive = async () => {
     setIsStarting(true);
@@ -158,6 +436,48 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
     }
   };
 
+  const handleReschedule = async (startTime: Date, endTime: Date) => {
+    try {
+      const supabase = createClient();
+      
+      // Update booking status and new times
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ 
+          status: 'reschedule_requested',
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', booking.id);
+
+      if (updateError) throw updateError;
+
+      // Create notification for client
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: booking.client_id,
+          message: `Streamer mengajukan perubahan jadwal untuk sesi live streaming Anda ke ${format(startTime, 'dd MMMM yyyy HH:mm')} - ${format(endTime, 'HH:mm')}.`,
+          type: 'reschedule_request',
+          booking_id: booking.id,
+          created_at: new Date().toISOString(),
+          is_read: false,
+          streamer_id: booking.streamer_id
+        });
+
+      if (notificationError) {
+        console.error('Notification error:', notificationError);
+      }
+
+      setIsRescheduleModalOpen(false);
+      toast.success('Pengajuan reschedule berhasil dikirim');
+    } catch (error) {
+      console.error('Error requesting reschedule:', error);
+      toast.error('Gagal mengajukan reschedule');
+    }
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 hover:border-[#E23744]/20 transition-all duration-300">
       <div className="p-6">
@@ -217,7 +537,7 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                 booking.platform.toLowerCase() === 'shopee' 
                   ? 'bg-[#EE4D2D] text-white' 
-                  : 'bg-[#00f2ea] text-white'
+                  : 'bg-[#E23744] text-white'
               }`}>
                 {booking.platform}
               </span>
@@ -246,13 +566,39 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
             End Stream
           </Button>
         ) : booking.status === 'accepted' && (
-          <Button
-            onClick={() => setIsStartLiveModalOpen(true)}
-            className="mt-6 w-full py-3 bg-[#E23744] hover:bg-[#E23744]/90 text-white font-medium rounded-xl"
-          >
-            Start Live
-          </Button>
+          <div className="mt-6 space-y-2">
+            {!hasAcceptedItems ? (
+              <Button
+                onClick={() => setIsItemAcceptanceModalOpen(true)}
+                className="w-full py-3 bg-[#E23744] hover:bg-[#E23744]/90 text-white font-medium rounded-xl"
+              >
+                Barang Diterima
+              </Button>
+            ) : (
+              <>
+                <Button
+                  onClick={() => setIsStartLiveModalOpen(true)}
+                  className="w-full py-3 bg-[#E23744] hover:bg-[#E23744]/90 text-white font-medium rounded-xl"
+                >
+                  Start Live
+                </Button>
+                <button
+                  onClick={() => setIsRescheduleModalOpen(true)}
+                  className="w-full text-center text-xs text-gray-500 hover:text-[#E23744] transition-colors duration-200"
+                >
+                  reschedule
+                </button>
+              </>
+            )}
+          </div>
         )}
+
+        {/* Item Acceptance Modal */}
+        <ItemAcceptanceModal
+          isOpen={isItemAcceptanceModalOpen}
+          onClose={() => setIsItemAcceptanceModalOpen(false)}
+          onConfirm={handleItemAcceptance}
+        />
 
         {/* Start Live Modal - update to include credentials */}
         <Dialog open={isStartLiveModalOpen} onOpenChange={setIsStartLiveModalOpen}>
@@ -288,13 +634,21 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { booking: Bookin
               <Button
                 onClick={handleStartLive}
                 disabled={isStarting || !streamLink}
-                className="w-full bg-gradient-to-r from-red-500 to-red-600"
+                className="w-full bg-[#E23744] hover:bg-[#E23744]/90"
               >
                 {isStarting ? 'Starting...' : 'Start Stream'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Reschedule Modal */}
+        <RescheduleModal
+          isOpen={isRescheduleModalOpen}
+          onClose={() => setIsRescheduleModalOpen(false)}
+          onConfirm={handleReschedule}
+          booking={booking}
+        />
       </div>
     </div>
   );
@@ -318,11 +672,16 @@ function UpcomingSchedule({ bookings, onStreamStart, onStreamEnd }: {
 
   // Update the ScheduleCard mapping to include type safety
   const renderScheduleCards = (bookings: Booking[]) => {
-    return bookings.map((booking: Booking) => (
-      <ScheduleCard 
-        key={booking.id} 
-        booking={booking} 
-        onStreamStart={onStreamStart} 
+    // Filter out duplicate bookings based on booking ID
+    const uniqueBookings = bookings.filter((booking, index, self) =>
+      index === self.findIndex((b) => b.id === booking.id)
+    );
+
+    return uniqueBookings.map((booking) => (
+      <ScheduleCard
+        key={booking.id}
+        booking={booking}
+        onStreamStart={onStreamStart}
         onStreamEnd={onStreamEnd}
       />
     ));
@@ -519,11 +878,16 @@ export default function StreamerDashboard() {
   );
 
   const renderScheduleCards = (bookings: Booking[]) => {
-    return bookings.map((booking: Booking) => (
-      <ScheduleCard 
-        key={booking.id} 
-        booking={booking} 
-        onStreamStart={handleStreamStart} 
+    // Filter out duplicate bookings based on booking ID
+    const uniqueBookings = bookings.filter((booking, index, self) =>
+      index === self.findIndex((b) => b.id === booking.id)
+    );
+
+    return uniqueBookings.map((booking) => (
+      <ScheduleCard
+        key={booking.id}
+        booking={booking}
+        onStreamStart={handleStreamStart}
         onStreamEnd={handleStreamEnd}
       />
     ));

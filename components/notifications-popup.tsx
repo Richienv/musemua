@@ -29,7 +29,7 @@ interface Notification {
   user_id: string;
   message: string;
   created_at: string;
-  type: 'confirmation' | 'info' | 'warning' | 'booking_request' | 'stream_started' | 'stream_ended';
+  type: 'confirmation' | 'info' | 'warning' | 'booking_request' | 'stream_started' | 'stream_ended' | 'reschedule_request';
   is_read: boolean;
 }
 
@@ -128,7 +128,7 @@ export function NotificationsPopup() {
   const formatNotificationMessage = (notification: any, userType: string): string => {
     if (!notification) return '';
 
-    if (notification.bookings && userType === 'streamer') {
+    if (notification.bookings) {
       const booking = notification.bookings;
       const startTime = new Date(booking.start_time);
       const endTime = new Date(booking.end_time);
@@ -141,6 +141,10 @@ export function NotificationsPopup() {
           return `Payment confirmed for booking with ${booking.client_first_name} ${booking.client_last_name} (${format(startTime, 'dd MMMM')})`;
         case 'booking_cancelled':
           return `Booking cancelled by ${booking.client_first_name} ${booking.client_last_name} for ${format(startTime, 'dd MMMM')}`;
+        case 'reschedule_request':
+          return userType === 'client' 
+            ? `Streamer ${booking.streamer_first_name} ${booking.streamer_last_name} mengajukan perubahan jadwal untuk sesi live streaming Anda.`
+            : `Anda mengajukan perubahan jadwal untuk sesi dengan ${booking.client_first_name} ${booking.client_last_name}`;
         default:
           return notification.message;
       }
@@ -217,8 +221,11 @@ export function NotificationsPopup() {
                     ${!notification.is_read ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'}`}
                   onClick={() => handleNotificationSeen(notification.id)}
                 >
-                  <h4 className={`font-semibold text-sm mb-1 text-blue-800`}>
+                  <h4 className={`font-semibold text-sm mb-1 ${
+                    notification.type === 'reschedule_request' ? 'text-orange-800' : 'text-blue-800'
+                  }`}>
                     {notification.type === 'confirmation' ? 'Booking Confirmation' : 
+                     notification.type === 'reschedule_request' ? 'Pengajuan Reschedule' :
                      notification.type === 'info' && notification.message.includes('has booked your services') ? 'New Booking Request' :
                      notification.type === 'info' ? 'Information' : 
                      notification.type === 'warning' ? 'Warning' : 
@@ -229,17 +236,9 @@ export function NotificationsPopup() {
                   <p className="text-sm text-gray-600 mb-2">
                     {notification.message}
                   </p>
-                  {notification.type === 'stream_started' && (
-                    <a 
-                      href={notification.message.split('Join here: ')[1]} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="text-blue-600 hover:underline text-sm"
-                    >
-                      Join Stream
-                    </a>
-                  )}
-                  <p className="text-xs text-gray-400">{new Date(notification.created_at).toLocaleString()}</p>
+                  <p className="text-xs text-gray-400">
+                    {new Date(notification.created_at).toLocaleString()}
+                  </p>
                 </div>
               ))
             )}
