@@ -1,6 +1,6 @@
 /** @type {import('next-sitemap').IConfig} */
 module.exports = {
-  siteUrl: 'https://salda.gg',
+  siteUrl: 'https://salda.id',
   generateRobotsTxt: true,
   changefreq: 'daily',
   priority: 0.7,
@@ -15,7 +15,7 @@ module.exports = {
       },
     ],
     additionalSitemaps: [
-      'https://salda.gg/sitemap.xml',
+      'https://salda.id/sitemap.xml',
     ],
   },
 } 

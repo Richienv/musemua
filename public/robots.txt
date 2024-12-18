@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://salda.gg/sitemap.xml 
+Sitemap: https://salda.id/sitemap.xml 
