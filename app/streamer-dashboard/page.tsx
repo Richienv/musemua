@@ -410,7 +410,7 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: {
         .update({ 
           status: 'reschedule_requested',
           updated_at: new Date().toISOString(),
-          reschedule_reason: reason
+          reason: reason
         })
         .eq('id', booking.id);
 
