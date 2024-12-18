@@ -95,7 +95,7 @@ interface UserData {
 function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const type = searchParams.get('type');
+  const type = searchParams?.get('type') || 'client';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [bio, setBio] = useState('');
