@@ -1,9 +1,18 @@
 import * as React from "react"
 
-import type {
-  ToastActionElement,
-  ToastProps,
-} from "@/components/ui/toast"
+// Define our own types instead of importing from components
+type ToastProps = {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  title?: string
+  description?: string
+  duration?: number
+  variant?: "default" | "destructive"
+}
+
+type ToastActionElement = React.ReactElement<{
+  onPress: () => void;
+}>
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
