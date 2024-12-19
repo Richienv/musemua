@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from "@/utils/supabase/client";
@@ -20,6 +20,7 @@ import { Navbar } from "@/components/ui/navbar";
 import Image from 'next/image';
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2 } from "lucide-react";
+import { voucherService } from "@/services/voucher/voucher-service";
 
 interface BookingDetails {
   streamerId: string;
@@ -53,6 +54,32 @@ interface PaymentResult {
   message?: string;
 }
 
+interface AppliedVoucher {
+  id: string;
+  code: string;
+  discountAmount: number;
+}
+
+interface PaymentMetadata {
+  streamerId: string;
+  userId: string;
+  startTime: string;
+  endTime: string;
+  platform: string;
+  specialRequest: string;
+  sub_acc_link: string;
+  sub_acc_pass: string;
+  firstName: string;
+  lastName: string;
+  price: number;
+  voucher: {
+    id: string;
+    code: string;
+    discountAmount: number;
+  } | null;
+  finalPrice: number;
+}
+
 const platformStyles = {
   shopee: 'bg-gradient-to-r from-orange-500 to-orange-600',
   tiktok: 'bg-gradient-to-r from-[#00f2ea] to-[#ff0050]',
@@ -84,7 +111,11 @@ function BookingDetailContent() {
   const [paymentToken, setPaymentToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMetadata, setPaymentMetadata] = useState<any>(null);
+  const [paymentMetadata, setPaymentMetadata] = useState<PaymentMetadata | null>(null);
+  const [voucherCode, setVoucherCode] = useState('');
+  const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(null);
 
   useEffect(() => {
     if (searchParams) {
@@ -238,30 +269,40 @@ function BookingDetailContent() {
         return;
       }
 
-      // Only generate Midtrans token first, without creating booking
+      // Create payment metadata including voucher info
+      const metadata = {
+        streamerId: bookingDetails.streamerId,
+        userId: user.id,
+        startTime: `${bookingDetails.date}T${selectedHours[0]}`,
+        endTime: addHours(parseISO(`${bookingDetails.date}T${selectedHours[selectedHours.length - 1]}`), 1).toISOString(),
+        platform: bookingDetails.platform,
+        specialRequest: specialRequest,
+        sub_acc_link: subAccountLink,
+        sub_acc_pass: subAccountPassword,
+        firstName: user.user_metadata.first_name,
+        lastName: user.user_metadata.last_name,
+        price: total,
+        // Add voucher information
+        voucher: appliedVoucher ? {
+          id: appliedVoucher.id,
+          code: appliedVoucher.code,
+          discountAmount: appliedVoucher.discountAmount
+        } : null,
+        finalPrice: finalPrice
+      };
+
+      // Generate Midtrans token
       const paymentResponse = await fetch('/api/payments/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: total,
+          amount: finalPrice, // Use finalPrice instead of total
           clientName: `${user.user_metadata.first_name} ${user.user_metadata.last_name}`,
           clientEmail: user.email,
           description: `Booking with ${bookingDetails.streamerName} for ${format(parseISO(`${bookingDetails.date}T${selectedHours[0]}`), 'PPP')} at ${selectedHours[0]} - ${format(addHours(parseISO(`${bookingDetails.date}T${selectedHours[selectedHours.length - 1]}`), 1), 'HH:mm')}`,
-          metadata: {
-            streamerId: bookingDetails.streamerId,
-            userId: user.id,
-            startTime: `${bookingDetails.date}T${selectedHours[0]}`,
-            endTime: addHours(parseISO(`${bookingDetails.date}T${selectedHours[selectedHours.length - 1]}`), 1).toISOString(),
-            platform: bookingDetails.platform,
-            specialRequest: specialRequest,
-            sub_acc_link: subAccountLink,
-            sub_acc_pass: subAccountPassword,
-            firstName: user.user_metadata.first_name,
-            lastName: user.user_metadata.last_name,
-            price: total
-          }
+          metadata: metadata
         }),
       });
 
@@ -274,13 +315,13 @@ function BookingDetailContent() {
         throw new Error('No payment token received');
       }
 
-      // Store metadata for use after payment success
-      setPaymentMetadata(paymentData.metadata);
+      setPaymentMetadata(metadata);
       setPaymentToken(paymentData.token);
 
     } catch (error) {
       console.error('Error initiating payment:', error);
       toast.error('Failed to initiate payment. Please try again.');
+    } finally {
       setIsProcessing(false);
       setIsLoading(false);
     }
@@ -288,13 +329,28 @@ function BookingDetailContent() {
 
   const handlePaymentSuccess = async (result: any) => {
     try {
-      // Use stored metadata instead of paymentData.metadata
+      if (!paymentMetadata || !bookingDetails) {
+        throw new Error('Missing payment metadata or booking details');
+      }
+
+      // Create booking with stored metadata
       const bookingData = await createBookingAfterPayment(result, paymentMetadata);
+
+      // If there's a voucher, track its usage
+      if (paymentMetadata.voucher) {
+        await voucherService.trackVoucherUsage(
+          paymentMetadata.voucher.id,
+          bookingData.id,
+          paymentMetadata.userId,
+          paymentMetadata.voucher.discountAmount,
+          paymentMetadata.price,
+          paymentMetadata.finalPrice
+        );
+      }
 
       // Create notifications
       const supabase = createClient();
 
-      // Get streamer details first - simplified query
       const { data: streamerData, error: streamerError } = await supabase
         .from('streamers')
         .select(`
@@ -338,23 +394,17 @@ function BookingDetailContent() {
         console.error('Error creating notifications:', notificationError);
       }
 
-      // Show success message and handle redirection
       toast.success('Payment successful! Redirecting to bookings...');
       
-      // Clean up states before redirect
       setIsLoading(false);
       setIsProcessing(false);
       setPaymentToken(null);
 
-      // Use a simpler, more reliable redirection approach
       setTimeout(async () => {
         const redirectPath = '/client-bookings';
-        
         try {
-          // First try router push
           await router.push(redirectPath);
         } catch (error) {
-          // If router push fails, use window.location with path only
           window.location.pathname = redirectPath;
         }
       }, 1500);
@@ -363,7 +413,6 @@ function BookingDetailContent() {
       console.error('Error handling payment success:', error);
       toast.error('Payment successful but encountered an error. Please contact support.');
       
-      // Even on error, attempt to redirect
       setTimeout(() => {
         window.location.pathname = '/client-bookings';
       }, 2000);
@@ -407,15 +456,51 @@ function BookingDetailContent() {
     }
   };
 
+  const handleValidateVoucher = async () => {
+    if (!voucherCode.trim()) return;
+    
+    setIsValidatingVoucher(true);
+    setVoucherError(null);
+
+    try {
+      const result = await voucherService.validateVoucher(voucherCode, total);
+      
+      if (result.isValid && result.voucher && result.discountAmount) {
+        setAppliedVoucher({
+          id: result.voucher.id,
+          code: result.voucher.code,
+          discountAmount: result.discountAmount
+        });
+        setVoucherCode('');
+        toast.success('Voucher berhasil digunakan');
+      } else {
+        setVoucherError(result.error || 'Voucher tidak valid');
+      }
+    } catch (error) {
+      console.error('Error validating voucher:', error);
+      setVoucherError('Terjadi kesalahan saat validasi voucher');
+    } finally {
+      setIsValidatingVoucher(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherError(null);
+  };
+
+  // Calculate prices with null checks
+  const priceWithPlatformFee = (bookingDetails?.price || 0) * 1.3;
+  const subtotal = priceWithPlatformFee * (selectedHours.length || 0);
+  const tax = subtotal * 0.11;
+  const total = Math.round(subtotal + tax);
+  const finalPrice = appliedVoucher 
+    ? Math.max(0, total - appliedVoucher.discountAmount)
+    : total;
+
   if (!bookingDetails) {
     return <div className="container mx-auto p-4">Loading...</div>;
   }
-
-  // Calculate price with 30% platform fee included
-  const priceWithPlatformFee = bookingDetails.price * 1.3;
-  const subtotal = priceWithPlatformFee * selectedHours.length;
-  const tax = subtotal * 0.11;
-  const total = Math.round(subtotal + tax);
 
   return (
     <div className="container mx-auto p-3 sm:p-4 max-w-6xl font-sans text-xs sm:text-sm mt-4 sm:mt-8">
@@ -655,12 +740,73 @@ function BookingDetailContent() {
                   <span className="text-gray-600">Pajak (11%)</span>
                   <span className="font-medium">{`Rp ${tax.toLocaleString()}`}</span>
                 </div>
+                {appliedVoucher && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Voucher {appliedVoucher.code}</span>
+                    <span>-Rp {appliedVoucher.discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="pt-2 mt-2 border-t border-gray-100">
                   <div className="flex justify-between">
                     <span className="font-medium">Total</span>
-                    <span className="font-medium text-lg">{`Rp ${total.toLocaleString()}`}</span>
+                    <span className="font-medium text-lg">{`Rp ${finalPrice.toLocaleString()}`}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Voucher Section */}
+              <div className="space-y-3 border-t border-gray-100 pt-4 mt-4">
+                {!appliedVoucher ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Masukkan kode voucher"
+                          value={voucherCode}
+                          onChange={(e) => {
+                            setVoucherCode(e.target.value.toUpperCase());
+                            setVoucherError(null);
+                          }}
+                          maxLength={6}
+                          className="text-sm uppercase"
+                        />
+                      </div>
+                      <Button 
+                        variant="outline"
+                        onClick={handleValidateVoucher}
+                        disabled={isValidatingVoucher || !voucherCode.trim()}
+                        className="whitespace-nowrap text-sm min-w-[100px]"
+                      >
+                        {isValidatingVoucher ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Pakai Voucher'
+                        )}
+                      </Button>
+                    </div>
+                    {voucherError && (
+                      <p className="text-xs text-red-500">{voucherError}</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex justify-between items-center p-2 bg-green-50 rounded-lg text-sm">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span className="text-green-700">{appliedVoucher.code}</span>
+                      <span className="text-green-600">
+                        (-Rp {appliedVoucher.discountAmount.toLocaleString('id-ID')})
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveVoucher}
+                      className="h-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Confirm Button */}
