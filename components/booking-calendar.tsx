@@ -4,18 +4,16 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
-interface BookingCalendarProps {
+export interface BookingCalendarProps {
   selectedDate: Date | null;
-  setSelectedDate: (date: Date) => void;
-  isDayOff: (date: Date) => boolean;
-  selectedClassName?: string;
+  onDateSelect: (date: string) => void;
+  onTimeSelect: (time: string) => void;
 }
 
 export function BookingCalendar({ 
   selectedDate, 
-  setSelectedDate, 
-  isDayOff,
-  selectedClassName = "bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]"
+  onDateSelect, 
+  onTimeSelect 
 }: BookingCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const weekStart = startOfWeek(currentDate);
@@ -23,6 +21,12 @@ export function BookingCalendar({
 
   const nextWeek = () => setCurrentDate(addDays(currentDate, 7));
   const prevWeek = () => setCurrentDate(subWeeks(currentDate, 1));
+
+  const isDateSelectable = (date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date >= today;
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6 text-sm sm:text-base">
@@ -43,15 +47,16 @@ export function BookingCalendar({
           <Button
             key={day.toString()}
             variant={selectedDate && day.getTime() === selectedDate.getTime() ? "default" : "ghost"}
-            className={`p-1 sm:p-2 h-auto flex flex-col ${
+            className={cn(
+              "p-1 sm:p-2 h-auto flex flex-col",
               selectedDate && day.getTime() === selectedDate.getTime()
-                ? selectedClassName
-                : isDayOff(day)
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "hover:bg-gray-100"
-            }`}
-            onClick={() => setSelectedDate(day)}
-            disabled={isDayOff(day)}
+                ? "bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]"
+                : isDateSelectable(day)
+                ? "hover:bg-gray-100"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+            )}
+            onClick={() => onDateSelect(day.toISOString())}
+            disabled={!isDateSelectable(day)}
           >
             <span className="text-[10px] sm:text-xs">{format(day, 'EEE')}</span>
             <span className="text-xs sm:text-base font-bold">{format(day, 'd')}</span>

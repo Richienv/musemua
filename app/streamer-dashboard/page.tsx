@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { format, isToday, isThisWeek, isThisMonth, parseISO, differenceInHours, addHours, parse } from 'date-fns';
-import { Calendar, Clock, Monitor, DollarSign, MessageSquare, Link as LinkIcon, AlertTriangle, MapPin, Users, XCircle, Video, Settings } from 'lucide-react';
+import { Calendar, Clock, Monitor, DollarSign, MessageSquare, Link as LinkIcon, AlertTriangle, MapPin, Users, XCircle, Video, Settings, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import {
   Dialog,
@@ -28,7 +28,7 @@ import { streamerService, type StreamerStats, type StreamerGalleryPhoto } from "
 import { format as formatDate } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import Image from 'next/image';
-import { BookingCalendar } from "@/components/booking-calendar";
+import { BookingCalendar, type BookingCalendarProps } from "@/components/booking-calendar";
 
 interface UserData {
   user_type: string;
@@ -196,9 +196,6 @@ function RescheduleModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
 
   const handleSubmit = async () => {
     if (!reason.trim()) {
@@ -206,33 +203,17 @@ function RescheduleModal({
       return;
     }
 
-    if (!selectedTime || !selectedDate) {
-      setError('Mohon pilih waktu dan tanggal baru');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const supabase = createClient();
       
-      // Parse the selected time and date
-      const [startHour] = selectedTime.split(':').map(Number);
-      const newStartTime = new Date(selectedDate);
-      newStartTime.setHours(startHour, 0, 0, 0);
-      
-      // Set end time to 1 hour after start time
-      const newEndTime = new Date(newStartTime);
-      newEndTime.setHours(newStartTime.getHours() + 1);
-
-      // Update the existing booking instead of creating a new one
+      // Update the existing booking
       const { error: updateError } = await supabase
         .from('bookings')
         .update({ 
           status: 'reschedule_requested',
           updated_at: new Date().toISOString(),
-          reason: reason,
-          start_time: newStartTime.toISOString(),
-          end_time: newEndTime.toISOString()
+          reason: reason
         })
         .eq('id', booking.id);
 
@@ -255,8 +236,8 @@ function RescheduleModal({
         console.error('Notification error:', notificationError);
       }
 
-      onConfirm(reason);
-      setIsRescheduleModalOpen(false);
+      // Close the modal and show single toast notification
+      onClose();
       toast.success('Pengajuan reschedule berhasil dikirim');
     } catch (error) {
       console.error('Error requesting reschedule:', error);
@@ -264,16 +245,6 @@ function RescheduleModal({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Handle time selection
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
-  };
-
-  // Handle date selection
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
   };
 
   return (
@@ -284,27 +255,9 @@ function RescheduleModal({
             Pengajuan Reschedule
           </DialogTitle>
           <DialogDescription className="text-sm sm:text-base">
-            Pilih waktu baru untuk sesi live streaming
+            Mohon berikan alasan untuk pengajuan reschedule
           </DialogDescription>
         </DialogHeader>
-
-        {/* Calendar Component */}
-        <BookingCalendar 
-          selectedDate={selectedDate}
-          selectedTime={selectedTime}
-          onTimeSelect={handleTimeSelect}
-          onDateSelect={handleDateSelect}
-        />
-
-        {selectedTime && selectedDate && (
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-700">
-              Selected time: {selectedTime} - {
-                format(addHours(parse(selectedTime, 'HH:mm', new Date()), 1), 'HH:mm')
-              } (1 hour)
-            </p>
-          </div>
-        )}
 
         {/* Policy Notice */}
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -358,7 +311,7 @@ function RescheduleModal({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || !reason.trim() || !selectedTime || !selectedDate}
+              disabled={isSubmitting || !reason.trim()}
               className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
             >
               {isSubmitting ? 'Memproses...' : 'Konfirmasi'}
@@ -370,19 +323,17 @@ function RescheduleModal({
   );
 }
 
-// Update the BookingCalendar component interface
-interface BookingCalendarProps {
-  selectedDate: string;
-  selectedTime: string;
-  onTimeSelect: (time: string) => void;
-  onDateSelect: (date: string) => void;
+// First, define the function type for stream handlers
+type StreamHandler = () => void;
+
+// Update the ScheduleCard component props interface
+interface ScheduleCardProps {
+  booking: Booking;
+  onStreamStart: StreamHandler;
+  onStreamEnd: StreamHandler;
 }
 
-function ScheduleCard({ booking, onStreamStart, onStreamEnd }: { 
-  booking: Booking; 
-  onStreamStart: () => void; 
-  onStreamEnd: () => void;
-}) {
+function ScheduleCard({ booking, onStreamStart, onStreamEnd }: ScheduleCardProps) {
   const [isStartLiveModalOpen, setIsStartLiveModalOpen] = useState(false);
   const [isItemAcceptanceModalOpen, setIsItemAcceptanceModalOpen] = useState(false);
   const [streamLink, setStreamLink] = useState(booking.stream_link || '');
@@ -663,41 +614,62 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: {
 
         {/* Start Live Modal - update to include credentials */}
         <Dialog open={isStartLiveModalOpen} onOpenChange={setIsStartLiveModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Start Live Stream</DialogTitle>
-              <DialogDescription>
+          <DialogContent className="fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-[calc(100%-32px)] sm:w-full sm:max-w-[500px] p-0 m-0 rounded-lg">
+            <DialogHeader className="p-6 pb-2">
+              <DialogTitle className="text-xl font-semibold">
+                Start Live Stream
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
                 Please use these credentials to log in to your streaming platform.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+
+            <div className="p-6 space-y-6">
+              {/* Account Credentials Section */}
               {booking.platform.toLowerCase() === 'shopee' && (
-                <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                  <p className="text-sm font-medium">Account Credentials</p>
-                  <div className="space-y-1">
-                    <p className="text-sm">ID: {booking.sub_acc_link}</p>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                  <h3 className="text-sm font-medium text-gray-900">Account Credentials</h3>
+                  <div className="space-y-2">
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-500">ID:</span>
+                      <span className="text-sm font-medium">{booking.sub_acc_link}</span>
+                    </div>
                     {booking.sub_acc_pass && (
-                      <p className="text-sm">Password: {booking.sub_acc_pass}</p>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-500">Password:</span>
+                        <span className="text-sm font-medium">{booking.sub_acc_pass}</span>
+                      </div>
                     )}
                   </div>
                 </div>
               )}
-              <div className="space-y-2">
-                <Label>Stream Link</Label>
+
+              {/* Stream Link Input */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Stream Link</Label>
                 <Input
                   placeholder="Enter your stream link"
                   value={streamLink}
                   onChange={(e) => setStreamLink(e.target.value)}
+                  className="w-full"
                 />
               </div>
             </div>
-            <DialogFooter>
+
+            <DialogFooter className="p-6 pt-4 bg-gray-50 border-t">
               <Button
                 onClick={handleStartLive}
                 disabled={isStarting || !streamLink}
-                className="w-full bg-[#E23744] hover:bg-[#E23744]/90"
+                className="w-full h-11 bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744] text-white font-medium"
               >
-                {isStarting ? 'Starting...' : 'Start Stream'}
+                {isStarting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Starting...</span>
+                  </div>
+                ) : (
+                  'Start Stream'
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -717,8 +689,8 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd }: {
 
 function UpcomingSchedule({ bookings, onStreamStart, onStreamEnd }: { 
   bookings: Booking[], 
-  onStreamStart: () => void, 
-  onStreamEnd: () => void 
+  onStreamStart: StreamHandler, 
+  onStreamEnd: StreamHandler 
 }) {
   // Add console.log to debug the data
   console.log('Upcoming Schedule Bookings:', bookings);
@@ -930,30 +902,7 @@ export default function StreamerDashboard() {
   const [streamerStats, setStreamerStats] = useState<StreamerStats | null>(null);
   const [galleryPhotos, setGalleryPhotos] = useState<StreamerGalleryPhoto[]>([]);
 
-  const todayBookings = bookings.filter(booking => isToday(parseISO(booking.start_time)));
-  const thisWeekBookings = bookings.filter(booking => 
-    isThisWeek(parseISO(booking.start_time)) && !isToday(parseISO(booking.start_time))
-  );
-  const thisMonthBookings = bookings.filter(booking => 
-    isThisMonth(parseISO(booking.start_time)) && !isThisWeek(parseISO(booking.start_time))
-  );
-
-  const renderScheduleCards = (bookings: Booking[]) => {
-    // Filter out duplicate bookings based on booking ID
-    const uniqueBookings = bookings.filter((booking, index, self) =>
-      index === self.findIndex((b) => b.id === booking.id)
-    );
-
-    return uniqueBookings.map((booking) => (
-      <ScheduleCard
-        key={booking.id}
-        booking={booking}
-        onStreamStart={handleStreamStart}
-        onStreamEnd={handleStreamEnd}
-      />
-    ));
-  };
-
+  // Define fetchData first
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -1039,6 +988,38 @@ export default function StreamerDashboard() {
       setIsLoading(false);
     }
   }, [router]);
+
+  // Then define the handlers that depend on fetchData
+  const handleStreamStart: StreamHandler = useCallback(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleStreamEnd: StreamHandler = useCallback(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const todayBookings = bookings.filter(booking => isToday(parseISO(booking.start_time)));
+  const thisWeekBookings = bookings.filter(booking => 
+    isThisWeek(parseISO(booking.start_time)) && !isToday(parseISO(booking.start_time))
+  );
+  const thisMonthBookings = bookings.filter(booking => 
+    isThisMonth(parseISO(booking.start_time)) && !isThisWeek(parseISO(booking.start_time))
+  );
+
+  const renderScheduleCards = useCallback((bookings: Booking[]) => {
+    const uniqueBookings = bookings.filter((booking, index, self) =>
+      index === self.findIndex((b) => b.id === booking.id)
+    );
+
+    return uniqueBookings.map((booking) => (
+      <ScheduleCard
+        key={booking.id}
+        booking={booking}
+        onStreamStart={handleStreamStart}
+        onStreamEnd={handleStreamEnd}
+      />
+    ));
+  }, [handleStreamStart, handleStreamEnd]);
 
   const calculateDuration = (startTime: string, endTime: string) => {
     const start = new Date(startTime);
@@ -1173,14 +1154,6 @@ export default function StreamerDashboard() {
       toast.error(result.error || "Failed to reject booking");
     }
   };
-
-  const handleStreamStart = useCallback(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const handleStreamEnd = useCallback(() => {
-    fetchData();
-  }, [fetchData]);
 
   if (isLoading) {
     return <div>Loading...</div>;

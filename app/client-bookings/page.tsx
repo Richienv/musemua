@@ -275,13 +275,20 @@ function RescheduleTimeModal({
 
   const getSelectedTimeRange = (): string => {
     if (selectedHours.length === 0) return '';
+    
+    // Get start and end times
     const startTime = selectedHours[0];
     const endTime = selectedHours[selectedHours.length - 1];
-    const duration = selectedHours.length;
+    
+    // Calculate duration based on the difference between start and end time
+    const startHour = parseInt(startTime);
+    const endHour = parseInt(endTime);
+    const duration = endHour - startHour;
+    
     return `${startTime} - ${endTime} (${duration} hour${duration !== 1 ? 's' : ''})`;
   };
 
-  const handleSubmit = (): void => {
+  const handleSubmit = async () => {
     if (selectedHours.length < 1) {
       toast.error("Please select at least one hour");
       return;
@@ -289,13 +296,47 @@ function RescheduleTimeModal({
 
     setIsSubmitting(true);
     try {
+      const supabase = createClient();
+      
       const startTime = new Date(selectedDate);
       startTime.setHours(parseInt(selectedHours[0]), 0, 0, 0);
       
       const endTime = new Date(selectedDate);
-      endTime.setHours(parseInt(selectedHours[selectedHours.length - 1]) + 1, 0, 0, 0);
-      
+      const lastHour = parseInt(selectedHours[selectedHours.length - 1]);
+      endTime.setHours(lastHour + 1, 0, 0, 0);
+
+      // Update the existing booking with new schedule and status
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ 
+          status: 'reschedule_requested',
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', booking.id);
+
+      if (updateError) throw updateError;
+
+      // Create notification for streamer
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: booking.streamer_id,
+          type: 'reschedule_request',
+          message: `Client has requested to reschedule booking #${booking.id} to ${format(startTime, 'MMM d, yyyy HH:mm')} - ${format(endTime, 'HH:mm')}`,
+          booking_id: booking.id,
+          created_at: new Date().toISOString(),
+          is_read: false
+        });
+
+      if (notificationError) {
+        console.error('Error creating notification:', notificationError);
+      }
+
+      onClose();
       onConfirm(startTime, endTime);
+      
     } catch (error) {
       console.error('Error processing reschedule:', error);
       toast.error("Failed to reschedule");
@@ -320,9 +361,15 @@ function RescheduleTimeModal({
           <div className="mt-2">
             <BookingCalendar 
               selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              isDayOff={(date) => isBefore(date, startOfDay(new Date()))}
-              selectedClassName="bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]"
+              onDateSelect={(dateStr) => setSelectedDate(new Date(dateStr))}
+              onTimeSelect={(time) => {
+                if (selectedDate) {
+                  const [hours, minutes] = time.split(':').map(Number);
+                  const newDate = new Date(selectedDate);
+                  newDate.setHours(hours, minutes, 0, 0);
+                  setSelectedDate(newDate);
+                }
+              }}
             />
           </div>
 
@@ -515,34 +562,17 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   // Parse the rating to ensure it's a number
   const rating = parseFloat(booking.streamer.rating as unknown as string);
 
-  const handleReschedule = async (newStartTime: Date, newEndTime: Date) => {
+  const handleReschedule = async (startTime: Date, endTime: Date) => {
     try {
       const supabase = createClient();
       
-      // First create a new booking with pending status
-      const { data: newBooking, error: bookingError } = await supabase
-        .from('bookings')
-        .insert({
-          client_id: booking.client_id,
-          streamer_id: booking.streamer_id,
-          start_time: newStartTime.toISOString(),
-          end_time: newEndTime.toISOString(),
-          platform: booking.platform,
-          price: booking.price,
-          status: 'pending',
-          special_request: booking.special_request,
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (bookingError) throw bookingError;
-
-      // Update the original booking status to rescheduled
+      // Update the booking status to pending
       const { error: updateError } = await supabase
         .from('bookings')
         .update({ 
-          status: 'rescheduled',
+          status: 'pending',
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', booking.id);
@@ -554,11 +584,12 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
         .from('notifications')
         .insert({
           user_id: booking.streamer_id,
-          type: 'booking_reschedule',
-          message: `Client has requested to reschedule booking #${booking.id} to ${format(newStartTime, 'MMM d, yyyy HH:mm')} - ${format(newEndTime, 'HH:mm')}`,
-          booking_id: newBooking?.id,
+          type: 'new_booking',
+          message: `Client has rescheduled booking #${booking.id} to ${format(startTime, 'MMM d, yyyy HH:mm')} - ${format(endTime, 'HH:mm')}. Please review and accept/reject.`,
+          booking_id: booking.id,
           created_at: new Date().toISOString(),
-          is_read: false
+          is_read: false,
+          streamer_id: booking.streamer_id
         });
 
       if (notificationError) {
@@ -567,7 +598,14 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
 
       setIsRescheduleModalOpen(false);
       toast.success("Reschedule request sent successfully");
-      router.refresh();
+      
+      // Update local state
+      if (typeof onStatusUpdate === 'function') {
+        onStatusUpdate(booking.id, 'pending');
+      }
+
+      // Refresh the bookings list
+      window.location.reload();
     } catch (error) {
       console.error('Error rescheduling booking:', error);
       toast.error("Failed to reschedule booking");
