@@ -8,25 +8,33 @@ const snap = new midtransClient.Snap({
   clientKey: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY
 });
 
+interface PaymentMetadata {
+  streamerId: string;
+  userId: string;
+  startTime: string;
+  endTime: string;
+  platform: string;
+  specialRequest?: string;
+  sub_acc_link?: string;
+  sub_acc_pass?: string;
+  firstName: string;
+  lastName: string;
+  price: number;
+  voucher: {
+    id: string;
+    code: string;
+    discountAmount: number;
+  } | null;
+  finalPrice: number;
+}
+
 interface PaymentDetails {
   amount: number;
   clientName: string;
   clientEmail: string;
   clientPhone?: string;
   description: string;
-  metadata: {
-    streamerId: string;
-    userId: string;
-    startTime: string;
-    endTime: string;
-    platform: string;
-    specialRequest?: string;
-    sub_acc_link?: string;
-    sub_acc_pass?: string;
-    firstName: string;
-    lastName: string;
-    price: number;
-  };
+  metadata: PaymentMetadata;
 }
 
 export async function createPayment(details: PaymentDetails) {
@@ -58,7 +66,7 @@ export async function createPayment(details: PaymentDetails) {
 
     return {
       token: transaction.token,
-      metadata: details.metadata // Return metadata for use after payment success
+      metadata: details.metadata
     };
 
   } catch (error) {
@@ -67,16 +75,18 @@ export async function createPayment(details: PaymentDetails) {
   }
 }
 
-// Add a new function to create booking after successful payment
-export async function createBookingAfterPayment(
-  result: any, 
-  metadata: PaymentMetadata
-): Promise<{
+// Update the return type for createBookingAfterPayment
+interface BookingResponse {
   id: number;
   client_id: string;
   client_first_name: string;
   client_last_name: string;
-}> {
+}
+
+export async function createBookingAfterPayment(
+  result: any, 
+  metadata: PaymentMetadata
+): Promise<BookingResponse> {
   const supabase = createClient();
   
   try {
@@ -108,25 +118,16 @@ export async function createBookingAfterPayment(
       .from('payments')
       .insert({
         booking_id: bookingData.id,
-        amount: metadata.price,
-        status: 'success', // Payment status goes here
+        amount: metadata.finalPrice, // Use finalPrice instead of price
+        status: 'success',
         payment_method: 'midtrans',
         transaction_id: result.order_id,
-        midtrans_response: result // Store the full response from Midtrans
+        midtrans_response: result
       });
 
     if (paymentError) throw paymentError;
 
-    // Get booking with streamer details for notifications
-    const { data: bookingWithStreamer, error: streamerError } = await supabase
-      .from('bookings')
-      .select('*, streamers(*)')
-      .eq('id', bookingData.id)
-      .single();
-
-    if (streamerError) throw streamerError;
-
-    return bookingWithStreamer;
+    return bookingData;
   } catch (error) {
     console.error('Error creating booking:', error);
     throw error;
