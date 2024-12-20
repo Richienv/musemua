@@ -1,5 +1,5 @@
 import { defaultMetadata } from './metadata'
-import { AnalyticsWrapper } from '@/utils/analytics'
+import { AnalyticsWrapper } from '@/utils/analytics.tsx'
 
 export const metadata = defaultMetadata
 
