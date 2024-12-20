@@ -52,22 +52,6 @@ const nextConfig = {
   },
   reactStrictMode: true,
   swcMinify: true,
-  webpack: (config) => {
-    config.module.rules.push({
-      test: /\.(ico|png|svg|xml|webmanifest)$/,
-      use: [
-        {
-          loader: 'file-loader',
-          options: {
-            name: '[name].[ext]',
-            publicPath: '/_next/static/media',
-            outputPath: 'static/media',
-          },
-        },
-      ],
-    });
-    return config;
-  },
 }
 
 module.exports = nextConfig
