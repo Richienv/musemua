@@ -1,5 +1,4 @@
 import { defaultMetadata } from './metadata'
-import { AnalyticsWrapper } from '@/utils/analytics'
 
 export const metadata = defaultMetadata
 
@@ -32,10 +31,7 @@ export default function RootLayout({
         {/* Safari pinned tab */}
         <link rel="mask-icon" href="/favicon.svg" color="#5bbad5" />
       </head>
-      <body>
-        {children}
-        <AnalyticsWrapper />
-      </body>
+      <body>{children}</body>
     </html>
   )
 }

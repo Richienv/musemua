@@ -7,9 +7,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Fetch all active streamers
   const { data: streamers } = await supabase
     .from('streamers')
-    .select('username, updated_at')
-    .eq('is_active', true) // Only include active streamers
-    .throwOnError()
+    .select('username, updated_at, location')
+    .eq('is_active', true)
+  
+  // Fetch all locations
+  const { data: locations } = await supabase
+    .from('streamers')
+    .select('location')
+    .eq('is_active', true)
+    .distinct()
   
   const baseUrl = 'https://salda.id'
 
@@ -42,5 +48,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }))
 
-  return [...routes, ...streamerRoutes]
+  // Add location-based pages
+  const locationRoutes = locations?.map(loc => ({
+    url: `${baseUrl}/location/${encodeURIComponent(loc.location)}`,
+    lastModified: new Date(),
+    changeFrequency: 'daily' as const,
+    priority: 0.7,
+  })) || []
+
+  return [...routes, ...streamerRoutes, ...locationRoutes]
 } 
