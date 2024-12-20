@@ -9,6 +9,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { HeroBackground } from "@/components/hero-background";
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { OrganizationStructuredData } from '@/components/structured-data/organization-data'
+import { WebsiteStructuredData } from '@/components/structured-data/website-data'
 
 interface UserData {
   first_name: string;
@@ -294,6 +296,8 @@ export default function Home() {
 
   return (
     <>
+      <OrganizationStructuredData />
+      <WebsiteStructuredData />
       <main className="flex flex-col min-h-screen bg-white w-full">
         {/* Pass router to Navbar */}
         <Navbar router={router} />

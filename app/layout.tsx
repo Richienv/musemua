@@ -1,51 +1,41 @@
-import { GeistSans } from "geist/font/sans";
-import "./globals.css";
-import { Navbar } from "@/components/ui/navbar";
-import { Toaster } from "@/components/ui/toaster";
-import "react-datepicker/dist/react-datepicker.css";
-import { Inter, Playfair_Display } from 'next/font/google'
-import { CSSProperties } from 'react';
+import { defaultMetadata } from './metadata'
+import { AnalyticsWrapper } from '@/utils/analytics'
 
-const inter = Inter({ subsets: ['latin'] })
-const playfair = Playfair_Display({ 
-  subsets: ['latin'],
-  variable: '--font-playfair'
-})
-
-const defaultUrl = process.env.VERCEL_URL 
-  ? `https://liloapp.vercel.app`
-  : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
-export const metadata = {
-  metadataBase: new URL(defaultUrl),
-  title: "Salda",
-  description: "Temukan streamer terbaik untuk kebutuhan live-selling streaming Anda",
-};
-
-interface CustomCSSProperties extends CSSProperties {
-  '--primary-gradient': string;
-  '--primary-gradient-hover': string;
-}
+export const metadata = defaultMetadata
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.className} ${playfair.variable}`}>
-      <body 
-        className={`${GeistSans.className} bg-white overflow-x-hidden`} 
-        style={{
-          '--primary-gradient': 'linear-gradient(to right, #2563eb, #7c3aed)',
-          '--primary-gradient-hover': 'linear-gradient(to right, #1d4ed8, #6d28d9)'
-        } as CustomCSSProperties}
-      >
-        <Toaster />
-        <main className="min-h-screen flex flex-col items-center w-full">
-          {children}
-        </main>
+    <html lang="id">
+      <head>
+        {/* Basic favicon */}
+        <link rel="icon" href="/favicon.ico" />
+        
+        {/* iOS icons */}
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        
+        {/* Android/Chrome icons */}
+        <link rel="icon" type="image/png" sizes="192x192" href="/web-app-manifest-192x192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/web-app-manifest-512x512.png" />
+        <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+        
+        {/* Web manifest */}
+        <link rel="manifest" href="/site.webmanifest" />
+        
+        {/* Microsoft Tile */}
+        <meta name="msapplication-TileImage" content="/web-app-manifest-192x192.png" />
+        <meta name="msapplication-TileColor" content="#ffffff" />
+        
+        {/* Safari pinned tab */}
+        <link rel="mask-icon" href="/favicon.svg" color="#5bbad5" />
+      </head>
+      <body>
+        {children}
+        <AnalyticsWrapper />
       </body>
     </html>
-  );
+  )
 }
