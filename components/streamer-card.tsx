@@ -42,6 +42,12 @@ const calculateDuration = (start: Date, end: Date): number => {
   return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60));
 };
 
+// Add this utility function for calculating platform fee
+const calculatePriceWithPlatformFee = (basePrice: number): number => {
+  const platformFeePercentage = 30;
+  return basePrice * (1 + platformFeePercentage / 100);
+};
+
 // Update the Streamer interface to include video_url
 export interface Streamer {
   id: number;
@@ -54,11 +60,19 @@ export interface Streamer {
   categories?: string[];
   rating: number;
   price: number;
+  previous_price?: number | null;
+  last_price_update?: string;
+  price_history?: {
+    previous_price: number;
+    new_price: number;
+    effective_from: string;
+  }[];
   image_url: string;
   bio: string;
   location: string;
   video_url: string | null;
   availableTimeSlots?: string[];
+  discount_percentage?: number | null;
 }
 
 // Update the StreamerProfile interface
@@ -109,6 +123,46 @@ function formatPrice(price: number): string {
 // First, add a helper function to format the name
 function formatName(firstName: string, lastName: string): string {
   return `${firstName} ${lastName.charAt(0)}.`;
+}
+
+// Update the formatDiscount function
+function formatDiscount(basePrice: number, previousPrice?: number | null, discountPercentage?: number | null): {
+  displayPrice: string;
+  originalPrice?: string;
+  discountPercentage?: number;
+} {
+  // Calculate prices with platform fee
+  const currentPriceWithFee = calculatePriceWithPlatformFee(basePrice);
+  const previousPriceWithFee = previousPrice ? calculatePriceWithPlatformFee(previousPrice) : null;
+
+  console.log('Price values in formatDiscount:', {
+    basePrice,
+    previousPrice,
+    discountPercentage,
+    currentPriceWithFee,
+    previousPriceWithFee,
+    hasValidDiscount: Boolean(previousPrice && discountPercentage && discountPercentage > 0)
+  });
+
+  // Show discount if we have valid previous price and discount percentage
+  if (previousPrice && previousPriceWithFee && discountPercentage && discountPercentage > 0) {
+    console.log('Showing discount UI with:', {
+      displayPrice: `Rp ${Math.round(currentPriceWithFee).toLocaleString('id-ID')}`,
+      originalPrice: `Rp ${Math.round(previousPriceWithFee).toLocaleString('id-ID')}`,
+      discountPercentage
+    });
+
+    return {
+      displayPrice: `Rp ${Math.round(currentPriceWithFee).toLocaleString('id-ID')}`,
+      originalPrice: `Rp ${Math.round(previousPriceWithFee).toLocaleString('id-ID')}`,
+      discountPercentage
+    };
+  }
+
+  // Default case: just return current price
+  return { 
+    displayPrice: `Rp ${Math.round(currentPriceWithFee).toLocaleString('id-ID')}` 
+  };
 }
 
 export function StreamerCard({ streamer }: { streamer: Streamer }) {
@@ -579,6 +633,24 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     }
   };
 
+  // Debug the incoming data
+  console.log('StreamerCard received data:', {
+    streamerId: streamer.id,
+    currentPrice: streamer.price,
+    previousPrice: streamer.previous_price,
+    discountPercentage: streamer.discount_percentage,
+    hasDiscount: Boolean(streamer.previous_price && streamer.discount_percentage)
+  });
+
+  const priceInfo = formatDiscount(
+    streamer.price,
+    streamer.previous_price,
+    streamer.discount_percentage
+  );
+
+  // Debug the price info result
+  console.log('Price info result:', priceInfo);
+
   return (
     <>
       <div 
@@ -619,20 +691,24 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             </div>
           </div>
 
-          {/* Price Display - smaller text */}
+          {/* Price Display */}
           <div className="flex flex-col mb-1.5">
             <div className="flex items-center gap-1">
               <span className="text-sm sm:text-base font-bold text-foreground">
-                Rp {(streamer.price * 1.3).toLocaleString('id-ID')}
+                {priceInfo.displayPrice}
               </span>
               <span className="text-[10px] sm:text-xs font-normal text-foreground/70">/ jam</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="text-xs sm:text-sm text-gray-400 line-through">
-                Rp {Math.round(streamer.price * 1.3 * 1.2).toLocaleString('id-ID')}
-              </span>
-              <span className="text-[10px] sm:text-xs font-medium text-blue-600">25%</span>
-            </div>
+            {priceInfo.originalPrice && priceInfo.discountPercentage && priceInfo.discountPercentage > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="text-xs sm:text-sm text-gray-400 line-through">
+                  {priceInfo.originalPrice}
+                </span>
+                <span className="text-[10px] sm:text-xs font-medium text-blue-600">
+                  Hemat {priceInfo.discountPercentage}%
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Rating - smaller size */}

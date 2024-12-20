@@ -603,6 +603,7 @@ export async function updateStreamerProfile(formData: FormData): Promise<Streame
       location: formData.get('location'),
       video_url: formData.get('youtubeVideoUrl'),
       platform: formData.get('platform'),
+      category: 'General',
       ...(imageUrl && { image_url: imageUrl }),
     };
 
@@ -959,5 +960,100 @@ export async function endStream(bookingId: number) {
   } catch (error) {
     console.error('Error ending stream:', error);
     return { success: false, error: 'Failed to end stream' };
+  }
+}
+
+export async function updateStreamerPrice(streamerId: number, newPrice: number) {
+  try {
+    const supabase = createClient();
+
+    // Debug log
+    console.log('Updating price for streamer:', { streamerId, newPrice });
+
+    // Get current price first
+    const { data: currentStreamer, error: streamerError } = await supabase
+      .from('streamers')
+      .select('price, user_id')
+      .eq('id', streamerId)
+      .single();
+
+    if (streamerError) {
+      console.error('Error fetching streamer:', streamerError);
+      throw new Error('Streamer not found');
+    }
+
+    // Verify ownership
+    const { data: { user } } = await supabase.auth.getUser();
+    if (currentStreamer.user_id !== user?.id) {
+      throw new Error('Unauthorized');
+    }
+
+    // Begin transaction
+    // 1. Update streamer's current price
+    const { error: updateError } = await supabase
+      .from('streamers')
+      .update({ 
+        price: newPrice,
+        last_price_update: new Date().toISOString()
+      })
+      .eq('id', streamerId);
+
+    if (updateError) {
+      console.error('Error updating streamer price:', updateError);
+      throw updateError;
+    }
+
+    // 2. Try to insert first
+    const { error: insertError } = await supabase
+      .from('streamer_current_discounts')
+      .insert({
+        streamer_id: streamerId,
+        current_price: newPrice,
+        previous_price: currentStreamer.price,
+        discount_percentage: newPrice < currentStreamer.price 
+          ? Math.round(((currentStreamer.price - newPrice) / currentStreamer.price) * 100)
+          : null,
+        last_price_update: new Date().toISOString(),
+        next_available_update: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      });
+
+    // If insert fails (record exists), try update
+    if (insertError) {
+      console.log('Insert failed, trying update:', insertError);
+      const { error: updateDiscountError } = await supabase
+        .from('streamer_current_discounts')
+        .update({
+          current_price: newPrice,
+          previous_price: currentStreamer.price,
+          discount_percentage: newPrice < currentStreamer.price 
+            ? Math.round(((currentStreamer.price - newPrice) / currentStreamer.price) * 100)
+            : null,
+          last_price_update: new Date().toISOString(),
+          next_available_update: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        })
+        .eq('streamer_id', streamerId);
+
+      if (updateDiscountError) {
+        console.error('Error updating discount:', updateDiscountError);
+        throw updateDiscountError;
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Price updated successfully',
+      current_price: newPrice,
+      previous_price: currentStreamer.price,
+      discount_percentage: newPrice < currentStreamer.price 
+        ? Math.round(((currentStreamer.price - newPrice) / currentStreamer.price) * 100)
+        : null
+    };
+
+  } catch (error) {
+    console.error('Error in updateStreamerPrice:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to update price' 
+    };
   }
 }

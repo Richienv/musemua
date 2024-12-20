@@ -127,18 +127,20 @@ export default function ProtectedPage() {
 
   // Separate function for fetching streamers
   const fetchStreamers = async () => {
-    const supabase = createClient();
-    const { data: streamersData, error: streamersError } = await supabase
-      .from('streamers')
-      .select('*');
+    try {
+      const response = await fetch('/api/streamers');
+      const data = await response.json();
 
-    if (streamersError) {
-      console.error('Error fetching streamers:', streamersError);
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch streamers');
+      }
+
+      console.log('Fetched streamers with discount info:', data.streamers);
+      setStreamers(data.streamers || []);
+    } catch (error) {
+      console.error('Error fetching streamers:', error);
       toast.error('Error loading streamers');
-      return;
     }
-
-    setStreamers(streamersData || []);
   };
 
   const handleFilterChange = (value: string) => {

@@ -5,14 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { updateUserProfile, updateStreamerProfile } from "@/app/actions";
+import { updateUserProfile, updateStreamerProfile, updateStreamerPrice } from "@/app/actions";
 import { createClient } from "@/utils/supabase/client";
 import Image from 'next/image';
-import { Loader2, User, Mail, FileText, Camera, Youtube, AlertCircle, ChevronLeft, Upload, MapPin } from 'lucide-react';
+import { Loader2, User, Mail, FileText, Camera, Youtube, AlertCircle, ChevronLeft, Upload, MapPin, AlertTriangle, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
+import { format, parseISO } from 'date-fns';
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB in bytes
 
@@ -91,6 +92,36 @@ interface UserData {
   brand_guidelines_url: string | null;
 }
 
+// Add these interfaces to your existing interfaces
+interface PriceUpdateResponse {
+  success: boolean;
+  message?: string;
+  current_price: number;
+  previous_price: number | null;
+  discount_percentage: number | null;
+}
+
+// First, add this interface for the streamer data that includes the id
+interface StreamerWithId extends StreamerData {
+  id: number;
+}
+
+// Add this interface for the price limits
+interface PriceLimits {
+  minPrice: number;
+  maxPrice: number;
+}
+
+// Add this interface at the top of the file
+interface PriceUpdateResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  current_price: number;
+  previous_price: number | null;
+  discount_percentage: number | null;
+}
+
 // Create a separate component for the settings content
 function SettingsContent() {
   const router = useRouter();
@@ -118,6 +149,14 @@ function SettingsContent() {
   const [galleryError, setGalleryError] = useState('');
   const maxGalleryPhotos = 5;
   const [platform, setPlatform] = useState('');
+  const [price, setPrice] = useState<number>(0);
+  const [lastPriceUpdate, setLastPriceUpdate] = useState<string | null>(null);
+  const [nextAvailableUpdate, setNextAvailableUpdate] = useState<string | null>(null);
+  const [priceError, setPriceError] = useState<string>('');
+  const [newPrice, setNewPrice] = useState<string>('');
+  const [streamerId, setStreamerId] = useState<number | null>(null);
+  const [previousPrice, setPreviousPrice] = useState<number | null>(null);
+  const [discountPercentage, setDiscountPercentage] = useState<number | null>(null);
 
   // Move fetchUserData outside of useEffect
   const fetchUserData = async () => {
@@ -149,7 +188,15 @@ function SettingsContent() {
       if (userTypeData.user_type === 'streamer' && type === 'streamer') {
         const { data: streamerData, error: streamerError } = await supabase
           .from('streamers')
-          .select('*')
+          .select(`
+            id,
+            *,
+            streamer_price_history (
+              previous_price,
+              new_price,
+              effective_from
+            )
+          `)
           .eq('user_id', user.id)
           .single();
 
@@ -159,6 +206,21 @@ function SettingsContent() {
         }
 
         if (streamerData) {
+          setStreamerId(streamerData.id);
+          setPrice(streamerData.price);
+          
+          // Get current discount info
+          const { data: discountData } = await supabase
+            .from('streamer_current_discounts')
+            .select('*')
+            .eq('streamer_id', streamerData.id)
+            .single();
+
+          if (discountData) {
+            setPreviousPrice(discountData.previous_price);
+            setDiscountPercentage(discountData.discount_percentage);
+          }
+          
           // Update streamer form fields
           setPlatform(streamerData.platform || '');
           setFirstName(streamerData.first_name || '');
@@ -167,7 +229,15 @@ function SettingsContent() {
           setYoutubeVideoUrl(streamerData.video_url || '');
           setImageUrl(streamerData.image_url || '');
           setBio(streamerData.bio || '');
-          
+          setLastPriceUpdate(streamerData.last_price_update);
+
+          // Calculate next available update time if last_price_update exists
+          if (streamerData.last_price_update) {
+            const nextUpdate = new Date(streamerData.last_price_update);
+            nextUpdate.setHours(nextUpdate.getHours() + 24);
+            setNextAvailableUpdate(nextUpdate.toISOString());
+          }
+
           // Fetch gallery photos
           const { data: galleryData } = await supabase
             .from('streamer_gallery_photos')
@@ -222,59 +292,77 @@ function SettingsContent() {
     setIsLoading(true);
 
     try {
+      const supabase = createClient();
+      
+      // 1. First, ensure streamer record exists
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Check if streamer exists
+      let { data: existingStreamer } = await supabase
+        .from('streamers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      // If no streamer record, create one first
+      if (!existingStreamer) {
+        const { data: newStreamer, error: createError } = await supabase
+          .from('streamers')
+          .insert([
+            {
+              user_id: user.id,
+              first_name: firstName,
+              last_name: lastName,
+              platform: platform,
+              price: price,
+              location: location,
+              video_url: youtubeVideoUrl,
+              bio: bio
+            }
+          ])
+          .select('id')
+          .single();
+
+        if (createError) throw createError;
+        existingStreamer = newStreamer;
+      }
+
+      // 2. Then update the price (if changed)
+      if (price) {
+        await handlePriceUpdate(price);
+      }
+
+      // 3. Finally update the profile
       const formData = new FormData();
       formData.append('firstName', firstName);
       formData.append('lastName', lastName);
       formData.append('location', location);
+      formData.append('platform', platform);
+      formData.append('youtubeVideoUrl', youtubeVideoUrl);
       
-      if (type === 'streamer') {
-        formData.append('youtubeVideoUrl', youtubeVideoUrl);
-        formData.append('platform', platform);
-        
-        console.log('New gallery photos to upload:', newGalleryPhotos); // Debug log
-        
-        // Add gallery photos
-        newGalleryPhotos.forEach((photo) => {
-          formData.append('gallery', photo);
-        });
-        
-        // Add existing gallery photos
-        formData.append('existingGalleryPhotos', JSON.stringify(galleryPhotos));
-      }
-
       if (selectedImage) {
         formData.append('image', selectedImage);
       }
 
-      const result = type === 'streamer' 
-        ? await updateStreamerProfile(formData)
-        : await updateUserProfile(formData);
+      newGalleryPhotos.forEach((photo) => {
+        formData.append('gallery', photo);
+      });
+      
+      formData.append('existingGalleryPhotos', JSON.stringify(galleryPhotos));
+
+      const result = await updateStreamerProfile(formData);
 
       if ('error' in result && result.error) {
-        toast.error(result.error);
-        return;
+        throw new Error(result.error);
       }
 
-      // Use type guard to safely access the correct property
-      const newImageUrl = isStreamerResponse(result) 
-        ? result.imageUrl 
-        : (result as UserProfileResponse).profilePictureUrl;
-
-      if (newImageUrl) {
-        setImageUrl(newImageUrl);
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
-        }
-        setPreviewUrl(null);
-        setSelectedImage(null);
-      }
-
-      toast.success('Profile successfully updated');
+      toast.success('Profile berhasil diupdate');
       await fetchUserData();
 
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+      toast.error('Gagal mengupdate profile: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsLoading(false);
     }
@@ -347,6 +435,81 @@ function SettingsContent() {
       setNewBrandGuideline(file);
       setBrandGuidelineError('');
     }
+  };
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Only allow numbers
+    setNewPrice(value);
+    setPriceError('');
+  };
+
+  const handlePriceUpdate = async (currentPrice?: number) => {
+    if (!newPrice || !streamerId) {
+      toast.error('Please enter a valid price');
+      return;
+    }
+
+    try {
+      const result = await updateStreamerPrice(streamerId, Number(newPrice)) as PriceUpdateResult;
+      
+      if (result.success) {
+        toast.success(result.message || 'Price updated successfully');
+        
+        // Now TypeScript knows the shape of result
+        setPrice(result.current_price);
+        setPreviousPrice(result.previous_price);
+        setDiscountPercentage(result.discount_percentage);
+        setLastPriceUpdate(new Date().toISOString());
+        
+        // Clear the input
+        setNewPrice('');
+        
+        // Refresh the data
+        await fetchUserData();
+      } else {
+        toast.error(result.error || 'Failed to update price');
+      }
+    } catch (error) {
+      console.error('Error updating price:', error);
+      toast.error('Failed to update price');
+    }
+  };
+
+  // Add this near your other utility functions
+  const calculatePriceWithPlatformFee = (basePrice: number): number => {
+    const platformFeePercentage = 30;
+    return basePrice * (1 + platformFeePercentage / 100);
+  };
+
+  // Update the price error messages
+  const getPriceErrorMessage = (errorMessage: string) => {
+    switch (errorMessage) {
+      case 'Price can only be updated once every 24 hours':
+        return 'Kamu hanya bisa update harga sekali dalam 24 jam';
+      case 'Price change cannot exceed 25%':
+        return 'Perubahan harga tidak boleh lebih dari 25%';
+      default:
+        return errorMessage;
+    }
+  };
+
+  // Add this function to help debug price updates
+  const debugPriceHistory = async (streamerId: number): Promise<void> => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('streamer_price_history')
+      .select('*')
+      .eq('streamer_id', streamerId)
+      .order('created_at', { ascending: false });
+
+    console.log('Price History:', data, 'Error:', error);
+  };
+
+  // Update the calculatePriceLimits function
+  const calculatePriceLimits = (currentPrice: number): PriceLimits => {
+    const minPrice = Math.ceil(currentPrice * 0.75); // Maximum 25% reduction
+    const maxPrice = Math.ceil(currentPrice * 1.25); // Maximum 25% increase
+    return { minPrice, maxPrice };
   };
 
   return (
@@ -601,6 +764,74 @@ function SettingsContent() {
                           </div>
                         ))}
                       </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="price" className="flex items-center text-sm text-gray-600">
+                        <DollarSign className="mr-2 h-4 w-4 text-blue-600" />
+                        Tarif Dasar Kamu
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="price"
+                          type="text"
+                          value={newPrice}
+                          onChange={handlePriceChange}
+                          placeholder={price ? price.toString() : "Enter new price"}
+                          className="mt-1 pl-8"
+                        />
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                          Rp
+                        </span>
+                      </div>
+                      
+                      {/* Add a helper text below the input */}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Contoh: Ketik "50000" untuk harga Rp 50.000
+                      </p>
+                      
+                      {/* Price guidance message */}
+                      {price > 0 && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          <p>Batas perubahan harga:</p>
+                          <ul className="list-disc list-inside ml-1 space-y-0.5">
+                            <li>Minimum: Rp {calculatePriceLimits(price).minPrice.toLocaleString('id-ID')}</li>
+                            <li>Maximum: Rp {calculatePriceLimits(price).maxPrice.toLocaleString('id-ID')}</li>
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {/* Display final price with platform fee */}
+                      <div className="mt-2 p-3 bg-blue-50 rounded-md">
+                        <p className="text-sm text-blue-600 font-medium">
+                          Harga Yang Dilihat Client:
+                        </p>
+                        <p className="text-base font-bold text-blue-700">
+                          Rp {Math.round(calculatePriceWithPlatformFee(price)).toLocaleString('id-ID')} / jam
+                        </p>
+                        <p className="text-xs text-blue-500 mt-1">
+                          *Sudah termasuk biaya platform 30%
+                        </p>
+                      </div>
+                      
+                      {nextAvailableUpdate && (
+                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-600">
+                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                          Kamu bisa update harga lagi pada: {format(parseISO(nextAvailableUpdate), 'PPp')}
+                        </div>
+                      )}
+                      
+                      {priceError && (
+                        <div className="text-sm text-red-500 mt-1 flex items-center gap-1 bg-red-50 p-2 rounded">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                          <span className="flex-1">{getPriceErrorMessage(priceError)}</span>
+                        </div>
+                      )}
+
+                      {/* Add helper text */}
+                      <p className="text-xs text-gray-500 mt-2">
+                        Tips: Perubahan harga dibatasi maksimal 25% naik atau turun untuk menjaga kestabilan harga platform.
+                      </p>
                     </div>
                   </>
                 )}
