@@ -58,11 +58,18 @@ export const voucherService = {
     }
   },
 
-  async trackVoucherUsage(voucherId: string, bookingId: number, userId: string, discountApplied: number, originalPrice: number, finalPrice: number): Promise<boolean> {
+  async trackVoucherUsage(
+    voucherId: string, 
+    bookingId: number, 
+    userId: string, 
+    discountApplied: number, 
+    originalPrice: number, 
+    finalPrice: number
+  ): Promise<boolean> {
     const supabase = createClient();
 
     try {
-      // Begin transaction
+      // First track the usage
       const { error: usageError } = await supabase
         .from('voucher_usage')
         .insert({
@@ -71,16 +78,33 @@ export const voucherService = {
           user_id: userId,
           discount_applied: discountApplied,
           original_price: originalPrice,
-          final_price: finalPrice
+          final_price: finalPrice,
+          created_at: new Date().toISOString()
         });
 
       if (usageError) throw usageError;
 
-      // Update remaining quantity
-      const { error: updateError } = await supabase
-        .rpc('decrement_voucher_quantity', { voucher_id: voucherId });
+      // Then decrement the quantity
+      const { error: decrementError } = await supabase
+        .rpc('decrement_voucher_quantity', { 
+          voucher_id: voucherId 
+        });
 
-      if (updateError) throw updateError;
+      if (decrementError) {
+        console.error('Error decrementing voucher quantity:', decrementError);
+        throw decrementError;
+      }
+
+      // Verify the quantity was decremented
+      const { data: updatedVoucher, error: verifyError } = await supabase
+        .from('vouchers')
+        .select('remaining_quantity')
+        .eq('id', voucherId)
+        .single();
+
+      if (verifyError || !updatedVoucher) {
+        throw new Error('Failed to verify voucher quantity update');
+      }
 
       return true;
     } catch (error) {
