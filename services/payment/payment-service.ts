@@ -68,7 +68,15 @@ export async function createPayment(details: PaymentDetails) {
 }
 
 // Add a new function to create booking after successful payment
-export async function createBookingAfterPayment(paymentResult: any, metadata: any) {
+export async function createBookingAfterPayment(
+  result: any, 
+  metadata: PaymentMetadata
+): Promise<{
+  id: number;
+  client_id: string;
+  client_first_name: string;
+  client_last_name: string;
+}> {
   const supabase = createClient();
   
   try {
@@ -103,8 +111,8 @@ export async function createBookingAfterPayment(paymentResult: any, metadata: an
         amount: metadata.price,
         status: 'success', // Payment status goes here
         payment_method: 'midtrans',
-        transaction_id: paymentResult.order_id,
-        midtrans_response: paymentResult // Store the full response from Midtrans
+        transaction_id: result.order_id,
+        midtrans_response: result // Store the full response from Midtrans
       });
 
     if (paymentError) throw paymentError;

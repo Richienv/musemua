@@ -814,9 +814,15 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
           <BookingCalendar 
             selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-            isDayOff={isDayOff}
-            selectedClassName="bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]"
+            onDateSelect={(dateStr) => setSelectedDate(new Date(dateStr))}
+            onTimeSelect={(time) => {
+              if (selectedDate) {
+                const [hours, minutes] = time.split(':').map(Number);
+                const newDate = new Date(selectedDate);
+                newDate.setHours(hours, minutes, 0, 0);
+                setSelectedDate(newDate);
+              }
+            }}
           />
 
           <div className="h-px bg-gray-200" />

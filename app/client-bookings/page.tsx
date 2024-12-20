@@ -4,12 +4,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from "@/utils/supabase/client";
 import { format, differenceInHours, isBefore, startOfDay, isSameDay } from 'date-fns';
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X, XCircle } from 'lucide-react';
 import Image from 'next/image';
 import RatingModal from '@/components/rating-modal';
 import { useRouter } from 'next/navigation';
 import CancelBookingModal from '@/components/cancel-booking-modal';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "react-hot-toast";
@@ -275,13 +275,20 @@ function RescheduleTimeModal({
 
   const getSelectedTimeRange = (): string => {
     if (selectedHours.length === 0) return '';
+    
+    // Get start and end times
     const startTime = selectedHours[0];
     const endTime = selectedHours[selectedHours.length - 1];
-    const duration = selectedHours.length;
+    
+    // Calculate duration based on the difference between start and end time
+    const startHour = parseInt(startTime);
+    const endHour = parseInt(endTime);
+    const duration = endHour - startHour;
+    
     return `${startTime} - ${endTime} (${duration} hour${duration !== 1 ? 's' : ''})`;
   };
 
-  const handleSubmit = (): void => {
+  const handleSubmit = async () => {
     if (selectedHours.length < 1) {
       toast.error("Please select at least one hour");
       return;
@@ -289,13 +296,47 @@ function RescheduleTimeModal({
 
     setIsSubmitting(true);
     try {
+      const supabase = createClient();
+      
       const startTime = new Date(selectedDate);
       startTime.setHours(parseInt(selectedHours[0]), 0, 0, 0);
       
       const endTime = new Date(selectedDate);
-      endTime.setHours(parseInt(selectedHours[selectedHours.length - 1]) + 1, 0, 0, 0);
-      
+      const lastHour = parseInt(selectedHours[selectedHours.length - 1]);
+      endTime.setHours(lastHour + 1, 0, 0, 0);
+
+      // Update the existing booking with new schedule and status
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ 
+          status: 'reschedule_requested',
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', booking.id);
+
+      if (updateError) throw updateError;
+
+      // Create notification for streamer
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: booking.streamer_id,
+          type: 'reschedule_request',
+          message: `Client has requested to reschedule booking #${booking.id} to ${format(startTime, 'MMM d, yyyy HH:mm')} - ${format(endTime, 'HH:mm')}`,
+          booking_id: booking.id,
+          created_at: new Date().toISOString(),
+          is_read: false
+        });
+
+      if (notificationError) {
+        console.error('Error creating notification:', notificationError);
+      }
+
+      onClose();
       onConfirm(startTime, endTime);
+      
     } catch (error) {
       console.error('Error processing reschedule:', error);
       toast.error("Failed to reschedule");
@@ -306,83 +347,93 @@ function RescheduleTimeModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="text-lg sm:text-2xl font-semibold mb-0.5">
-            Reschedule Booking
-          </DialogTitle>
-          <DialogDescription className="text-sm sm:text-base">
-            Select your new preferred date and time
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="p-0 gap-0">
+        <div className="p-4 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="text-base sm:text-lg font-semibold">
+              Pengajuan Reschedule
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Pilih waktu baru untuk sesi live streaming
+            </DialogDescription>
+          </DialogHeader>
 
-        <BookingCalendar 
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          isDayOff={(date) => isBefore(date, startOfDay(new Date()))}
-          selectedClassName="bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]"
-        />
+          <div className="mt-2">
+            <BookingCalendar 
+              selectedDate={selectedDate}
+              onDateSelect={(dateStr) => setSelectedDate(new Date(dateStr))}
+              onTimeSelect={(time) => {
+                if (selectedDate) {
+                  const [hours, minutes] = time.split(':').map(Number);
+                  const newDate = new Date(selectedDate);
+                  newDate.setHours(hours, minutes, 0, 0);
+                  setSelectedDate(newDate);
+                }
+              }}
+            />
+          </div>
 
-        <div className="h-px bg-gray-200" />
+          <div className="h-px bg-gray-200" />
 
-        <div className="space-y-3 sm:space-y-4">
-          {['Morning', 'Afternoon', 'Evening', 'Night'].map((timeOfDay) => (
-            <div key={timeOfDay}>
-              <h4 className="text-xs sm:text-sm font-semibold mb-2">{timeOfDay}</h4>
-              <div className="grid grid-cols-4 gap-1 sm:gap-2">
-                {timeOptions
-                  .filter((hour) => {
-                    const hourNum = parseInt(hour);
-                    return (
-                      (timeOfDay === 'Night' && (hourNum >= 0 && hourNum < 6)) ||
-                      (timeOfDay === 'Morning' && (hourNum >= 6 && hourNum < 12)) ||
-                      (timeOfDay === 'Afternoon' && (hourNum >= 12 && hourNum < 18)) ||
-                      (timeOfDay === 'Evening' && (hourNum >= 18 && hourNum < 24))
-                    );
-                  })
-                  .map((hour) => (
-                    <Button
-                      key={hour}
-                      variant={isHourSelected(hour) ? "default" : "outline"}
-                      className={`text-[10px] sm:text-sm p-1 sm:p-2 h-auto ${
-                        isHourSelected(hour) 
-                          ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]' 
-                          : isHourDisabled(hour)
-                            ? 'opacity-50 cursor-not-allowed'
-                            : 'hover:bg-blue-50'
-                      }`}
-                      onClick={() => handleHourSelection(hour)}
-                      disabled={isHourDisabled(hour)}
-                    >
-                      {hour}
-                    </Button>
-                  ))}
+          <div className="space-y-3">
+            {['Morning', 'Afternoon', 'Evening', 'Night'].map((timeOfDay) => (
+              <div key={timeOfDay}>
+                <h4 className="text-xs sm:text-sm font-semibold mb-2">{timeOfDay}</h4>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {timeOptions
+                    .filter((hour) => {
+                      const hourNum = parseInt(hour);
+                      return (
+                        (timeOfDay === 'Night' && (hourNum >= 0 && hourNum < 6)) ||
+                        (timeOfDay === 'Morning' && (hourNum >= 6 && hourNum < 12)) ||
+                        (timeOfDay === 'Afternoon' && (hourNum >= 12 && hourNum < 18)) ||
+                        (timeOfDay === 'Evening' && (hourNum >= 18 && hourNum < 24))
+                      );
+                    })
+                    .map((hour) => (
+                      <Button
+                        key={hour}
+                        variant={isHourSelected(hour) ? "default" : "outline"}
+                        className={`text-[10px] sm:text-xs p-1 h-8 ${
+                          isHourSelected(hour) 
+                            ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]' 
+                            : isHourDisabled(hour)
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'hover:bg-blue-50'
+                        }`}
+                        onClick={() => handleHourSelection(hour)}
+                        disabled={isHourDisabled(hour)}
+                      >
+                        {hour}
+                      </Button>
+                    ))}
+                </div>
               </div>
+            ))}
+          </div>
+
+          {selectedHours.length > 0 && (
+            <div className="text-xs sm:text-sm font-medium">
+              Selected time: {getSelectedTimeRange()}
             </div>
-          ))}
+          )}
         </div>
 
-        {selectedHours.length > 0 && (
-          <div className="text-xs sm:text-sm font-medium mt-4">
-            Selected time: {getSelectedTimeRange()}
-          </div>
-        )}
-
-        <DialogFooter className="mt-4 flex flex-col sm:flex-row gap-2 sm:space-x-2">
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 p-4 sm:p-6 border-t bg-gray-50">
           <Button
             variant="outline"
             onClick={onClose}
             disabled={isSubmitting}
-            className="w-full sm:flex-1 text-xs sm:text-sm py-1.5 sm:py-2 h-8 sm:h-9"
+            className="w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10 border-gray-300"
           >
-            Cancel
+            Kembali
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting || selectedHours.length < 1}
-            className="w-full sm:flex-1 text-xs sm:text-sm py-1.5 sm:py-2 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white h-8 sm:h-9"
+            className="w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white"
           >
-            {isSubmitting ? 'Processing...' : 'Confirm Reschedule'}
+            {isSubmitting ? 'Memproses...' : 'Konfirmasi'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -416,69 +467,66 @@ function CancelConfirmationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-3 sm:p-6 bg-background">
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-gray-100"
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </button>
+      <DialogContent className="p-0 gap-0">
+        <div className="p-4 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-lg sm:text-xl font-semibold text-red-600">
+              Konfirmasi Pembatalan
+            </DialogTitle>
+            <DialogDescription className="space-y-3">
+              <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                <p className="text-sm font-medium text-red-800 mb-2">
+                  Peringatan:
+                </p>
+                <ul className="list-disc pl-4 space-y-1.5 text-xs sm:text-sm text-red-700">
+                  <li>Pembatalan akan mempengaruhi reputasi Anda sebagai client</li>
+                  <li>Pembatalan mendadak dapat menyebabkan kerugian bagi streamer</li>
+                  <li>Mohon pertimbangkan kembali sebelum membatalkan pesanan</li>
+                </ul>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
 
-        <DialogHeader>
-          <DialogTitle className="text-lg sm:text-2xl font-semibold mb-0.5 text-red-600">
-            Konfirmasi Pembatalan
-          </DialogTitle>
-          <DialogDescription className="text-sm sm:text-base space-y-2">
-            <p className="text-red-500 font-medium">
-              Peringatan:
-            </p>
-            <ul className="list-disc pl-4 space-y-1 text-gray-600">
-              <li>Pembatalan akan mempengaruhi reputasi Anda sebagai client</li>
-              <li>Pembatalan mendadak dapat menyebabkan kerugian bagi streamer</li>
-              <li>Mohon pertimbangkan kembali sebelum membatalkan pesanan</li>
-            </ul>
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="cancel-reason" className="text-sm font-medium">
-              Alasan Pembatalan<span className="text-red-500">*</span>
-            </Label>
-            <textarea
-              id="cancel-reason"
-              className={`w-full min-h-[100px] p-3 rounded-md border ${
-                error ? 'border-red-500' : 'border-gray-300'
-              } focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white`}
-              placeholder="Mohon jelaskan alasan pembatalan Anda..."
-              value={reason}
-              onChange={(e) => {
-                setReason(e.target.value);
-                if (error) setError('');
-              }}
-            />
-            {error && (
-              <p className="text-xs text-red-500">{error}</p>
-            )}
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="cancel-reason" className="text-sm font-medium flex items-center">
+                Alasan Pembatalan
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <textarea
+                id="cancel-reason"
+                className={`w-full min-h-[120px] p-3 rounded-lg border text-sm ${
+                  error ? 'border-red-500' : 'border-gray-300'
+                } focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white`}
+                placeholder="Mohon jelaskan alasan pembatalan Anda..."
+                value={reason}
+                onChange={(e) => {
+                  setReason(e.target.value);
+                  if (error) setError('');
+                }}
+              />
+              {error && (
+                <p className="text-xs text-red-500 mt-1">{error}</p>
+              )}
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="mt-4 flex flex-col sm:flex-row gap-2 sm:space-x-2">
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 p-4 sm:p-6 border-t bg-gray-50">
           <Button
             variant="outline"
             onClick={onClose}
             disabled={isSubmitting}
-            className="w-full sm:flex-1 text-xs sm:text-sm py-1.5 sm:py-2 border-gray-300 hover:bg-gray-50 h-8 sm:h-9"
+            className="w-full sm:w-auto text-sm h-10 border-gray-300"
           >
             Kembali
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting || !reason.trim()}
-            className="w-full sm:flex-1 text-xs sm:text-sm py-1.5 sm:py-2 bg-red-600 hover:bg-red-700 text-white h-8 sm:h-9"
+            className="w-full sm:w-auto text-sm h-10 bg-red-600 hover:bg-red-700 text-white"
           >
-            {isSubmitting ? 'Memproses...' : 'Lanjutkan Pembatalan'}
+            {isSubmitting ? 'Memproses...' : 'Lanjutkan'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -514,34 +562,17 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   // Parse the rating to ensure it's a number
   const rating = parseFloat(booking.streamer.rating as unknown as string);
 
-  const handleReschedule = async (newStartTime: Date, newEndTime: Date) => {
+  const handleReschedule = async (startTime: Date, endTime: Date) => {
     try {
       const supabase = createClient();
       
-      // First create a new booking with pending status
-      const { data: newBooking, error: bookingError } = await supabase
-        .from('bookings')
-        .insert({
-          client_id: booking.client_id,
-          streamer_id: booking.streamer_id,
-          start_time: newStartTime.toISOString(),
-          end_time: newEndTime.toISOString(),
-          platform: booking.platform,
-          price: booking.price,
-          status: 'pending',
-          special_request: booking.special_request,
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (bookingError) throw bookingError;
-
-      // Update the original booking status to rescheduled
+      // Update the booking status to pending
       const { error: updateError } = await supabase
         .from('bookings')
         .update({ 
-          status: 'rescheduled',
+          status: 'pending',
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', booking.id);
@@ -553,11 +584,12 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
         .from('notifications')
         .insert({
           user_id: booking.streamer_id,
-          type: 'booking_reschedule',
-          message: `Client has requested to reschedule booking #${booking.id} to ${format(newStartTime, 'MMM d, yyyy HH:mm')} - ${format(newEndTime, 'HH:mm')}`,
-          booking_id: newBooking?.id,
+          type: 'new_booking',
+          message: `Client has rescheduled booking #${booking.id} to ${format(startTime, 'MMM d, yyyy HH:mm')} - ${format(endTime, 'HH:mm')}. Please review and accept/reject.`,
+          booking_id: booking.id,
           created_at: new Date().toISOString(),
-          is_read: false
+          is_read: false,
+          streamer_id: booking.streamer_id
         });
 
       if (notificationError) {
@@ -566,7 +598,14 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
 
       setIsRescheduleModalOpen(false);
       toast.success("Reschedule request sent successfully");
-      router.refresh();
+      
+      // Update local state
+      if (typeof onStatusUpdate === 'function') {
+        onStatusUpdate(booking.id, 'pending');
+      }
+
+      // Refresh the bookings list
+      window.location.reload();
     } catch (error) {
       console.error('Error rescheduling booking:', error);
       toast.error("Failed to reschedule booking");
@@ -621,7 +660,7 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   };
 
   return (
-    <div className="border rounded-lg shadow-sm p-4 mb-4 text-sm hover:shadow-md transition-shadow">
+    <div className="border rounded-lg shadow-sm p-4 pb-4 mb-4 text-sm hover:shadow-md transition-shadow relative">
       {/* Top layer - Status and date position switched */}
       <div className="flex justify-between items-center mb-3 pb-3 border-b">
         <div className="flex items-center gap-1">
@@ -685,19 +724,19 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
 
       {/* Add these buttons only for reschedule_requested status */}
       {booking.status === 'reschedule_requested' && (
-        <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+        <div className="flex flex-row gap-2 mt-4 sm:justify-end">
           <Button
             variant="outline"
             size="sm"
-            className="text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 border-red-500 text-red-500 hover:bg-red-50 h-8 sm:h-9"
+            className="flex-1 sm:flex-initial text-xs sm:text-sm h-9 sm:h-10 px-4 border border-red-500 text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors font-medium"
             onClick={() => setIsCancelModalOpen(true)}
           >
-            Cancel
+            Batalkan
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 border-[#E23744] text-[#E23744] hover:bg-[#E23744]/5 h-8 sm:h-9"
+            className="flex-1 sm:flex-initial text-xs sm:text-sm h-9 sm:h-10 px-4 border border-[#E23744] text-[#E23744] hover:bg-[#E23744]/5 hover:text-[#E23744] transition-colors font-medium"
             onClick={() => setIsRescheduleModalOpen(true)}
           >
             Reschedule
