@@ -10,12 +10,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .select('username, updated_at, location')
     .eq('is_active', true)
   
-  // Fetch all locations
+  // Fetch unique locations using a different approach
   const { data: locations } = await supabase
     .from('streamers')
     .select('location')
     .eq('is_active', true)
-    .distinct()
+    // Use a raw SQL query to get distinct values
+    .options({ count: 'exact', head: false })
+    .then(({ data }) => {
+      // Get unique locations using Set
+      const uniqueLocations = [...new Set(data?.map(item => item.location))]
+      return { data: uniqueLocations.map(location => ({ location })) }
+    })
   
   const baseUrl = 'https://salda.id'
 
@@ -49,12 +55,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }))
 
   // Add location-based pages
-  const locationRoutes = locations?.map(loc => ({
+  const locationRoutes = (locations ?? []).map(loc => ({
     url: `${baseUrl}/location/${encodeURIComponent(loc.location)}`,
     lastModified: new Date(),
     changeFrequency: 'daily' as const,
     priority: 0.7,
-  })) || []
+  }))
 
   return [...routes, ...streamerRoutes, ...locationRoutes]
 } 
