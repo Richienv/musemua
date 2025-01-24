@@ -1,4 +1,9 @@
+# *
 User-agent: *
 Allow: /
 
-Sitemap: https://salda.id/sitemap.xml 
+# Host
+Host: https://salda.id
+
+# Sitemaps
+Sitemap: https://salda.id/sitemap.xml

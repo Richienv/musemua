@@ -47,6 +47,11 @@ interface Conversation {
   lastMessage?: Message;
 }
 
+// Add formatName helper function
+const formatName = (firstName: string, lastName: string): string => {
+  return `${firstName} ${lastName.charAt(0)}.`;
+};
+
 export default function MessagesPage() {
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -389,25 +394,26 @@ export default function MessagesPage() {
         }`}
         onClick={() => handleConversationSelect(conversation)}
       >
-        <Image
-          src={userType === 'client' 
-            ? (conversation.streamer?.image_url || '/default-avatar.png')
-            : (conversation.client?.profile_picture_url || '/default-avatar.png')
-          }
-          alt={userType === 'client'
-            ? `${conversation.streamer?.first_name || ''} ${conversation.streamer?.last_name || ''}`
-            : `${conversation.client?.first_name || ''} ${conversation.client?.last_name || ''}`
-          }
-          width={48}
-          height={48}
-          className="rounded-full mr-4"
-        />
-        <div className="flex-1">
+        <div className="relative w-12 h-12 rounded-full overflow-hidden border border-gray-200">
+          <Image
+            src={userType === 'client' 
+              ? (conversation.streamer?.image_url || '/default-avatar.png')
+              : (conversation.client?.profile_picture_url || '/default-avatar.png')
+            }
+            alt={userType === 'client'
+              ? formatName(conversation.streamer?.first_name || '', conversation.streamer?.last_name || '')
+              : formatName(conversation.client?.first_name || '', conversation.client?.last_name || '')
+            }
+            fill
+            className="object-cover"
+          />
+        </div>
+        <div className="flex-1 ml-4">
           <div className="flex justify-between items-start">
             <h3 className="font-semibold text-base">
               {userType === 'client'
-                ? `${conversation.streamer?.first_name || ''} ${conversation.streamer?.last_name || ''}`
-                : `${conversation.client?.first_name || ''} ${conversation.client?.last_name || ''}`
+                ? formatName(conversation.streamer?.first_name || '', conversation.streamer?.last_name || '')
+                : formatName(conversation.client?.first_name || '', conversation.client?.last_name || '')
               }
             </h3>
             {conversation.lastMessage && (
@@ -435,11 +441,11 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-gray-100">
+    <div className="flex flex-col h-screen w-full bg-[#faf9f6]">
       <Toaster richColors position="top-center" />
 
       {/* Header */}
-      <div className="w-full bg-white border-b border-gray-200 flex-shrink-0">
+      <div className="w-full bg-[#faf9f6] border-b border-gray-200 flex-shrink-0">
         <div className="w-full px-4">
           <div className="flex items-center h-16">
             <Button 
@@ -461,7 +467,7 @@ export default function MessagesPage() {
       {/* Chat Container */}
       <div className="flex-1 flex overflow-hidden">
         {/* Chat List */}
-        <div className={`w-full md:w-[350px] lg:w-[400px] bg-white border-r border-gray-200 
+        <div className={`w-full md:w-[350px] lg:w-[400px] bg-[#faf9f6] border-r border-gray-200 
           overflow-y-auto flex-shrink-0 ${isMobileChat ? 'hidden md:block' : 'block'}`}>
           {conversations.length > 0 ? renderConversationList() : (
             <div className="p-4 text-center text-gray-500">
@@ -472,27 +478,28 @@ export default function MessagesPage() {
         </div>
 
         {/* Message Thread */}
-        <div className={`flex-1 flex-col bg-gray-50 min-w-0 
+        <div className={`flex-1 flex-col bg-[#faf9f6] min-w-0 
           ${isMobileChat ? 'flex' : 'hidden md:flex'}`}>
           {selectedConversation ? (
             <>
               {/* Header */}
-              <div className="bg-white p-4 border-b border-gray-200">
+              <div className="bg-[#faf9f6] p-4 border-b border-gray-200">
                 <div className="flex items-center">
-                  <Image
-                    src={userType === 'client'
-                      ? (selectedConversation.streamer?.image_url || '/default-avatar.png')
-                      : (selectedConversation.client?.profile_picture_url || '/default-avatar.png')
-                    }
-                    alt="Profile"
-                    width={40}
-                    height={40}
-                    className="rounded-full mr-3"
-                  />
-                  <span className="font-semibold text-base truncate">
+                  <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-200">
+                    <Image
+                      src={userType === 'client'
+                        ? (selectedConversation.streamer?.image_url || '/default-avatar.png')
+                        : (selectedConversation.client?.profile_picture_url || '/default-avatar.png')
+                      }
+                      alt="Profile"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <span className="font-semibold text-base truncate ml-3">
                     {userType === 'client'
-                      ? `${selectedConversation.streamer?.first_name || ''} ${selectedConversation.streamer?.last_name || ''}`
-                      : `${selectedConversation.client?.first_name || ''} ${selectedConversation.client?.last_name || ''}`
+                      ? formatName(selectedConversation.streamer?.first_name || '', selectedConversation.streamer?.last_name || '')
+                      : formatName(selectedConversation.client?.first_name || '', selectedConversation.client?.last_name || '')
                     }
                   </span>
                 </div>

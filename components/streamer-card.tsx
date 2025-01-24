@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { Star, StarHalf, MapPin, ChevronLeft, ChevronRight, User, Calendar, Clock, Monitor, DollarSign, X, Mail } from "lucide-react";
 import { Button } from "./ui/button";
@@ -12,6 +12,7 @@ import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { createOrGetConversation } from '@/services/message-service';
 import { BookingCalendar } from './booking-calendar';
+import { cn } from '@/lib/utils';
 
 // Add this function at the top of your file, outside of the StreamerCard component
 function getYouTubeVideoId(url: string): string | null {
@@ -48,6 +49,13 @@ const calculatePriceWithPlatformFee = (basePrice: number): number => {
   return basePrice * (1 + platformFeePercentage / 100);
 };
 
+// Add this utility function at the top of the file
+const convertToUTC = (date: Date, hour: number): Date => {
+  const d = new Date(date);
+  d.setHours(hour, 0, 0, 0);
+  return d;
+};
+
 // Update the Streamer interface to include video_url
 export interface Streamer {
   id: number;
@@ -75,6 +83,13 @@ export interface Streamer {
   discount_percentage?: number | null;
 }
 
+// Update the testimonial interface
+interface Testimonial {
+  client_name: string;
+  comment: string;
+  rating: number;
+}
+
 // Update the StreamerProfile interface
 interface StreamerProfile extends Streamer {
   age: number;
@@ -84,10 +99,19 @@ interface StreamerProfile extends Streamer {
   gallery: {
     photos: { id: number; photo_url: string; order_number: number }[];
   };
-  testimonials: {
-    client_name: string; // Change this from clientName to client_name
-    comment: string;
-  }[];
+  testimonials: Testimonial[];
+}
+
+// Update the rating data type
+interface RatingData {
+  id: number;
+  rating: number;
+  comment: string;
+  client: {
+    first_name: string;
+    last_name: string;
+  };
+  created_at: string;
 }
 
 type ShippingOption = 'yes' | 'no';
@@ -165,31 +189,174 @@ function formatDiscount(basePrice: number, previousPrice?: number | null, discou
   };
 }
 
+// First, add this helper function at the top of the file
+const getTimeSlots = (timeOfDay: 'Morning' | 'Afternoon' | 'Evening' | 'Night'): string[] => {
+  switch (timeOfDay) {
+    case 'Morning':
+      return Array.from({ length: 6 }, (_, i) => `${(6 + i).toString().padStart(2, '0')}:00`);
+    case 'Afternoon':
+      return Array.from({ length: 6 }, (_, i) => `${(12 + i).toString().padStart(2, '0')}:00`);
+    case 'Evening':
+      return Array.from({ length: 6 }, (_, i) => `${(18 + i).toString().padStart(2, '0')}:00`);
+    case 'Night':
+      return Array.from({ length: 6 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+  }
+};
+
+// First, update the timeOptions type and add necessary interfaces
+interface TimeOption {
+  hour: string;
+  available: boolean;
+}
+
+// Add this type guard function
+const isTimeOption = (value: unknown): value is string => {
+  return typeof value === 'string' && /^\d{2}:00$/.test(value);
+};
+
+// Add this function at the top level
+const fetchExtendedProfileBasic = async (streamerId: number) => {
+  const supabase = createClient();
+  try {
+    // Fetch all necessary data in parallel
+    const [streamerResult, profileResult, ratingResult] = await Promise.all([
+      // Basic streamer data
+      supabase
+        .from('streamers')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          platform,
+          category,
+          rating,
+          price,
+          image_url,
+          bio,
+          location,
+          video_url
+        `)
+        .eq('id', streamerId)
+        .single(),
+      
+      // Profile details
+      supabase
+        .from('streamer_profiles')
+        .select(`
+          age,
+          gender,
+          experience,
+          fullBio,
+          location,
+          additional_info
+        `)
+        .eq('streamer_id', streamerId)
+        .single(),
+      
+      // Average rating
+      supabase
+        .rpc('get_streamer_average_rating', { streamer_id_param: streamerId })
+    ]);
+
+    if (streamerResult.error) {
+      console.error('Error fetching streamer data:', streamerResult.error);
+      throw streamerResult.error;
+    }
+
+    // Log the fetched data for debugging
+    console.log('Fetched profile data:', {
+      streamer: streamerResult.data,
+      profile: profileResult.data,
+      rating: ratingResult.data
+    });
+
+    // Combine all the data with proper fallbacks
+    const combinedData = {
+      ...streamerResult.data,
+      age: profileResult.data?.age || null,
+      gender: profileResult.data?.gender || 'Not specified',
+      experience: profileResult.data?.experience || 'Not specified',
+      fullBio: profileResult.data?.fullBio || streamerResult.data.bio,
+      rating: ratingResult.data || streamerResult.data.rating,
+      video_url: streamerResult.data.video_url,
+      location: profileResult.data?.location || streamerResult.data.location,
+      additional_info: profileResult.data?.additional_info || {}
+    };
+
+    console.log('Combined profile data:', combinedData);
+    return combinedData;
+  } catch (error) {
+    console.error('Error in fetchExtendedProfileBasic:', error);
+    return null;
+  }
+};
+
+interface RatingWithProfile {
+  id: number;
+  rating: number;
+  comment: string;
+  profiles: {
+    first_name: string;
+    last_name: string;
+  } | null;
+  created_at: string;
+}
+
 export function StreamerCard({ streamer }: { streamer: Streamer }) {
   const router = useRouter();
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [extendedProfile, setExtendedProfile] = useState<StreamerProfile | null>(null);
+  const [activeSchedule, setActiveSchedule] = useState<any>(null);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [isMessageLoading, setIsMessageLoading] = useState(false);
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date()));
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [averageRating, setAverageRating] = useState(streamer.rating);
+  
+  // Add loading states
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [isLoadingGallery, setIsLoadingGallery] = useState(false);
+  const [isLoadingTestimonials, setIsLoadingTestimonials] = useState(false);
+  const profileCache = useRef<Partial<StreamerProfile> | null>(null);
+
+  // Lazy load these states only when needed
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedHours, setSelectedHours] = useState<string[]>([]);
   const [platform, setPlatform] = useState(streamer.platform);
-  const [activeSchedule, setActiveSchedule] = useState<any>(null);
   const [daysOff, setDaysOff] = useState<string[]>([]);
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date()));
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [averageRating, setAverageRating] = useState(streamer.rating);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [needsShipping, setNeedsShipping] = useState<ShippingOption>('no');
   const [clientLocation, setClientLocation] = useState<string>('');
 
   const isMinimumBookingMet = selectedHours.length >= 2;
 
+  // Load extended profile only when profile modal is opened
   useEffect(() => {
-    fetchExtendedProfile();
+    if (isProfileModalOpen && !extendedProfile) {
+      fetchExtendedProfile().catch(error => {
+        console.error('Error in profile modal effect:', error);
+        setIsLoadingProfile(false);
+        setIsLoadingGallery(false);
+        setIsLoadingTestimonials(false);
+      });
+    }
+  }, [isProfileModalOpen]);
 
+  // Load schedule and bookings only when booking modal is opened
+  useEffect(() => {
+    if (isBookingModalOpen) {
+      fetchActiveSchedule();
+      fetchAcceptedBookings();
+    }
+  }, [isBookingModalOpen]);
+
+  // Optimize subscription setup
+  useEffect(() => {
     const supabase = createClient();
     
-    // Subscribe to both ratings and profile changes
+    // Only subscribe to real-time updates if the profile modal is open
+    if (!isProfileModalOpen) return;
+
     const ratingSubscription = supabase
       .channel('public:streamer_ratings')
       .on('postgres_changes', 
@@ -200,7 +367,6 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
       )
       .subscribe();
 
-    // Add subscription for streamer profile changes
     const profileSubscription = supabase
       .channel('public:streamers')
       .on('postgres_changes',
@@ -215,7 +381,18 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
       supabase.removeChannel(ratingSubscription);
       supabase.removeChannel(profileSubscription);
     };
-  }, [streamer.id]);
+  }, [streamer.id, isProfileModalOpen]);
+
+  // Prefetch data for better UX
+  const openBookingModal = () => {
+    // Prefetch schedule and bookings before opening modal
+    Promise.all([
+      fetchActiveSchedule(),
+      fetchAcceptedBookings()
+    ]).then(() => {
+      setIsBookingModalOpen(true);
+    });
+  };
 
   useEffect(() => {
     fetchActiveSchedule();
@@ -269,69 +446,123 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     fetchClientLocation();
   }, []);
 
-  const fetchExtendedProfile = async () => {
-    const supabase = createClient();
+  // Prefetch basic profile data on hover
+  const prefetchProfile = useCallback(async () => {
+    if (profileCache.current) return;
     
     try {
-      // Fetch streamer data including video_url
-      const { data: streamerData, error: streamerError } = await supabase
-        .from('streamers')
-        .select('*')
-        .eq('id', streamer.id)
-        .single();
+      const basicProfile = await fetchExtendedProfileBasic(streamer.id);
+      profileCache.current = {
+        ...streamer,
+        ...basicProfile
+      };
+    } catch (error) {
+      console.error('Error prefetching profile:', error);
+    }
+  }, [streamer.id]);
 
-      if (streamerError) {
-        console.error('Error fetching streamer data:', streamerError);
-        return;
+  // Progressive profile loading
+  const fetchExtendedProfile = async () => {
+    if (extendedProfile) return;
+    setIsLoadingProfile(true);
+
+    try {
+      // Use cached basic data if available
+      const basicProfile = profileCache.current || await fetchExtendedProfileBasic(streamer.id);
+      
+      if (!basicProfile) {
+        throw new Error('Failed to fetch basic profile data');
       }
 
-      // Fetch average rating
-      const { data: ratingData, error: ratingError } = await supabase
-        .rpc('get_streamer_average_rating', { streamer_id_param: streamer.id });
-
-      if (ratingError) {
-        console.error('Error fetching average rating:', ratingError);
-      }
-
-      // Fetch gallery photos
-      const { data: galleryPhotos, error: galleryError } = await supabase
-        .from('streamer_gallery_photos')
-        .select('*')
-        .eq('streamer_id', streamer.id)
-        .order('order_number');
-
-      if (galleryError) {
-        console.error('Error fetching gallery photos:', galleryError);
-      }
-
-      // Fetch testimonials
-      const { data: testimonials, error: testimonialsError } = await supabase
-        .from('testimonials')
-        .select('*')
-        .eq('streamer_id', streamer.id);
-
-      if (testimonialsError) {
-        console.error('Error fetching testimonials:', testimonialsError);
-      }
-
+      // Set initial profile data
       setExtendedProfile({
         ...streamer,
-        ...streamerData,
-        video_url: streamerData?.video_url, // Explicitly set video_url
-        rating: ratingData ? parseFloat(ratingData) : streamer.rating,
-        age: 28,
-        gender: "Female",
-        experience: "5 years",
-        fullBio: streamerData?.bio || streamer.bio,
-        gallery: {
-          photos: galleryPhotos || [],
-        },
-        testimonials: testimonials || [],
-      });
+        ...basicProfile,
+        gallery: { photos: [] },
+        testimonials: []
+      } as StreamerProfile);
+
+      // Load gallery and testimonials in parallel
+      const [galleryData, testimonialsData] = await Promise.all([
+        fetchGallery(),
+        fetchTestimonials()
+      ]);
+
+      // Update with gallery and testimonials
+      setExtendedProfile(prev => ({
+        ...(prev as StreamerProfile),
+        gallery: galleryData || { photos: [] },
+        testimonials: testimonialsData || []
+      }));
 
     } catch (error) {
       console.error('Error fetching extended profile:', error);
+      toast.error('Failed to load complete profile');
+    } finally {
+      setIsLoadingProfile(false);
     }
+  };
+
+  const fetchGallery = async () => {
+    setIsLoadingGallery(true);
+    const supabase = createClient();
+    try {
+      const { data, error } = await supabase
+        .from('streamer_gallery_photos') // Fix: correct table name
+        .select('*')
+        .eq('streamer_id', streamer.id)
+        .order('order_number');
+      
+      if (error) throw error;
+      return { photos: data || [] };
+    } catch (error) {
+      console.error('Error fetching gallery:', error);
+      return { photos: [] };
+    } finally {
+      setIsLoadingGallery(false);
+    }
+  };
+
+  const fetchTestimonials = async () => {
+    setIsLoadingTestimonials(true);
+    const supabase = createClient();
+    try {
+      const { data: rawData, error } = await supabase
+        .from('streamer_ratings')
+        .select(`
+          id,
+          rating,
+          comment,
+          profiles:client_id (
+            first_name,
+            last_name
+          ),
+          created_at
+        `)
+        .eq('streamer_id', streamer.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (error) throw error;
+
+      const data = rawData as unknown as RatingWithProfile[];
+      
+      return data.map(rating => ({
+        client_name: rating.profiles ? `${rating.profiles.first_name} ${rating.profiles.last_name.charAt(0)}.` : 'Anonymous',
+        comment: rating.comment || '',
+        rating: rating.rating || 0
+      }));
+    } catch (error) {
+      console.error('Error fetching testimonials:', error);
+      return [];
+    } finally {
+      setIsLoadingTestimonials(false);
+    }
+  };
+
+  // Add hover event handlers to the card
+  const handleCardHover = () => {
+    prefetchProfile();
   };
 
   const fetchActiveSchedule = async () => {
@@ -391,31 +622,84 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   };
 
   const isSlotAvailable = useCallback((date: Date, hour: number) => {
-    if (!activeSchedule) return false;
+    if (!activeSchedule) {
+      console.log('No active schedule');
+      return false;
+    }
+    
     const dayOfWeek = date.getDay();
     const daySchedule = activeSchedule[dayOfWeek];
-    if (!daySchedule || !daySchedule.slots) return false;
-  
+    
+    if (!daySchedule || !daySchedule.slots) {
+      console.log('No schedule for this day:', dayOfWeek);
+      return false;
+    }
+
     const isInSchedule = daySchedule.slots.some((slot: any) => {
       const start = parseInt(slot.start.split(':')[0]);
       const end = parseInt(slot.end.split(':')[0]);
       return hour >= start && hour < end;
     });
 
+    if (!isInSchedule) {
+      return false;
+    }
+
     // Check if there's an accepted or pending booking for this slot
     const bookingExists = bookings.some(booking => {
-      const bookingStart = new Date(booking.start_time);
-      const bookingEnd = new Date(booking.end_time);
-      return (
-        isSameDay(date, bookingStart) &&
-        (
-          (hour >= bookingStart.getHours() && hour < bookingEnd.getHours()) ||
-          (hour === bookingEnd.getHours() && bookingEnd.getMinutes() > 0)
-        )
+      const bookingStartTime = new Date(booking.start_time);
+      const bookingEndTime = new Date(booking.end_time);
+      
+      // Convert the target date and hour to a comparable time
+      const targetTime = new Date(date);
+      targetTime.setHours(hour, 0, 0, 0);
+      
+      // Normalize all times to UTC for comparison
+      const targetUTC = Date.UTC(
+        targetTime.getFullYear(),
+        targetTime.getMonth(),
+        targetTime.getDate(),
+        hour
       );
+      
+      const startUTC = Date.UTC(
+        bookingStartTime.getUTCFullYear(),
+        bookingStartTime.getUTCMonth(),
+        bookingStartTime.getUTCDate(),
+        bookingStartTime.getUTCHours()
+      );
+      
+      const endUTC = Date.UTC(
+        bookingEndTime.getUTCFullYear(),
+        bookingEndTime.getUTCMonth(),
+        bookingEndTime.getUTCDate(),
+        bookingEndTime.getUTCHours()
+      );
+
+      const isOverlapping = targetUTC >= startUTC && targetUTC < endUTC;
+
+      console.log('Booking overlap check:', {
+        targetTime: new Date(targetUTC).toISOString(),
+        bookingStart: new Date(startUTC).toISOString(),
+        bookingEnd: new Date(endUTC).toISOString(),
+        hour,
+        isOverlapping,
+        status: booking.status
+      });
+
+      return isOverlapping;
     });
 
-    return isInSchedule && !bookingExists;
+    const isAvailable = !bookingExists;
+    
+    console.log('Final availability:', {
+      hour,
+      isInSchedule,
+      hasBooking: bookingExists,
+      isAvailable
+    });
+
+    return isAvailable;
   }, [activeSchedule, bookings]);
 
   const handleBooking = () => {
@@ -569,13 +853,6 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
   const fullName = `${streamer.first_name} ${streamer.last_name}`;
   
-  const openBookingModal = () => {
-    if (!selectedDate) {
-      setSelectedDate(startOfDay(new Date()));
-    }
-    setIsBookingModalOpen(true);
-  };
-
   const handleNextWeek = () => {
     setCurrentWeekStart(addWeeks(currentWeekStart, 1));
   };
@@ -606,30 +883,42 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   };
 
   const handleMessageClick = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Stop propagation at the earliest point
-    e.preventDefault(); // Prevent any default behavior
+    e.stopPropagation();
+    e.preventDefault();
+    
+    if (isMessageLoading) return;
+    setIsMessageLoading(true);
     
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        toast.error('Please sign in to send messages');
         router.push('/sign-in');
         return;
       }
 
-      // user.id is already string (UUID) from auth
-      const clientId = user.id;
-      // streamer.id is number (BigInt) from database
-      const streamerId = streamer.id;
+      // Start navigation early
+      router.prefetch('/messages');
 
-      await createOrGetConversation(clientId, streamerId);
+      // Create conversation in parallel with navigation
+      const clientId = user.id;
+      const streamerId = streamer.id;
+      
+      createOrGetConversation(clientId, streamerId)
+        .catch(error => {
+          console.error('Error creating conversation:', error);
+          toast.error('Failed to create conversation');
+        });
+
+      // Navigate immediately without waiting for conversation creation
       router.push('/messages');
       
     } catch (error) {
-      console.error('Error creating conversation:', error);
-      toast.error('Failed to create conversation');
+      console.error('Error in message flow:', error);
+      toast.error('Failed to start conversation');
+    } finally {
+      setIsMessageLoading(false);
     }
   };
 
@@ -654,31 +943,37 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   return (
     <>
       <div 
-        className="group relative bg-transparent w-full font-sans cursor-pointer"
+        className="group relative bg-transparent w-full font-sans cursor-pointer transition-transform duration-200 hover:-translate-y-1"
         onClick={() => setIsProfileModalOpen(true)}
+        onMouseEnter={handleCardHover}
       >
-        {/* Image Container - reduced height */}
-        <div className="relative w-full h-44 sm:h-52 rounded-xl overflow-hidden">
+        {/* Image Container with Location Overlay */}
+        <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden border border-[#f0f0ef]">
           <img
             src={streamer.image_url}
             alt={formatName(streamer.first_name, streamer.last_name)}
-            className="w-full h-full object-cover transform transition-transform duration-300 scale-100 group-hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
+          {/* Location overlay */}
+          <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1.5 rounded-lg shadow-sm flex items-center gap-2">
+            <MapPin className="w-3.5 h-3.5 text-[#2563eb]" />
+            <span className="text-xs font-medium text-gray-700">{streamer.location}</span>
+          </div>
         </div>
 
-        {/* Content Container - reduced padding and font sizes */}
-        <div className="p-3 sm:p-4 pt-2 sm:pt-3 bg-white/95 rounded-b-xl transition-all duration-300 group-hover:bg-white">
+        {/* Content Container */}
+        <div className="p-4 pt-3 bg-[#faf9f6]">
           {/* Name and Platforms */}
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-sm sm:text-base text-foreground">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-medium text-gray-900">
                 {formatName(streamer.first_name, streamer.last_name)}
               </h3>
               <div className="flex gap-1">
                 {(streamer.platforms || [streamer.platform]).map((platform, index) => (
                   <div
                     key={platform}
-                    className={`px-1.5 py-0.5 rounded-full text-white text-[9px] sm:text-[10px] font-medium
+                    className={`px-2 py-0.5 rounded-full text-white text-[10px] font-medium
                       ${platform.toLowerCase() === 'shopee' 
                         ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
                         : 'bg-gradient-to-r from-blue-900 to-black text-white'
@@ -692,82 +987,72 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           </div>
 
           {/* Price Display */}
-          <div className="flex flex-col mb-1.5">
-            <div className="flex items-center gap-1">
-              <span className="text-sm sm:text-base font-bold text-foreground">
+          <div className="flex flex-col mb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-base font-semibold text-gray-900">
                 {priceInfo.displayPrice}
               </span>
-              <span className="text-[10px] sm:text-xs font-normal text-foreground/70">/ jam</span>
+              <span className="text-xs font-normal text-gray-500">/ jam</span>
             </div>
             {priceInfo.originalPrice && priceInfo.discountPercentage && priceInfo.discountPercentage > 0 && (
-              <div className="flex items-center gap-1">
-                <span className="text-xs sm:text-sm text-gray-400 line-through">
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-sm text-gray-400 line-through">
                   {priceInfo.originalPrice}
                 </span>
-                <span className="text-[10px] sm:text-xs font-medium text-blue-600">
+                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
                   Hemat {priceInfo.discountPercentage}%
                 </span>
               </div>
             )}
           </div>
 
-          {/* Rating - smaller size */}
-          <div className="scale-90 origin-left">
+          {/* Rating */}
+          <div className="mb-3">
             <RatingStars rating={averageRating} />
           </div>
 
-          {/* Bio Preview - reduced margins */}
-          <div className="mt-2 mb-2 min-h-[2.5rem]">
-            <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 relative">
-              {streamer.bio || 'No bio available'}
+          {/* Bio Preview */}
+          <div className="h-[48px] mb-4">
+            <p className="text-sm text-gray-600 line-clamp-2 min-h-[40px]">
+              {streamer.bio || 'Belum ada deskripsi tersedia'}
               {streamer.bio && streamer.bio.length > 100 && (
-                <span className="font-bold text-blue-600 hover:text-blue-700 cursor-pointer ml-1 inline-block">
+                <span className="font-medium text-blue-600 hover:text-blue-700 cursor-pointer ml-1 inline-block">
                   Read more
                 </span>
               )}
             </p>
           </div>
 
-          {/* Location and Categories */}
-          <div className="flex flex-col gap-2 mb-3">
-            {/* Location */}
-            <div className="flex items-center gap-1.5">
-              <div className="p-1 bg-[#2563eb]/10 rounded-full">
-                <MapPin className="w-3 h-3 text-[#2563eb]" />
-              </div>
-              <span className="text-xs text-gray-600">{streamer.location}</span>
-            </div>
-            
-            {/* Categories */}
-            <div className="flex flex-wrap gap-1.5 min-h-[64px] content-start">
-              {(streamer.category || '')
-                .split(',')
-                .filter(Boolean)
-                .slice(0, 6) // Limit to 6 categories (2 rows of 3)
-                .map((category) => (
-                <div 
-                  key={category} 
-                  className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-md h-[28px]"
-                >
-                  <div className="p-1 bg-[#2563eb]/10 rounded-full shrink-0">
-                    <Monitor className="w-3 h-3 text-[#2563eb]" />
-                  </div>
-                  <span className="text-xs text-gray-600 truncate">
-                    {category.trim()}
-                  </span>
+          {/* Categories */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(streamer.category || '')
+              .split(',')
+              .filter(Boolean)
+              .slice(0, 3)
+              .map((category) => (
+              <div 
+                key={category} 
+                className="flex items-center gap-1.5 bg-white/80 px-2.5 py-1.5 rounded-lg border border-[#f0f0ef]"
+              >
+                <div className="p-1 bg-[#2563eb]/10 rounded-full">
+                  <Monitor className="w-3 h-3 text-[#2563eb]" />
                 </div>
-              ))}
-            </div>
+                <span className="text-xs text-gray-600 truncate">
+                  {category.trim()}
+                </span>
+              </div>
+            ))}
           </div>
 
-          {/* Buttons - reduced size */}
+          {/* Buttons */}
           <div 
-            className="flex gap-1.5" 
+            className="flex gap-2" 
             onClick={(e) => e.stopPropagation()}
           >
             <Button 
-              className="flex-1 text-[10px] sm:text-xs py-0.5 text-white max-w-[85%] 
-                bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87]"
+              className="flex-1 text-xs py-2 text-white max-w-[85%] 
+                bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87]
+                transition-all duration-200"
               onClick={(e) => {
                 e.stopPropagation();
                 openBookingModal();
@@ -777,21 +1062,26 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             </Button>
             <Button
               variant="outline"
-              className="px-2 text-[#2563eb] border-[#2563eb] hover:bg-[#2563eb]/5"
+              className="px-2.5 text-[#2563eb] border-[#2563eb] hover:bg-[#2563eb]/5 transition-colors duration-200"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsProfileModalOpen(false);
                 handleMessageClick(e);
               }}
+              disabled={isMessageLoading}
             >
-              <Mail className="h-3 w-3" />
+              {isMessageLoading ? (
+                <span className="animate-spin">⏳</span>
+              ) : (
+                <Mail className="h-3.5 w-3.5" />
+              )}
             </Button>
           </div>
         </div>
       </div>
 
       <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-3 sm:p-6 animate-none">
           <DialogHeader>
             <div className="flex items-center space-x-3 mb-4">
               <Image
@@ -806,7 +1096,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                   {formatName(streamer.first_name, streamer.last_name)}
                 </DialogTitle>
                 <DialogDescription className="text-sm sm:text-base">
-                  Select your preferred date and time
+
                 </DialogDescription>
               </div>
             </div>
@@ -828,46 +1118,48 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           <div className="h-px bg-gray-200" />
 
           {activeSchedule ? (
-            timeOptions.length > 0 ? (
-              <div className="space-y-3 sm:space-y-4">
-                {['Morning', 'Afternoon', 'Evening', 'Night'].map((timeOfDay) => (
+            <div className="space-y-3 sm:space-y-4">
+              {(['Morning', 'Afternoon', 'Evening', 'Night'] as const).map((timeOfDay) => {
+                const slots = getTimeSlots(timeOfDay);
+                const availableSlots = slots.filter(hour => 
+                  Array.isArray(timeOptions) && 
+                  timeOptions.some(option => isTimeOption(option) && option === hour)
+                );
+                
+                // Only show the section if there are available slots
+                if (availableSlots.length === 0) return null;
+
+                return (
                   <div key={timeOfDay}>
                     <h4 className="text-xs sm:text-sm font-semibold mb-2">{timeOfDay}</h4>
-                    <div className="grid grid-cols-4 gap-1 sm:gap-2">
-                      {timeOptions
-                        .filter((hour: string) => {
-                          const hourNum = parseInt(hour.split(':')[0]);
-                          return (
-                            (timeOfDay === 'Night' && (hourNum >= 0 && hourNum < 6)) ||
-                            (timeOfDay === 'Morning' && (hourNum >= 6 && hourNum < 12)) ||
-                            (timeOfDay === 'Afternoon' && (hourNum >= 12 && hourNum < 18)) ||
-                            (timeOfDay === 'Evening' && (hourNum >= 18 && hourNum < 24))
-                          );
-                        })
-                        .map((hour: string) => (
+                    <div className="grid grid-cols-6 gap-1 sm:gap-2">
+                      {slots.map((hour) => {
+                        const isAvailable = Array.isArray(timeOptions) && 
+                          timeOptions.some(option => isTimeOption(option) && option === hour);
+
+                        return (
                           <Button
                             key={hour}
                             variant={isHourSelected(hour) ? "default" : "outline"}
-                            className={`text-[10px] sm:text-sm p-1 sm:p-2 h-auto ${
+                            className={cn(
+                              "text-[10px] sm:text-sm p-1 sm:p-2 h-auto",
                               isHourSelected(hour) 
                                 ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]' 
-                                : 'hover:bg-blue-50'
-                            }`}
+                                : 'hover:bg-blue-50',
+                              !isAvailable && 'opacity-50 cursor-not-allowed'
+                            )}
                             onClick={() => handleHourSelection(hour)}
-                            disabled={isHourDisabled(hour)}
+                            disabled={isHourDisabled(hour) || !isAvailable}
                           >
                             {hour}
                           </Button>
-                        ))}
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-xs sm:text-sm text-gray-500">
-                No available slots for this day
-              </div>
-            )
+                );
+              })}
+            </div>
           ) : (
             <div className="text-center py-6">
               <div className="text-sm text-gray-500 mb-2">
@@ -975,147 +1267,210 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
       {/* Profile Modal */}
       <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6 animate-none">
           <DialogClose className="absolute right-4 top-4 rounded-full bg-gradient-to-r from-[#1e40af] to-[#6b21a8] p-1 text-white hover:from-[#1e3a8a] hover:to-[#581c87] transition-colors z-50">
             <X className="h-4 w-4" />
           </DialogClose>
-          
-          {extendedProfile && (
+
+          {isLoadingProfile ? (
+            <div className="space-y-4">
+              <div className="h-4 bg-gray-200 rounded animate-pulse" />
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2" />
+            </div>
+          ) : extendedProfile ? (
             <>
+              {/* Professional ID Card Layout */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100 shadow-sm mb-8">
+                <div className="flex gap-6">
+                  {/* Left Column - Photo and Basic Info */}
+                  <div className="flex flex-col items-center space-y-3 min-w-[150px]">
+                    <div className="relative w-32 h-32">
+                      <Image
+                        src={streamer.image_url}
+                        alt={formatName(streamer.first_name, streamer.last_name)}
+                        fill
+                        className="rounded-lg object-cover border-2 border-white shadow-md"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                      <span className="text-sm font-medium">
+                        {extendedProfile.rating ? `${Number(extendedProfile.rating).toFixed(1)} / 5.0` : 'Not rated yet'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right Column - Details */}
+                  <div className="flex-1 space-y-4">
+                    {/* Name and Title */}
+                    <div className="border-b border-blue-200 pb-3">
+                      <h2 className="text-xl font-semibold text-blue-900">
+                        {formatName(streamer.first_name, streamer.last_name)}
+                      </h2>
+                      <p className="text-sm text-blue-600 font-medium">Professional Livestreamer</p>
+                    </div>
+
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <User className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Age</p>
+                            <p className="text-sm">{extendedProfile.age ? `${extendedProfile.age} Years` : 'Not specified'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <User className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Gender</p>
+                            <p className="text-sm">{extendedProfile.gender || 'Not specified'}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <Clock className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Experience</p>
+                            <p className="text-sm">{extendedProfile.experience || 'Not specified'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <MapPin className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Location</p>
+                            <p className="text-sm">{extendedProfile.location || 'Not specified'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Platform Tags */}
+                    <div className="flex gap-2 pt-2">
+                      {(streamer.platforms || [streamer.platform]).map((platform) => (
+                        <div
+                          key={platform}
+                          className={`px-3 py-1 rounded-full text-white text-xs font-medium
+                            ${platform.toLowerCase() === 'shopee' 
+                              ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
+                              : 'bg-gradient-to-r from-blue-600 to-indigo-600'}`}
+                        >
+                          {platform}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bio Section */}
+              <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">About Me</h3>
+                <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                  {extendedProfile.fullBio || extendedProfile.bio || 'Belum ada deskripsi tersedia'}
+                </p>
+              </div>
+
               {/* Video Section */}
               {extendedProfile.video_url && (
-                <div className="mb-4 sm:mb-6 w-full aspect-video">
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    src={`https://www.youtube.com/embed/${getYouTubeVideoId(extendedProfile.video_url) || ''}`}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="rounded-lg"
-                  />
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Featured Content</h3>
+                  <div className="w-full aspect-video">
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      src={`https://www.youtube.com/embed/${getYouTubeVideoId(extendedProfile.video_url) || ''}`}
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="rounded-lg shadow-sm"
+                    />
+                  </div>
                 </div>
               )}
 
               {/* Gallery Section */}
-              <div>
-                <h3 className="text-xs font-semibold text-gray-900 mb-3">Gallery</h3>
-                <div className="flex flex-col space-y-3">
-                  {/* Main Image - Fixed aspect ratio container */}
-                  <div className="w-full aspect-[4/3] relative rounded-lg overflow-hidden bg-gray-100">
-                    <Image
-                      src={selectedImage || extendedProfile.image_url}
-                      alt="Selected gallery image"
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 600px) 100vw, 600px"
-                    />
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Gallery</h3>
+                {isLoadingGallery ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1, 2, 3, 4].map((n) => (
+                      <div key={n} className="aspect-square bg-gray-200 rounded animate-pulse" />
+                    ))}
                   </div>
-
-                  {/* Thumbnails Grid */}
-                  <div className="grid grid-cols-4 gap-2 w-full">
+                ) : extendedProfile.gallery?.photos.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-2">
                     {extendedProfile.gallery.photos.map((photo) => (
                       <div
                         key={photo.id}
-                        className={`aspect-square relative cursor-pointer overflow-hidden rounded-md bg-gray-100
-                          ${selectedImage === photo.photo_url ? 'ring-2 ring-blue-600' : ''}`}
-                        onClick={() => setSelectedImage(photo.photo_url)}
+                        className="aspect-square relative overflow-hidden rounded-lg shadow-sm"
                       >
                         <Image
                           src={photo.photo_url}
                           alt={`Gallery photo ${photo.order_number}`}
                           fill
-                          className="object-cover"
+                          className="object-cover hover:scale-105 transition-transform duration-300"
                           sizes="(max-width: 600px) 25vw, 150px"
                         />
                       </div>
                     ))}
                   </div>
-                </div>
+                ) : (
+                  <p className="text-sm text-gray-500 text-center">No gallery photos available</p>
+                )}
               </div>
 
-              {/* Thick grey divider */}
-              <div className="h-3 bg-gray-200 -mx-6 my-6" />
-
-              {/* Profile Info - changed border color from red-500 to blue-600 */}
-              <div className="flex gap-3">
-                <Image
-                  src={extendedProfile.image_url}
-                  alt={fullName}
-                  width={60}
-                  height={60}
-                  className="object-cover border-2 border-blue-600 rounded-lg"
-                />
-                
-                <div className="flex-1">
-                  <div className="mb-2">
-                    <h2 className="text-base font-bold">
-                      {formatName(streamer.first_name, streamer.last_name)}
-                    </h2>
-                    <p className="text-xs text-foreground/70">{extendedProfile.category}</p>
-                    <div className="mt-1 scale-90 origin-left">
-                      <RatingStars rating={averageRating} />
-                    </div>
-                  </div>
-
-                  {/* Changed text colors from red-500 to blue-600 */}
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
-                    <div className="flex items-center gap-1.5 text-blue-600">
-                      <User className="w-3.5 h-3.5" />
-                      <span className="text-xs">{extendedProfile.age} Years</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-blue-600">
-                      <User className="w-3.5 h-3.5" />
-                      <span className="text-xs">{extendedProfile.gender}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-blue-600">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span className="text-xs">{extendedProfile.experience}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-blue-600">
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span className="text-xs">{extendedProfile.location}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* About Me Section */}
-              <div className="space-y-1.5">
-                <h3 className="text-xs font-semibold text-gray-900">About Me</h3>
-                <p className="text-xs text-gray-600 leading-relaxed">{extendedProfile.fullBio}</p>
-              </div>
-
-              {/* Thick grey divider */}
-              <div className="h-3 bg-gray-200 -mx-6 my-6" />
-
-              {/* Testimonials - changed border color */}
+              {/* Testimonials Section */}
               <div>
-                <h3 className="text-xs font-semibold text-gray-900 mb-2">Client Testimonials</h3>
-                <div className="space-y-2">
-                  {extendedProfile.testimonials.map((testimonial, index) => (
-                    <div key={index} className="border border-blue-600 p-2 rounded-lg">
-                      <p className="italic text-xs text-gray-600">"{testimonial.comment}"</p>
-                      <p className="font-medium mt-1 text-xs text-blue-600">- {testimonial.client_name}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Book Livestreamer button - changed to blue/purple gradient */}
-              <div className="flex gap-4 mt-6">
-                <Button 
-                  className="flex-1 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white text-sm"
-                  onClick={() => {
-                    setIsProfileModalOpen(false);
-                    openBookingModal();
-                  }}
-                >
-                  Book Livestreamer
-                </Button>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Client Testimonials</h3>
+                {isLoadingTestimonials ? (
+                  <div className="space-y-4">
+                    {[1, 2].map((n) => (
+                      <div key={n} className="h-20 bg-gray-200 rounded animate-pulse" />
+                    ))}
+                  </div>
+                ) : extendedProfile.testimonials?.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {extendedProfile.testimonials.map((testimonial, index) => (
+                      <div key={index} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star 
+                                key={star}
+                                className={cn(
+                                  "w-3 h-3",
+                                  testimonial.rating >= star 
+                                    ? "text-yellow-400 fill-yellow-400" 
+                                    : "text-gray-300"
+                                )}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-sm font-medium text-blue-600">
+                            {testimonial.client_name}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 italic">"{testimonial.comment}"</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 text-center">No testimonials yet</p>
+                )}
               </div>
             </>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
     </>
@@ -1125,7 +1480,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 export function StreamerCardSkeleton() {
   return (
     <div className="group relative bg-transparent w-full font-sans cursor-pointer">
-      <div className="relative w-full h-44 sm:h-52 rounded-xl overflow-hidden bg-gray-200 animate-pulse"></div>
+      <div className="relative w-full aspect-square sm:aspect-[4/5] rounded-xl overflow-hidden bg-gray-200 animate-pulse"></div>
       <div className="p-3 sm:p-4 pt-2 sm:pt-3 bg-white/95 rounded-b-xl">
         <div className="flex items-center justify-between gap-1 mb-1">
           <div className="flex items-center gap-1.5">

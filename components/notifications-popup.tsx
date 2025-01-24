@@ -193,35 +193,50 @@ export function NotificationsPopup() {
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={setIsOpen} modal={true}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative w-10 h-10" onClick={() => {
-          setIsOpen(true);
-          fetchNotifications();
-        }}>
-          <Bell className="h-6 w-6" />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="relative w-12 sm:w-14 h-12 sm:h-14 hover:bg-gray-100 transition-colors" 
+          onClick={() => {
+            setIsOpen(true);
+            fetchNotifications();
+          }}
+        >
+          <Bell className="h-6 sm:h-7 w-6 sm:w-7" />
           {unreadCount > 0 && (
-            <span className="absolute top-0 right-0 h-3 w-3 bg-red-500 rounded-full"></span>
+            <span className="absolute top-2 right-2 sm:right-3 h-3 w-3 sm:h-3.5 sm:w-3.5 bg-red-500 rounded-full"></span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0">
+      <PopoverContent 
+        className="w-[calc(100vw-32px)] sm:w-80 p-0" 
+        align="end" 
+        sideOffset={8}
+        style={{ 
+          zIndex: 9999,
+          position: 'relative',
+          backgroundColor: '#faf9f6',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+        }}
+      >
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
-            <h3 className="text-lg font-semibold">Notifications</h3>
+          <div className="bg-gray-100 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-200">
+            <h3 className="text-base sm:text-lg font-semibold">Notifications</h3>
           </div>
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
             {notifications.length === 0 ? (
-              <p className="text-center py-4 text-gray-500">No new notifications</p>
+              <p className="text-center py-4 sm:py-6 text-gray-500 text-sm sm:text-base">No new notifications</p>
             ) : (
               notifications.map((notification) => (
                 <div 
                   key={notification.id} 
-                  className={`p-4 border-b border-gray-200 transition-colors duration-150 ease-in-out
+                  className={`p-3 sm:p-4 border-b border-gray-200 transition-colors duration-150 ease-in-out cursor-pointer
                     ${!notification.is_read ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'}`}
                   onClick={() => handleNotificationSeen(notification.id)}
                 >
-                  <h4 className={`font-semibold text-sm mb-1 ${
+                  <h4 className={`font-semibold text-xs sm:text-sm mb-1 ${
                     notification.type === 'reschedule_request' ? 'text-orange-800' : 'text-blue-800'
                   }`}>
                     {notification.type === 'confirmation' ? 'Booking Confirmation' : 
@@ -233,10 +248,10 @@ export function NotificationsPopup() {
                      notification.type === 'stream_ended' ? 'Stream Ended' :
                      'Notification'}
                   </h4>
-                  <p className="text-sm text-gray-600 mb-2">
+                  <p className="text-xs sm:text-sm text-gray-600 mb-1.5 sm:mb-2">
                     {notification.message}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-[10px] sm:text-xs text-gray-400">
                     {new Date(notification.created_at).toLocaleString()}
                   </p>
                 </div>

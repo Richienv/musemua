@@ -5,12 +5,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOutAction } from "@/app/actions";
 import Image from "next/image";
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, LogOut, Clock } from 'lucide-react';
+import { LayoutDashboard, Settings, LogOut, Clock, MessageSquare, Bell } from 'lucide-react';
+import { cn } from "@/lib/utils";
+import dynamic from 'next/dynamic';
+
+const NotificationsPopup = dynamic(() => import('@/components/notifications-popup').then(mod => mod.NotificationsPopup), { ssr: false });
 
 interface UserData {
   id: string;
@@ -25,9 +30,10 @@ interface UserData {
 interface ProfileButtonProps {
   user: UserData | null;
   showNameOnMobile?: boolean;
+  className?: string;
 }
 
-export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonProps) {
+export function ProfileButton({ user, showNameOnMobile = true, className }: ProfileButtonProps) {
   const router = useRouter();
   const pathname = usePathname();
   const isStreamerDashboard = pathname === '/streamer-dashboard';
@@ -72,14 +78,17 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
       <DropdownMenuTrigger asChild>
         <Button 
           variant="ghost" 
-          className="relative h-8 w-8 rounded-full overflow-hidden p-0 border border-gray-200"
+          className={cn(
+            "relative h-9 w-9 rounded-full overflow-hidden p-0 border border-gray-200 hover:shadow-md transition-shadow",
+            className
+          )}
         >
           {profilePictureUrl ? (
             <>
               <Image
                 src={profilePictureUrl}
                 alt={`${user.first_name}'s profile picture`}
-                className="h-8 w-8 rounded-full object-cover"
+                className="h-9 w-9 rounded-full object-cover"
                 width={32}
                 height={32}
                 priority
@@ -90,18 +99,34 @@ export function ProfileButton({ user, showNameOnMobile = true }: ProfileButtonPr
                   e.currentTarget.parentElement?.querySelector('.fallback')?.classList.remove('hidden');
                 }}
               />
-              <span className="fallback hidden h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+              <span className="fallback hidden h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
                 {user.first_name.charAt(0) || 'U'}
               </span>
             </>
           ) : (
-            <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+            <span className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
               {user.first_name.charAt(0) || 'U'}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
+      <DropdownMenuContent 
+        className="w-56 z-[100]" 
+        align="end" 
+        sideOffset={8}
+        alignOffset={0}
+        forceMount
+      >
+        {/* Mobile-only menu items */}
+        <div className="block sm:hidden">
+          <DropdownMenuItem onClick={() => router.push('/messages')} className="cursor-pointer">
+            <MessageSquare className="mr-2 h-4 w-4" />
+            <span>Messages</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </div>
+
+        {/* Common menu items */}
         <DropdownMenuItem onClick={() => router.push(getDashboardLink())} className="cursor-pointer">
           {user.user_type === 'streamer' ? (
             <>

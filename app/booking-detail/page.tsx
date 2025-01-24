@@ -269,12 +269,38 @@ function BookingDetailContent() {
         return;
       }
 
+      // Get user's timezone
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      // Create Date objects with the correct local time
+      const startDateTime = new Date(`${bookingDetails.date}T${selectedHours[0]}`);
+      const endDateTime = new Date(`${bookingDetails.date}T${selectedHours[selectedHours.length - 1]}`);
+      const endDateTimeWithHour = addHours(endDateTime, 1);
+
+      // Convert to UTC while preserving the intended hours
+      const startTimeUTC = new Date(Date.UTC(
+        startDateTime.getFullYear(),
+        startDateTime.getMonth(),
+        startDateTime.getDate(),
+        startDateTime.getHours(),
+        startDateTime.getMinutes()
+      ));
+
+      const endTimeUTC = new Date(Date.UTC(
+        endDateTimeWithHour.getFullYear(),
+        endDateTimeWithHour.getMonth(),
+        endDateTimeWithHour.getDate(),
+        endDateTimeWithHour.getHours(),
+        endDateTimeWithHour.getMinutes()
+      ));
+
       // Create payment metadata including voucher info
       const metadata = {
         streamerId: bookingDetails.streamerId,
         userId: user.id,
-        startTime: `${bookingDetails.date}T${selectedHours[0]}`,
-        endTime: addHours(parseISO(`${bookingDetails.date}T${selectedHours[selectedHours.length - 1]}`), 1).toISOString(),
+        startTime: startTimeUTC.toISOString(),
+        endTime: endTimeUTC.toISOString(),
+        timezone: userTimezone,
         platform: bookingDetails.platform,
         specialRequest: specialRequest,
         sub_acc_link: subAccountLink,
@@ -282,7 +308,6 @@ function BookingDetailContent() {
         firstName: user.user_metadata.first_name,
         lastName: user.user_metadata.last_name,
         price: total,
-        // Add voucher information
         voucher: appliedVoucher ? {
           id: appliedVoucher.id,
           code: appliedVoucher.code,
@@ -291,17 +316,17 @@ function BookingDetailContent() {
         finalPrice: finalPrice
       };
 
-      // Generate Midtrans token
+      // For description, use local time for display
       const paymentResponse = await fetch('/api/payments/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: finalPrice, // Use finalPrice instead of total
+          amount: finalPrice,
           clientName: `${user.user_metadata.first_name} ${user.user_metadata.last_name}`,
           clientEmail: user.email,
-          description: `Booking with ${bookingDetails.streamerName} for ${format(parseISO(`${bookingDetails.date}T${selectedHours[0]}`), 'PPP')} at ${selectedHours[0]} - ${format(addHours(parseISO(`${bookingDetails.date}T${selectedHours[selectedHours.length - 1]}`), 1), 'HH:mm')}`,
+          description: `Booking with ${bookingDetails.streamerName} for ${format(startDateTime, 'PPP')} at ${format(startDateTime, 'HH:mm')} - ${format(endDateTimeWithHour, 'HH:mm')}`,
           metadata: metadata
         }),
       });
@@ -329,93 +354,63 @@ function BookingDetailContent() {
 
   const handlePaymentSuccess = async (result: any) => {
     try {
+      console.log('=== Payment Success Start ===');
+      console.log('Result from Midtrans:', result);
+      console.log('Payment metadata:', paymentMetadata);
+
       if (!paymentMetadata || !bookingDetails) {
+        console.error('Missing required data:', { paymentMetadata, bookingDetails });
         throw new Error('Missing payment metadata or booking details');
       }
 
-      // Create booking with stored metadata
-      const bookingData = await createBookingAfterPayment(result, paymentMetadata);
-
-      // If there's a voucher, track its usage
-      if (paymentMetadata.voucher) {
-        await voucherService.trackVoucherUsage(
-          paymentMetadata.voucher.id,
-          bookingData.id,
-          paymentMetadata.userId,
-          paymentMetadata.voucher.discountAmount,
-          paymentMetadata.price,
-          paymentMetadata.finalPrice
-        );
-      }
-
-      // Create notifications
-      const supabase = createClient();
-
-      const { data: streamerData, error: streamerError } = await supabase
-        .from('streamers')
-        .select(`
-          id,
-          first_name,
-          last_name,
-          user_id
-        `)
-        .eq('id', parseInt(bookingDetails!.streamerId))
-        .single();
-
-      if (streamerError || !streamerData) {
-        throw new Error('Failed to fetch streamer details');
-      }
-
-      const notifications = [
-        {
-          user_id: streamerData.user_id,
-          streamer_id: streamerData.id,
-          message: `New booking request from ${bookingData.client_first_name} ${bookingData.client_last_name}. Payment confirmed.`,
-          type: 'confirmation',
-          booking_id: bookingData.id,
-          created_at: new Date().toISOString(),
-          is_read: false
+      // Call the payment callback API
+      const response = await fetch('/api/payments/callback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          user_id: bookingData.client_id,
-          message: `Payment confirmed for booking with ${streamerData.first_name} ${streamerData.last_name}. Waiting for acceptance.`,
-          type: 'confirmation',
-          booking_id: bookingData.id,
-          created_at: new Date().toISOString(),
-          is_read: false
-        }
-      ];
+        body: JSON.stringify({
+          result: {
+            ...result,
+            transaction_status: 'settlement',
+            status_code: '200',
+            status_message: 'Success, transaction is found'
+          },
+          metadata: {
+            ...paymentMetadata,
+            streamerId: paymentMetadata.streamerId.toString(),
+            price: Number(paymentMetadata.price),
+            finalPrice: Number(paymentMetadata.finalPrice)
+          }
+        })
+      });
 
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert(notifications);
-
-      if (notificationError) {
-        console.error('Error creating notifications:', notificationError);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Payment callback failed:', errorData);
+        throw new Error(errorData.error || 'Failed to process payment');
       }
 
-      toast.success('Payment successful! Redirecting to bookings...');
+      const bookingData = await response.json();
+      console.log('Booking created:', bookingData);
+
+      toast.success('Payment successful! Booking created.');
       
+      // Add delay before redirect
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Use window.location.href for more reliable redirect
+      window.location.href = '/client-bookings';
+
+    } catch (error) {
+      console.error('=== Payment Success Error ===');
+      console.error('Error details:', error);
+      toast.error('Error occurred. Check console for details.');
+      
+      // Stay on page to see error
       setIsLoading(false);
       setIsProcessing(false);
       setPaymentToken(null);
-
-      setTimeout(async () => {
-        const redirectPath = '/client-bookings';
-        try {
-          await router.push(redirectPath);
-        } catch (error) {
-          window.location.pathname = redirectPath;
-        }
-      }, 1500);
-
-    } catch (error) {
-      console.error('Error handling payment success:', error);
-      toast.error('Payment successful but encountered an error. Please contact support.');
-      
-      setTimeout(() => {
-        window.location.pathname = '/client-bookings';
-      }, 2000);
     }
   };
 
@@ -504,297 +499,263 @@ function BookingDetailContent() {
 
   return (
     <div className="container mx-auto p-3 sm:p-4 max-w-6xl font-sans text-xs sm:text-sm mt-4 sm:mt-8">
-      <div className="flex items-center gap-3 sm:gap-6 mb-4 sm:mb-8">
-        <ChevronLeft 
-          className="h-5 w-5 sm:h-6 sm:w-6 text-red-500 cursor-pointer hover:text-red-600 transition-colors"
+      {/* Header Section */}
+      <div className="flex items-center gap-3 sm:gap-6 mb-6 sm:mb-8">
+        <button 
           onClick={() => router.push('/protected')}
-        />
-        <h1 className="text-lg sm:text-2xl">Detail Pemesanan</h1>
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+        >
+          <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+          <span className="text-sm sm:text-base">Kembali</span>
+        </button>
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Detail Pemesanan</h1>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
-        {/* Left Container */}
-        <div className="flex-1 space-y-4 sm:space-y-6">
-          {/* Warning Section - At top */}
-          <div className="border border-gray-200 rounded-lg p-3 sm:p-6 bg-gray-50">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-1" />
-              <div className="space-y-4 flex-1">
-                <div>
-                  <h2 className="text-base font-medium text-gray-900">Kebijakan Pembatalan</h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Pembatalan gratis hingga 24 jam sebelum pemesanan. Setelah itu, biaya 50% akan dikenakan.
-                    <span className="block mt-1 text-amber-600">
-                      *Pengembalian dana butuh 7-14 hari kerja, jadi pastikan semua data sudah benar
-                    </span>
-                  </p>
+      <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
+        {/* Left Container - Main Content */}
+        <div className="flex-1 space-y-6 sm:space-y-8">
+          {/* Streamer Info Card */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+                <Image
+                  src={bookingDetails?.image_url || '/placeholder-avatar.png'}
+                  alt={bookingDetails?.streamerName || ''}
+                  width={80}
+                  height={80}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+                      {bookingDetails?.streamerName}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-1">
+                      <MapPin className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">{bookingDetails?.location}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center bg-yellow-50 px-3 py-1.5 rounded-lg">
+                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                    <span className="ml-1.5 font-medium">{bookingDetails?.rating.toFixed(1)}</span>
+                  </div>
                 </div>
-
-                <div className="space-y-3">
-                  <h3 className="text-base font-medium text-gray-900">Checklist Sebelum Booking</h3>
-                  <div className="space-y-2.5">
-                    {[
-                      {
-                        title: 'Pengiriman Produk',
-                        description: 'Pastikan produk sudah dikirim ke alamat streamer sebelum jadwal live',
-                        icon: <Package className="h-4 w-4" />
-                      },
-                      {
-                        title: 'Guidelines Produk',
-                        description: 'Product guidelines sudah diupdate dan dikomunikasikan',
-                        icon: <FileText className="h-4 w-4" />
-                      },
-                      {
-                        title: 'Estimasi Waktu',
-                        description: 'Perhitungkan waktu pengiriman: H+1 untuk kota yang sama, H+3 untuk beda kota',
-                        icon: <Clock className="h-4 w-4" />
-                      }
-                    ].map((item, index) => (
-                      <div key={index} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100">
-                        <div className="p-2 bg-blue-50 rounded-full">
-                          {item.icon}
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-900">{item.title}</h4>
-                          <p className="text-xs text-gray-600 mt-0.5">{item.description}</p>
-                        </div>
-                      </div>
-                    ))}
+                
+                <div className="mt-4 flex flex-wrap gap-4">
+                  <Badge className={`${
+                    bookingDetails?.platform.toLowerCase() === 'shopee'
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600'
+                      : 'bg-gradient-to-r from-[#00f2ea] to-[#ff0050]'
+                  } text-white border-0 px-3 py-1`}>
+                    {bookingDetails?.platform}
+                  </Badge>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      {selectedHours.length > 0 && (
+                        `${selectedHours[0]} - ${format(addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1), 'HH:mm')}`
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Calendar className="h-4 w-4" />
+                    <span>{format(new Date(bookingDetails?.date || ''), 'dd MMMM yyyy')}</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Booking Information - Second */}
-          <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
-            <h2 className="text-base sm:text-xl mb-4 sm:mb-6">Informasi Pemesanan</h2>
-            <div className="space-y-3 sm:space-y-5">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                <span className="text-sm sm:text-base">
-                  {format(new Date(bookingDetails?.date || ''), 'MMMM d, yyyy')}
-                </span>
-              </div>
+          {/* Important Information Card */}
+          <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 sm:p-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-1" />
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Informasi Penting</h3>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Sebelum melanjutkan pemesanan, pastikan Anda telah mempersiapkan:
+                  </p>
+                </div>
 
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                <span className="text-sm sm:text-base">
-                  {selectedHours.length > 0 && (
-                    `${selectedHours[0]} - ${format(addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1), 'HH:mm')} (${differenceInHours(
-                      addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1),
-                      parseISO(`${bookingDetails?.date}T${selectedHours[0]}`)
-                    )} jam)`
-                  )}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Monitor className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                <span className="text-sm sm:text-base">{bookingDetails?.platform}</span>
+                <div className="grid gap-3">
+                  {[
+                    {
+                      icon: <Package className="h-4 w-4" />,
+                      title: 'Pengiriman Produk',
+                      description: 'Produk harus sudah dikirim ke alamat streamer sebelum jadwal live'
+                    },
+                    {
+                      icon: <FileText className="h-4 w-4" />,
+                      title: 'Guidelines Produk',
+                      description: 'Product guidelines sudah diupdate dan dikomunikasikan'
+                    },
+                    {
+                      icon: <Clock className="h-4 w-4" />,
+                      title: 'Estimasi Waktu',
+                      description: 'H+1 untuk kota yang sama, H+3 untuk beda kota'
+                    }
+                  ].map((item, index) => (
+                    <div key={index} className="flex items-start gap-3 bg-white rounded-lg p-3 border border-amber-100">
+                      <div className="p-2 bg-amber-100 rounded-full">
+                        {item.icon}
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">{item.title}</h4>
+                        <p className="mt-0.5 text-sm text-gray-600">{item.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Platform Specific Forms - Third */}
+          {/* Platform Account Details */}
           {bookingDetails?.platform.toLowerCase() === 'shopee' ? (
-            <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
-              <div className="mb-4">
-                <h2 className="text-base sm:text-xl flex items-center gap-2 mb-2">
-                  Sub Account Details
-                  <Badge className={`bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 text-[10px] sm:text-xs`}>
-                    Shopee
-                  </Badge>
-                </h2>
-                <a 
-                  href="https://seller.shopee.co.id/edu/article/6941/Tentang-dan-Akses-Yang-dimiliki-Sub-Akun"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors bg-gray-50 px-2 py-1 rounded-full"
-                >
-                  <Info className="h-3 w-3" />
-                  apa itu sub-account?
-                </a>
-              </div>
-              <div className="space-y-3">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+              <div className="flex items-start justify-between gap-4 mb-6">
                 <div>
-                  <Label>Sub Account ID</Label>
+                  <h3 className="text-lg font-semibold text-gray-900">Sub Account Details</h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Informasi ini diperlukan untuk akses ke platform Shopee
+                  </p>
+                </div>
+                <Badge className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0">
+                  Shopee
+                </Badge>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium">Sub Account ID</Label>
                   <Input 
                     placeholder="Masukkan link sub account Shopee" 
-                    className="mt-1 text-xs sm:text-sm"
+                    className="mt-1.5"
                     value={subAccountLink}
                     onChange={(e) => setSubAccountLink(e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label>Sub Account Password</Label>
+                  <Label className="text-sm font-medium">Sub Account Password</Label>
                   <Input 
                     type="password"
                     placeholder="Masukkan password sub account" 
-                    className="mt-1 text-xs sm:text-sm"
+                    className="mt-1.5"
                     value={subAccountPassword}
                     onChange={(e) => setSubAccountPassword(e.target.value)}
                   />
                 </div>
+                <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
+                  <Info className="h-4 w-4" />
+                  <a 
+                    href="https://seller.shopee.co.id/edu/article/6941"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    Pelajari cara membuat sub account
+                  </a>
+                </div>
               </div>
             </div>
           ) : bookingDetails?.platform.toLowerCase() === 'tiktok' ? (
-            <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
-              <h2 className="text-base sm:text-xl mb-2 flex items-center gap-2">
-                Login Account (Email/Username/Phone Number)
-                <Badge className={`bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white border-0 text-[10px] sm:text-xs`}>
+            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">TikTok Shop Account</h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Informasi ini diperlukan untuk akses ke TikTok Shop
+                  </p>
+                </div>
+                <Badge className="bg-gradient-to-r from-[#00f2ea] to-[#ff0050] text-white border-0">
                   TikTok
                 </Badge>
-              </h2>
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                <Input 
-                  type="tel"
-                  placeholder="Masukkan nomor telepon Anda" 
-                  className="mt-1 text-xs sm:text-sm"
-                  value={subAccountLink}
-                  onChange={(e) => setSubAccountLink(e.target.value)}
-                />
               </div>
-              <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-gray-600 border border-blue-100 p-2 sm:p-3 rounded-lg">
-                Mohon berkoordinasi dengan streamer dan siap menerima OTP yang akan dibagikan ke streamer dalam waktu 1-5 menit
-              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium">Phone Number / Email</Label>
+                  <Input 
+                    placeholder="Masukkan nomor telepon atau email" 
+                    className="mt-1.5"
+                    value={subAccountLink}
+                    onChange={(e) => setSubAccountLink(e.target.value)}
+                  />
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg text-sm text-gray-600">
+                  <p>Mohon berkoordinasi dengan streamer untuk proses verifikasi OTP</p>
+                </div>
+              </div>
             </div>
           ) : null}
 
-          {/* Special Request - Moved to last */}
-          <div className="border border-gray-200 rounded-lg p-3 sm:p-6">
-            <h2 className="text-base sm:text-xl mb-3 sm:mb-4">Permintaan Khusus</h2>
+          {/* Special Request Section */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Permintaan Khusus</h3>
             <Textarea
-              id="special-request"
-              placeholder="Ada permintaan khusus untuk streamer?"
+              placeholder="Ada permintaan khusus untuk streamer? (Opsional)"
               value={specialRequest}
               onChange={(e) => setSpecialRequest(e.target.value)}
-              className="mt-1 text-xs sm:text-sm"
+              className="min-h-[120px]"
             />
           </div>
         </div>
 
-        {/* Right Container */}
-        <div className="w-full md:w-1/3">
-          <div className="rounded-xl border border-gray-200 p-4 sm:p-6 sticky top-4 bg-white">
-            {/* Streamer Info Section */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden">
-                    <Image
-                      src={bookingDetails?.image_url || '/placeholder-avatar.png'}
-                      alt={bookingDetails?.streamerName || ''}
-                      width={40}
-                      height={40}
-                      className="object-cover"
-                    />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-medium">{bookingDetails?.streamerName}</h2>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <MapPin className="h-3 w-3" />
-                      <span>{bookingDetails?.location}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-lg">
-                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                  <span className="ml-1 text-sm font-medium">{bookingDetails?.rating.toFixed(1)}</span>
-                </div>
+        {/* Right Container - Payment Summary */}
+        <div className="w-full lg:w-[380px]">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Ringkasan Pembayaran</h3>
+            
+            {/* Price Breakdown */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">
+                  {`Rp ${priceWithPlatformFee.toLocaleString()} × ${selectedHours.length} jam`}
+                </span>
+                <span className="font-medium">Rp {subtotal.toLocaleString()}</span>
               </div>
-
-              {/* Booking Details */}
-              <div className="space-y-3 py-4 border-y border-gray-100">
-                <div className="flex items-center gap-3 text-sm">
-                  <Calendar className="h-4 w-4 text-gray-400" />
-                  <span>{format(new Date(bookingDetails?.date || ''), 'MMMM d, yyyy')}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Clock className="h-4 w-4 text-gray-400" />
-                  <span>
-                    {selectedHours.length > 0 && (
-                      `${selectedHours[0]} - ${format(addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1), 'HH:mm')} (${differenceInHours(
-                        addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1),
-                        parseISO(`${bookingDetails?.date}T${selectedHours[0]}`)
-                      )} jam)`
-                    )}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Monitor className="h-4 w-4 text-gray-400" />
-                  <span>{bookingDetails?.platform}</span>
-                </div>
-              </div>
-
-              {/* Price Breakdown */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">
-                    {`Rp ${priceWithPlatformFee.toLocaleString()} × ${selectedHours.length} jam`}
-                  </span>
-                  <span className="font-medium">{`Rp ${subtotal.toLocaleString()}`}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Pajak (11%)</span>
-                  <span className="font-medium">{`Rp ${tax.toLocaleString()}`}</span>
-                </div>
-                {appliedVoucher && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>Voucher {appliedVoucher.code}</span>
-                    <span>-Rp {appliedVoucher.discountAmount.toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="pt-2 mt-2 border-t border-gray-100">
-                  <div className="flex justify-between">
-                    <span className="font-medium">Total</span>
-                    <span className="font-medium text-lg">{`Rp ${finalPrice.toLocaleString()}`}</span>
-                  </div>
-                </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Pajak (11%)</span>
+                <span className="font-medium">Rp {tax.toLocaleString()}</span>
               </div>
 
               {/* Voucher Section */}
-              <div className="space-y-3 border-t border-gray-100 pt-4 mt-4">
+              <div className="pt-3 mt-3 border-t border-gray-100">
                 {!appliedVoucher ? (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <Input
-                          placeholder="Masukkan kode voucher"
-                          value={voucherCode}
-                          onChange={(e) => {
-                            setVoucherCode(e.target.value.toUpperCase());
-                            setVoucherError(null);
-                          }}
-                          maxLength={6}
-                          className="text-sm uppercase"
-                        />
-                      </div>
-                      <Button 
-                        variant="outline"
-                        onClick={handleValidateVoucher}
-                        disabled={isValidatingVoucher || !voucherCode.trim()}
-                        className="whitespace-nowrap text-sm min-w-[100px]"
-                      >
-                        {isValidatingVoucher ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          'Pakai Voucher'
-                        )}
-                      </Button>
-                    </div>
-                    {voucherError && (
-                      <p className="text-xs text-red-500">{voucherError}</p>
-                    )}
-                  </>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Kode voucher"
+                      value={voucherCode}
+                      onChange={(e) => {
+                        setVoucherCode(e.target.value.toUpperCase());
+                        setVoucherError(null);
+                      }}
+                      maxLength={6}
+                      className="flex-1"
+                    />
+                    <Button 
+                      variant="outline"
+                      onClick={handleValidateVoucher}
+                      disabled={isValidatingVoucher || !voucherCode.trim()}
+                      className="min-w-[100px]"
+                    >
+                      {isValidatingVoucher ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Gunakan'
+                      )}
+                    </Button>
+                  </div>
                 ) : (
-                  <div className="flex justify-between items-center p-2 bg-green-50 rounded-lg text-sm">
+                  <div className="flex justify-between items-center p-2 bg-green-50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      <span className="text-green-700">{appliedVoucher.code}</span>
+                      <span className="text-green-700 font-medium">{appliedVoucher.code}</span>
                       <span className="text-green-600">
-                        (-Rp {appliedVoucher.discountAmount.toLocaleString('id-ID')})
+                        (-Rp {appliedVoucher.discountAmount.toLocaleString()})
                       </span>
                     </div>
                     <Button
@@ -807,30 +768,43 @@ function BookingDetailContent() {
                     </Button>
                   </div>
                 )}
+                {voucherError && (
+                  <p className="text-sm text-red-500 mt-2">{voucherError}</p>
+                )}
               </div>
 
-              {/* Confirm Button */}
-              <Button 
-                onClick={handleConfirmBooking} 
-                disabled={isLoading}
-                className={`w-full py-6 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  isLoading 
-                    ? 'bg-gray-100 text-gray-400'
-                    : 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white'
-                }`}
-              >
-                {isLoading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Memproses...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    <span>Konfirmasi Booking</span>
-                  </div>
-                )}
-              </Button>
+              {/* Total */}
+              <div className="pt-3 mt-3 border-t border-gray-100">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-900">Total Pembayaran</span>
+                  <span className="text-xl font-bold text-gray-900">
+                    Rp {finalPrice.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Button */}
+            <Button 
+              onClick={handleConfirmBooking} 
+              disabled={isLoading}
+              className="w-full mt-6 h-12 text-base font-medium bg-[#0066FF] hover:bg-blue-700 text-white"
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Memproses...</span>
+                </div>
+              ) : (
+                <span>Lanjutkan Pembayaran</span>
+              )}
+            </Button>
+
+            {/* Cancellation Policy */}
+            <div className="mt-4 text-xs text-gray-500">
+              <p>
+                Pembatalan gratis hingga 24 jam sebelum jadwal. Setelah itu, biaya 50% akan dikenakan.
+              </p>
             </div>
           </div>
         </div>

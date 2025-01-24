@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateUserProfile, updateStreamerProfile, updateStreamerPrice } from "@/app/actions";
 import { createClient } from "@/utils/supabase/client";
 import Image from 'next/image';
-import { Loader2, User, Mail, FileText, Camera, Youtube, AlertCircle, ChevronLeft, Upload, MapPin, AlertTriangle, DollarSign } from 'lucide-react';
+import { Loader2, User, Mail, FileText, Camera, Youtube, AlertCircle, ChevronLeft, Upload, MapPin, AlertTriangle, DollarSign, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
@@ -157,6 +157,7 @@ function SettingsContent() {
   const [streamerId, setStreamerId] = useState<number | null>(null);
   const [previousPrice, setPreviousPrice] = useState<number | null>(null);
   const [discountPercentage, setDiscountPercentage] = useState<number | null>(null);
+  const [brandName, setBrandName] = useState('');
 
   // Move fetchUserData outside of useEffect
   const fetchUserData = async () => {
@@ -256,6 +257,7 @@ function SettingsContent() {
             last_name,
             profile_picture_url,
             location,
+            brand_name,
             brand_guidelines_url
           `)
           .eq('id', user.id)
@@ -271,6 +273,7 @@ function SettingsContent() {
           setFirstName(userData.first_name || '');
           setLastName(userData.last_name || '');
           setLocation(userData.location || '');
+          setBrandName(userData.brand_name || '');
           setBrandGuidelineUrl(userData.brand_guidelines_url || '');
           setImageUrl(userData.profile_picture_url || '');
         }
@@ -292,69 +295,46 @@ function SettingsContent() {
     setIsLoading(true);
 
     try {
-      const supabase = createClient();
-      
-      // 1. First, ensure streamer record exists
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Check if streamer exists
-      let { data: existingStreamer } = await supabase
-        .from('streamers')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      // If no streamer record, create one first
-      if (!existingStreamer) {
-        const { data: newStreamer, error: createError } = await supabase
-          .from('streamers')
-          .insert([
-            {
-              user_id: user.id,
-              first_name: firstName,
-              last_name: lastName,
-              platform: platform,
-              price: price,
-              location: location,
-              video_url: youtubeVideoUrl,
-              bio: bio
-            }
-          ])
-          .select('id')
-          .single();
-
-        if (createError) throw createError;
-        existingStreamer = newStreamer;
-      }
-
-      // 2. Then update the price (if changed)
-      if (price) {
-        await handlePriceUpdate(price);
-      }
-
-      // 3. Finally update the profile
       const formData = new FormData();
       formData.append('firstName', firstName);
       formData.append('lastName', lastName);
       formData.append('location', location);
-      formData.append('platform', platform);
-      formData.append('youtubeVideoUrl', youtubeVideoUrl);
-      
+
       if (selectedImage) {
         formData.append('image', selectedImage);
       }
 
-      newGalleryPhotos.forEach((photo) => {
-        formData.append('gallery', photo);
-      });
-      
-      formData.append('existingGalleryPhotos', JSON.stringify(galleryPhotos));
+      if (type === 'streamer') {
+        // Handle streamer-specific updates
+        formData.append('platform', platform);
+        formData.append('youtubeVideoUrl', youtubeVideoUrl);
+        
+        newGalleryPhotos.forEach((photo) => {
+          formData.append('gallery', photo);
+        });
+        
+        formData.append('existingGalleryPhotos', JSON.stringify(galleryPhotos));
 
-      const result = await updateStreamerProfile(formData);
+        // Update price if changed
+        if (price) {
+          await handlePriceUpdate(price);
+        }
 
-      if ('error' in result && result.error) {
-        throw new Error(result.error);
+        const result = await updateStreamerProfile(formData);
+        if ('error' in result && result.error) {
+          throw new Error(result.error);
+        }
+      } else {
+        // Handle client-specific updates
+        formData.append('brandName', brandName);
+        if (newBrandGuideline) {
+          formData.append('brandGuidelines', newBrandGuideline);
+        }
+
+        const result = await updateUserProfile(formData);
+        if ('error' in result && result.error) {
+          throw new Error(result.error);
+        }
       }
 
       toast.success('Profile berhasil diupdate');
@@ -445,7 +425,7 @@ function SettingsContent() {
 
   const handlePriceUpdate = async (currentPrice?: number) => {
     if (!newPrice || !streamerId) {
-      toast.error('Please enter a valid price');
+      setPriceError('Please enter a valid price');
       return;
     }
 
@@ -453,25 +433,19 @@ function SettingsContent() {
       const result = await updateStreamerPrice(streamerId, Number(newPrice)) as PriceUpdateResult;
       
       if (result.success) {
-        toast.success(result.message || 'Price updated successfully');
-        
-        // Now TypeScript knows the shape of result
+        // Update state without showing toast
         setPrice(result.current_price);
         setPreviousPrice(result.previous_price);
         setDiscountPercentage(result.discount_percentage);
         setLastPriceUpdate(new Date().toISOString());
-        
-        // Clear the input
         setNewPrice('');
-        
-        // Refresh the data
         await fetchUserData();
       } else {
-        toast.error(result.error || 'Failed to update price');
+        setPriceError(result.error || 'Failed to update price');
       }
     } catch (error) {
       console.error('Error updating price:', error);
-      toast.error('Failed to update price');
+      setPriceError('Failed to update price');
     }
   };
 
@@ -513,9 +487,9 @@ function SettingsContent() {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-2xl">
+    <div className="container mx-auto p-4 max-w-4xl">
       <Toaster position="top-center" />
-      <div className="flex items-center mb-6">
+      <div className="flex items-center mb-8">
         <Button 
           onClick={handleBackNavigation} 
           variant="outline" 
@@ -525,46 +499,46 @@ function SettingsContent() {
           <ChevronLeft className="w-4 h-4 mr-1" />
           Back
         </Button>
-        <h1 className="text-xl sm:text-2xl font-semibold">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">
           {type === 'streamer' ? 'Pengaturan Streamer' : 'Pengaturan Client'}
         </h1>
       </div>
 
-      <Card className="border-0 shadow-lg">
-        <CardHeader className="border-b border-gray-100 bg-gray-50/50">
-          <CardTitle className="text-lg sm:text-xl font-semibold">Informasi Profil</CardTitle>
+      <Card className="border-0 shadow-lg bg-[#faf9f6]">
+        <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-[#faf9f6] py-8">
+          <CardTitle className="text-xl sm:text-2xl font-semibold text-gray-900">Informasi Profil</CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="p-8">
           {loading ? (
-            <div className="flex justify-center items-center h-screen">
+            <div className="flex justify-center items-center h-[60vh]">
               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="flex flex-col items-center mb-6">
-                <div className="relative w-28 h-28 sm:w-32 sm:h-32 mb-2">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="flex flex-col items-center mb-10">
+                <div className="relative w-32 h-32 sm:w-40 sm:h-40 mb-4">
                   {(previewUrl || imageUrl) ? (
                     <Image
                       src={previewUrl || imageUrl || ''}
                       alt="Profile"
-                      width={128}
-                      height={128}
+                      width={160}
+                      height={160}
                       className="w-full h-full rounded-full object-cover border-4 border-blue-100"
                       unoptimized
                     />
                   ) : (
                     <div className="w-full h-full bg-blue-50 rounded-full flex items-center justify-center border-4 border-blue-100">
-                      <User className="h-12 w-12 text-blue-300" />
+                      <User className="h-16 w-16 text-blue-400" />
                     </div>
                   )}
                 </div>
                 <Button 
                   type="button" 
                   onClick={handleImageClick} 
-                  className="mt-2 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white"
+                  className="mt-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6"
                 >
                   <Camera className="mr-2 h-4 w-4" />
-                  {imageUrl ? 'Change Image' : 'Upload Image'}
+                  {imageUrl ? 'Ganti Foto Profil' : 'Upload Foto Profil'}
                 </Button>
                 <input
                   type="file"
@@ -574,18 +548,99 @@ function SettingsContent() {
                   accept="image/*"
                 />
                 {imageError && (
-                  <p className="text-red-500 text-xs mt-2 flex items-center">
+                  <p className="text-red-500 text-sm mt-2 flex items-center">
                     <AlertCircle className="mr-1 h-4 w-4" />
                     {imageError}
                   </p>
                 )}
               </div>
 
-              <div className="grid gap-6">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName" className="flex items-center text-sm text-gray-600">
-                      <User className="mr-2 h-4 w-4 text-blue-600" />
+              {/* Show price settings only for streamers */}
+              {type === 'streamer' && (
+                <div className="bg-gradient-to-r from-gray-50 to-white rounded-2xl p-8 mb-8 border border-gray-100">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <DollarSign className="h-5 w-5 text-[#E23744]" />
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">Tarif Dasar Kamu</h3>
+                    </div>
+
+                    <div className="relative">
+                      <Input
+                        id="price"
+                        type="text"
+                        value={newPrice}
+                        onChange={handlePriceChange}
+                        placeholder={price ? price.toString() : "Masukkan harga baru"}
+                        className="pl-8 h-11 text-base sm:text-lg border-gray-200 focus:border-[#E23744] focus:ring-[#E23744]"
+                      />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-base sm:text-lg">
+                        Rp
+                      </span>
+                    </div>
+                    
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      Contoh: Ketik "50000" untuk harga Rp 50.000
+                    </p>
+
+                    {/* Price guidance message */}
+                    {price > 0 && (
+                      <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-100 space-y-2 sm:space-y-3">
+                        <p className="text-sm sm:text-base font-medium text-gray-900">Batas perubahan harga:</p>
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                          <div className="bg-[#E23744]/5 rounded-lg p-3 sm:p-4">
+                            <p className="text-xs sm:text-sm text-gray-600">Minimum</p>
+                            <p className="text-sm sm:text-base font-semibold text-gray-900">
+                              Rp {calculatePriceLimits(price).minPrice.toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                          <div className="bg-[#E23744]/5 rounded-lg p-3 sm:p-4">
+                            <p className="text-xs sm:text-sm text-gray-600">Maximum</p>
+                            <p className="text-sm sm:text-base font-semibold text-gray-900">
+                              Rp {calculatePriceLimits(price).maxPrice.toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Display final price with platform fee */}
+                    <div className="bg-[#E23744]/5 rounded-xl p-4 sm:p-6 border border-[#E23744]/10">
+                      <p className="text-sm sm:text-base font-medium text-gray-900 mb-1 sm:mb-2">
+                        Harga Yang Dilihat Client:
+                      </p>
+                      <p className="text-lg sm:text-xl font-bold text-[#E23744]">
+                        Rp {Math.round(calculatePriceWithPlatformFee(price)).toLocaleString('id-ID')} / jam
+                      </p>
+                    </div>
+                    
+                    {priceError && (
+                      <div className="flex items-start gap-2 p-3 sm:p-4 bg-red-50 rounded-xl border border-red-100">
+                        <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs sm:text-sm font-medium text-red-800">Error:</p>
+                          <p className="text-xs sm:text-sm text-red-700">{getPriceErrorMessage(priceError)}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-2 p-4 sm:p-5 bg-gray-50 rounded-xl border border-gray-100">
+                      <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 flex-shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-gray-900">Perhatian:</p>
+                        <p className="text-xs sm:text-sm text-gray-600">
+                          Untuk menjaga kestabilan platform, perubahan harga dibatasi maksimal 25% naik atau turun per hari. Harga yang dilihat client akan otomatis ditambah 30% sebagai biaya layanan platform.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-8">
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="firstName" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
+                      <User className="mr-2 h-5 w-5 text-blue-600" />
                       Nama Depan
                     </Label>
                     <Input
@@ -593,15 +648,16 @@ function SettingsContent() {
                       name="firstName"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+                      className="h-11 text-base sm:text-lg border-gray-200 focus:border-blue-600 focus:ring-blue-600 bg-white"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs sm:text-sm text-gray-600">
                       Nama depan saat ini: {firstName || 'Belum diatur'}
                     </p>
                   </div>
-                  <div>
-                    <Label htmlFor="lastName" className="flex items-center text-sm text-gray-600">
-                      <User className="mr-2 h-4 w-4 text-blue-600" />
+                  
+                  <div className="space-y-3">
+                    <Label htmlFor="lastName" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
+                      <User className="mr-2 h-5 w-5 text-blue-600" />
                       Nama Belakang
                     </Label>
                     <Input
@@ -609,17 +665,17 @@ function SettingsContent() {
                       name="lastName"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+                      className="h-11 text-base sm:text-lg border-gray-200 focus:border-blue-600 focus:ring-blue-600 bg-white"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs sm:text-sm text-gray-600">
                       Nama belakang saat ini: {lastName || 'Belum diatur'}
                     </p>
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label htmlFor="location" className="flex items-center text-sm text-gray-600">
-                    <MapPin className="mr-2 h-4 w-4 text-blue-600" />
+                <div className="space-y-3">
+                  <Label htmlFor="location" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
+                    <MapPin className="mr-2 h-5 w-5 text-blue-600" />
                     Lokasi
                   </Label>
                   <Input
@@ -627,69 +683,73 @@ function SettingsContent() {
                     name="location"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+                    className="h-11 text-base sm:text-lg border-gray-200 focus:border-blue-600 focus:ring-blue-600 bg-white"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs sm:text-sm text-gray-600">
                     Lokasi saat ini: {location || 'Belum diatur'}
                   </p>
                 </div>
 
-                {/* Brand Guidelines - Only show for clients */}
-                {type !== 'streamer' && (
-                  <div className="space-y-1">
-                    <Label htmlFor="brand_guideline" className="flex items-center text-sm text-gray-600">
-                      <FileText className="mr-2 h-4 w-4 text-blue-600" />
-                      Brand Guideline
-                    </Label>
-                    <div className="relative">
+                {/* Client-specific fields */}
+                {type === 'client' && (
+                  <>
+                    <div className="space-y-3">
+                      <Label htmlFor="brandName" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
+                        <FileText className="mr-2 h-5 w-5 text-blue-600" />
+                        Nama Brand
+                      </Label>
                       <Input
-                        type="file"
-                        id="brand_guideline"
-                        name="brand_guideline"
-                        onChange={handleBrandGuidelineChange}
-                        className="hidden"
-                        accept=".pdf,.doc,.docx"
+                        id="brandName"
+                        name="brandName"
+                        value={brandName}
+                        onChange={(e) => setBrandName(e.target.value)}
+                        className="h-11 text-base sm:text-lg border-gray-200 focus:border-blue-600 focus:ring-blue-600 bg-white"
                       />
-                      <div 
-                        onClick={() => document.getElementById('brand_guideline')?.click()}
-                        className="cursor-pointer group flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 transition-all duration-200 hover:border-blue-500 hover:bg-blue-50/50"
-                      >
-                        <div className="text-center">
-                          <Upload className="mx-auto h-8 w-8 text-gray-400 group-hover:text-blue-500 mb-2 transition-colors" />
-                          <span className="text-sm text-gray-600 group-hover:text-blue-600 transition-colors">
-                            {newBrandGuideline ? newBrandGuideline.name : 'Klik untuk memperbarui Brand Guidelines'}
-                          </span>
-                          {brandGuidelineUrl && (
-                            <div className="mt-3 p-2 bg-blue-50 rounded-lg">
-                              <p className="font-medium text-sm text-blue-600">Brand Guideline Saat Ini:</p>
-                              <p className="text-sm text-blue-500 truncate">
-                                {brandGuidelineUrl.split('/').pop()}
-                              </p>
-                            </div>
-                          )}
-                          {!brandGuidelineUrl && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Belum ada file yang diunggah
-                            </p>
-                          )}
-                        </div>
+                      <p className="text-xs sm:text-sm text-gray-600">
+                        Nama brand saat ini: {brandName || 'Belum diatur'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Label htmlFor="brandGuidelines" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
+                        <FileText className="mr-2 h-5 w-5 text-blue-600" />
+                        Brand Guidelines
+                      </Label>
+                      <div className="bg-white rounded-xl p-6 border border-gray-200">
+                        <Input
+                          type="file"
+                          id="brandGuidelines"
+                          onChange={handleBrandGuidelineChange}
+                          accept=".pdf,.doc,.docx"
+                          className="h-11 text-base sm:text-lg border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+                        />
+                        {brandGuidelineUrl && (
+                          <p className="text-xs sm:text-sm text-gray-600 mt-3">
+                            Brand guidelines saat ini:{' '}
+                            <a 
+                              href={brandGuidelineUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-700 hover:underline"
+                            >
+                              Lihat dokumen
+                            </a>
+                          </p>
+                        )}
+                        {brandGuidelineError && (
+                          <p className="text-red-500 text-sm mt-2">{brandGuidelineError}</p>
+                        )}
                       </div>
                     </div>
-                    {brandGuidelineError && (
-                      <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
-                        <AlertCircle className="h-4 w-4" />
-                        {brandGuidelineError}
-                      </p>
-                    )}
-                  </div>
+                  </>
                 )}
 
                 {/* Streamer-specific fields */}
                 {type === 'streamer' && (
                   <>
-                    <div className="space-y-1">
-                      <Label htmlFor="youtubeVideoUrl" className="flex items-center text-sm text-gray-600">
-                        <Youtube className="mr-2 h-4 w-4 text-blue-600" />
+                    <div className="space-y-3">
+                      <Label htmlFor="youtubeVideoUrl" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
+                        <Youtube className="mr-2 h-5 w-5 text-[#E23744]" />
                         Video YouTube
                       </Label>
                       <Input
@@ -698,9 +758,9 @@ function SettingsContent() {
                         value={youtubeVideoUrl}
                         onChange={(e) => setYoutubeVideoUrl(e.target.value)}
                         placeholder="https://youtube.com/watch?v=..."
-                        className="mt-1 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+                        className="h-11 text-base sm:text-lg border-gray-200 focus:border-[#E23744] focus:ring-[#E23744]"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs sm:text-sm text-gray-600">
                         {youtubeVideoUrl ? 
                           `Video saat ini: ${youtubeVideoUrl}` : 
                           'Tambahkan video untuk menunjukkan gaya streaming Anda'
@@ -708,142 +768,81 @@ function SettingsContent() {
                       </p>
                     </div>
 
-                    <div className="space-y-1">
-                      <Label htmlFor="galleryPhotos" className="flex items-center text-sm text-gray-600">
-                        <Camera className="mr-2 h-4 w-4 text-blue-600" />
+                    <div className="space-y-4">
+                      <Label htmlFor="galleryPhotos" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
+                        <Camera className="mr-2 h-5 w-5 text-[#E23744]" />
                         Foto Galeri (Maks. 5)
                       </Label>
-                      <Input
-                        type="file"
-                        id="galleryPhotos"
-                        onChange={handleGalleryPhotoChange}
-                        accept="image/*"
-                        multiple
-                        className="mt-1"
-                        disabled={galleryPhotos.length + newGalleryPhotos.length >= maxGalleryPhotos}
-                      />
-                      {galleryError && (
-                        <p className="text-red-500 text-xs mt-1">{galleryError}</p>
-                      )}
                       
-                      <div className="grid grid-cols-5 gap-2 mt-2">
-                        {galleryPhotos.map((photo, index) => (
-                          <div key={index} className="relative">
-                            <Image
-                              src={photo}
-                              alt={`Gallery photo ${index + 1}`}
-                              width={100}
-                              height={100}
-                              className="w-full h-24 object-cover rounded"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeGalleryPhoto(index)}
-                              className="absolute top-0 right-0 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white rounded-full p-1"
-                            >
-                              X
-                            </button>
-                          </div>
-                        ))}
-                        {newGalleryPhotos.map((photo, index) => (
-                          <div key={`new-${index}`} className="relative">
-                            <Image
-                              src={URL.createObjectURL(photo)}
-                              alt={`New gallery photo ${index + 1}`}
-                              width={100}
-                              height={100}
-                              className="w-full h-24 object-cover rounded"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeGalleryPhoto(index, true)}
-                              className="absolute top-0 right-0 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white rounded-full p-1"
-                            >
-                              X
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="price" className="flex items-center text-sm text-gray-600">
-                        <DollarSign className="mr-2 h-4 w-4 text-blue-600" />
-                        Tarif Dasar Kamu
-                      </Label>
-                      <div className="relative">
+                      <div className="bg-[#E23744]/5 rounded-xl p-6 border border-[#E23744]/10">
                         <Input
-                          id="price"
-                          type="text"
-                          value={newPrice}
-                          onChange={handlePriceChange}
-                          placeholder={price ? price.toString() : "Enter new price"}
-                          className="mt-1 pl-8"
+                          type="file"
+                          id="galleryPhotos"
+                          onChange={handleGalleryPhotoChange}
+                          accept="image/*"
+                          multiple
+                          className="mb-4 text-base"
+                          disabled={galleryPhotos.length + newGalleryPhotos.length >= maxGalleryPhotos}
                         />
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                          Rp
-                        </span>
+                        {galleryError && (
+                          <p className="text-red-500 text-sm mb-4">{galleryError}</p>
+                        )}
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                          {galleryPhotos.map((photo, index) => (
+                            <div key={index} className="relative aspect-square">
+                              <Image
+                                src={photo}
+                                alt={`Gallery photo ${index + 1}`}
+                                width={200}
+                                height={200}
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeGalleryPhoto(index)}
+                                className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
+                              >
+                                <XCircle className="h-5 w-5 text-red-500" />
+                              </button>
+                            </div>
+                          ))}
+                          {newGalleryPhotos.map((photo, index) => (
+                            <div key={`new-${index}`} className="relative aspect-square">
+                              <Image
+                                src={URL.createObjectURL(photo)}
+                                alt={`New gallery photo ${index + 1}`}
+                                width={200}
+                                height={200}
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeGalleryPhoto(index, true)}
+                                className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
+                              >
+                                <XCircle className="h-5 w-5 text-red-500" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      
-                      {/* Add a helper text below the input */}
-                      <p className="text-xs text-gray-500 mt-1">
-                        Contoh: Ketik "50000" untuk harga Rp 50.000
-                      </p>
-                      
-                      {/* Price guidance message */}
-                      {price > 0 && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          <p>Batas perubahan harga:</p>
-                          <ul className="list-disc list-inside ml-1 space-y-0.5">
-                            <li>Minimum: Rp {calculatePriceLimits(price).minPrice.toLocaleString('id-ID')}</li>
-                            <li>Maximum: Rp {calculatePriceLimits(price).maxPrice.toLocaleString('id-ID')}</li>
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {/* Display final price with platform fee */}
-                      <div className="mt-2 p-3 bg-blue-50 rounded-md">
-                        <p className="text-sm text-blue-600 font-medium">
-                          Harga Yang Dilihat Client:
-                        </p>
-                        <p className="text-base font-bold text-blue-700">
-                          Rp {Math.round(calculatePriceWithPlatformFee(price)).toLocaleString('id-ID')} / jam
-                        </p>
-                        <p className="text-xs text-blue-500 mt-1">
-                          *Sudah termasuk biaya platform 30%
-                        </p>
-                      </div>
-                      
-                      {nextAvailableUpdate && (
-                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-600">
-                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                          Kamu bisa update harga lagi pada: {format(parseISO(nextAvailableUpdate), 'PPp')}
-                        </div>
-                      )}
-                      
-                      {priceError && (
-                        <div className="text-sm text-red-500 mt-1 flex items-center gap-1 bg-red-50 p-2 rounded">
-                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                          <span className="flex-1">{getPriceErrorMessage(priceError)}</span>
-                        </div>
-                      )}
-
-                      {/* Add helper text */}
-                      <p className="text-xs text-gray-500 mt-2">
-                        Tips: Perubahan harga dibatasi maksimal 25% naik atau turun untuk menjaga kestabilan harga platform.
-                      </p>
                     </div>
                   </>
                 )}
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white h-11"
+                  className={`w-full h-14 text-white text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 ${
+                    type === 'client' 
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+                      : 'bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744]'
+                  }`}
                   disabled={isLoading}
                 >
                   {isLoading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                       Menyimpan Perubahan...
                     </>
                   ) : (

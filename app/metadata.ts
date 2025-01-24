@@ -30,20 +30,5 @@ export const defaultMetadata: Metadata = {
       rel: 'apple-touch-icon-precomposed',
       url: '/apple-icon-precomposed.png',
     },
-  },
-  twitter: {
-    card: 'summary_large_image',
-    site: '@salda_id',
-    creator: '@salda_id',
-  },
-  verification: {
-    google: 'your-google-verification-code',
-  },
-  alternates: {
-    canonical: 'https://salda.id',
-    languages: {
-      'id-ID': 'https://salda.id',
-      'en-US': 'https://salda.id/en',
-    },
-  },
+  }
 } 

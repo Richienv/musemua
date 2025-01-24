@@ -104,71 +104,81 @@ export function Navbar({ onFilterChange }: NavbarProps) {
   const isStreamerDashboard = pathname === '/streamer-dashboard';
 
   return (
-    <nav className="sticky top-0 z-50 bg-white text-black border-b border-black/5 w-full pt-2">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
-            <Link href={dashboardLink} className="flex items-center">
-              <div className="p-1.5">
-                <Image
-                  src="/images/salda-logoB.png"
-                  alt="Salda Logo"
-                  width={150}
-                  height={150}
-                  className="object-contain"
-                />
-              </div>
-            </Link>
-          </div>
+    <div className="relative bg-[#faf9f6] border-b border-black/5 w-full z-40">
+      <nav className="w-full py-2 sm:py-4">
+        <div className="max-w-[2000px] mx-auto px-3 sm:px-6 lg:px-20">
+          <div className="flex items-center justify-between h-12 sm:h-16">
+            <div className="flex items-center flex-shrink-0">
+              <Link href={dashboardLink} className="flex items-center">
+                <div className="p-0.5 sm:p-1">
+                  <Image
+                    src="/images/salda-logoB.png"
+                    alt="Salda Logo"
+                    width={200}
+                    height={200}
+                    className="w-auto h-10 sm:h-16 object-contain"
+                    priority
+                  />
+                </div>
+              </Link>
+            </div>
 
-          {!isStreamerDashboard && onFilterChange && (
-            <div className="flex-1 max-w-xl mx-4 relative">
-              <div className={`relative transition-all duration-200 ${
-                isSearchFocused ? 'transform scale-105' : ''
-              }`}>
-                <Input
-                  type="text"
-                  placeholder="Cari Livestreamer kamu di Salda"
-                  className="w-full pl-4 pr-12 py-2 rounded-lg border border-gray-200 
-                    shadow-[0_2px_8px_-3px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_12px_-3px_rgba(0,0,0,0.15)] 
-                    focus:shadow-[0_6px_16px_-3px_rgba(0,0,0,0.2)] 
-                    transition-all duration-200
-                    focus:border-blue-500"
-                  onChange={(e) => onFilterChange(e.target.value)}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setIsSearchFocused(false)}
-                />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-1.5 rounded-md shadow-sm">
-                    <Search className="h-4 w-4 text-white" />
+            {!isStreamerDashboard && onFilterChange && (
+              <div className="flex-1 max-w-3xl mx-2 sm:mx-8">
+                <div className={`relative transition-all duration-200 ${
+                  isSearchFocused ? 'transform scale-[1.02] shadow-lg' : ''
+                }`}>
+                  <Input
+                    type="text"
+                    placeholder="Cari Host"
+                    className="w-full pl-4 sm:pl-8 pr-12 sm:pr-16 py-3 sm:py-4 text-sm sm:text-base rounded-full border border-gray-200 
+                      shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.15)] 
+                      focus:shadow-[0_6px_16px_-4px_rgba(0,0,0,0.2)] 
+                      transition-all duration-200
+                      focus:border-blue-500
+                      bg-white"
+                    onChange={(e) => onFilterChange(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setIsSearchFocused(false)}
+                  />
+                  <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2">
+                    <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 sm:p-3 rounded-full shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                      <Search className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          <div className="flex items-center space-x-4">
-            {userData && (
-              <>
-                <button 
-                  onClick={() => router.push('/messages')} 
-                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                >
-                  <MessageSquare size={24} className="text-black" />
-                </button>
-                <NotificationsPopup />
-                <div className="h-6 w-px bg-black opacity-10"></div>
-              </>
             )}
-            <div className="hidden sm:block">
-              <ProfileButton user={userData} />
-            </div>
-            <div className="sm:hidden">
-              <ProfileButton user={userData} showNameOnMobile={false} />
+
+            <div className="flex items-center gap-2 sm:gap-5">
+              {userData && (
+                <>
+                  <button 
+                    onClick={() => router.push('/messages')} 
+                    className="relative hidden sm:flex shrink-0 items-center justify-center hover:opacity-70 transition-opacity"
+                  >
+                    <MessageSquare className="h-6 w-6 text-gray-700" strokeWidth={1.5} />
+                  </button>
+                  <div className="block scale-90 sm:scale-100">
+                    <NotificationsPopup />
+                  </div>
+                  <div className="hidden sm:block h-10 w-px bg-gray-200 mx-3"></div>
+                </>
+              )}
+              <div className="hidden sm:block">
+                <ProfileButton user={userData} />
+              </div>
+              <div className="block sm:hidden">
+                <ProfileButton 
+                  user={userData} 
+                  showNameOnMobile={false}
+                  className="scale-90 sm:scale-100"
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }
