@@ -218,7 +218,8 @@ export function NotificationsPopup() {
           zIndex: 9999,
           position: 'relative',
           backgroundColor: '#faf9f6',
-          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          left: '16px'
         }}
       >
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">

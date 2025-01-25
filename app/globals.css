@@ -141,11 +141,13 @@ html {
 }
 
 .perspective-1000 {
-  perspective: 1000px;
+  perspective: none !important;
 }
 
 .preserve-3d {
-  transform-style: preserve-3d;
+  transform-style: flat !important;
+  transform: none !important;
+  transition: none !important;
 }
 
 .card-transition {
@@ -218,7 +220,7 @@ html {
 
 /* Smooth transitions for 3D hover effects */
 .transition-transform {
-  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.1s ease-in-out;
 }
 
 /* Enhanced depth for cards */
@@ -256,12 +258,12 @@ html {
 
 /* Add smooth transitions for transform */
 .transform-smooth {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.1s ease-in-out;
 }
 
 /* Enhanced card effects */
 .card-hover {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.1s ease-in-out;
 }
 
 .card-hover:hover {
@@ -331,14 +333,39 @@ img {
 .card-hover,
 .transform-smooth,
 .transition-transform {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.1s ease-in-out;
 }
 
 /* Add specific transitions for interactive elements */
 button:not(.no-transition),
 a:not(.no-transition),
 .interactive-element {
-  transition: background-color 0.2s ease-in-out,
-              border-color 0.2s ease-in-out,
-              opacity 0.2s ease-in-out;
+  transition: background-color 0.1s ease-in-out,
+              border-color 0.1s ease-in-out,
+              opacity 0.1s ease-in-out;
+}
+
+/* Dialog positioning fix for mobile */
+@media (max-width: 640px) {
+  [role="dialog"] {
+    left: 47% !important;
+    top: 45% !important;
+    transform: translate(-50%, -40%) !important;
+    transition: none !important;
+  }
+
+  /* Popover positioning fix for mobile */
+  [data-radix-popper-content-wrapper] {
+    left: 53% !important;
+    top: 15% !important;
+    transform: translate(-50%, -40%) !important;
+    transition: none !important;
+  }
+}
+
+/* Add this to disable animations globally for dialogs and popovers */
+[role="dialog"],
+[data-radix-popper-content-wrapper] {
+  animation: none !important;
+  transition: none !important;
 }

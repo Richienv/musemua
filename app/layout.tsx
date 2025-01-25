@@ -12,9 +12,7 @@ const playfair = Playfair_Display({
   variable: '--font-playfair'
 })
 
-const defaultUrl = process.env.VERCEL_URL 
-  ? `https://liloapp.vercel.app`
-  : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const defaultUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://salda.id';
 
 export const metadata = {
   metadataBase: new URL(defaultUrl),

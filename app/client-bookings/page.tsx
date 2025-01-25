@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from "@/utils/supabase/client";
 import { format, differenceInHours, isBefore, startOfDay, isSameDay } from 'date-fns';
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X, XCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X, XCircle, CheckCircle, Check, Radio } from 'lucide-react';
 import Image from 'next/image';
 import RatingModal from '@/components/rating-modal';
 import { useRouter } from 'next/navigation';
@@ -27,6 +27,7 @@ interface Booking {
   updated_at?: string;
   price: number;
   special_request: string | null;
+  timezone?: string;
   streamer: {
     id: number;
     first_name: string;
@@ -37,6 +38,10 @@ interface Booking {
   };
   items_received?: boolean;
   items_received_at?: string | null;
+  voucher_usage?: Array<{
+    final_price: number;
+    discount_applied: number;
+  }>;
 }
 
 interface RatingData {
@@ -62,6 +67,13 @@ interface BookingRecord {
   start_time: string;
   end_time: string;
   status: string;
+}
+
+function adjustToIndonesiaTime(dateString: string) {
+  const date = new Date(dateString);
+  // Subtract 8 hours to adjust for Indonesia timezone
+  date.setHours(date.getHours() - 8);
+  return date;
 }
 
 const getStatusInfo = (status: string) => {
@@ -547,13 +559,38 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
 
+  // Add debug logging
+  useEffect(() => {
+    console.log('Booking times:', {
+      start: booking.start_time,
+      end: booking.end_time,
+      convertedStart: format(adjustToIndonesiaTime(booking.start_time), 'HH:mm'),
+      convertedEnd: format(adjustToIndonesiaTime(booking.end_time), 'HH:mm'),
+      timezone: booking.timezone
+    });
+  }, [booking]);
+
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending': return <Clock className="w-3 h-3" />;
+      case 'accepted': return <CheckCircle className="w-3 h-3" />;
+      case 'completed': return <Check className="w-3 h-3" />;
+      case 'live': return <Radio className="w-3 h-3" />;
+      case 'rejected': return <XCircle className="w-3 h-3" />;
+      case 'cancelled': return <X className="w-3 h-3" />;
+      default: return null;
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'accepted': return 'bg-green-100 text-green-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
-      case 'live': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'pending': return 'bg-blue-50 text-blue-700 border border-blue-200';
+      case 'accepted': return 'bg-green-50 text-green-700 border border-green-200';
+      case 'completed': return 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+      case 'live': return 'bg-red-50 text-red-700 border border-red-200';
+      case 'rejected': return 'bg-gray-50 text-gray-700 border border-gray-200';
+      case 'cancelled': return 'bg-gray-50 text-gray-700 border border-gray-200';
+      default: return 'bg-gray-50 text-gray-700 border border-gray-200';
     }
   };
 
@@ -659,27 +696,25 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
     }
   };
 
+  // Update price display logic
+  const displayPrice = booking.voucher_usage?.[0]?.final_price ?? booking.price;
+  const discountAmount = booking.voucher_usage?.[0]?.discount_applied;
+  const hasDiscount = discountAmount && discountAmount > 0;
+
   return (
     <div className="border rounded-lg shadow-sm p-4 pb-4 mb-4 text-sm hover:shadow-md transition-shadow relative">
-      {/* Top layer - Status and date position switched */}
       <div className="flex justify-between items-center mb-3 pb-3 border-b">
         <div className="flex items-center gap-1">
           <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(booking.status)} flex items-center`}>
+            {getStatusIcon(booking.status)}
             {booking.status}
-            <div className="group relative inline-block ml-1">
-              <div className="rounded-full">
-                <Info className="h-3 w-3 text-current opacity-70 stroke-[2.5]" />
-              </div>
-              <div className="invisible group-hover:visible absolute z-10 w-72 bg-black text-white text-sm rounded-md p-3 left-0 mt-1">
-                {getStatusInfo(booking.status)}
-              </div>
-            </div>
           </span>
         </div>
-        <span className="text-gray-500 text-sm">{format(new Date(booking.created_at), 'MMM d, yyyy HH:mm')}</span>
+        <span className="text-gray-500 text-sm">
+          {format(adjustToIndonesiaTime(booking.created_at), 'MMM d, yyyy HH:mm')}
+        </span>
       </div>
       
-      {/* Middle layer - Removed duplicate name */}
       <div className="flex items-start mb-3 pb-3 border-b">
         <Image 
           src={booking.streamer.image_url || '/default-avatar.png'}
@@ -693,7 +728,9 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
           <p className="text-gray-600 mb-2">Livestreaming services on {booking.platform}</p>
           <div className="flex items-center mb-2">
             <Clock className="w-4 h-4 mr-2 text-gray-400" />
-            <span className="text-base">{`${format(new Date(booking.start_time), 'HH:mm')} - ${format(new Date(booking.end_time), 'HH:mm')}`}</span>
+            <span className="text-base">
+              {`${format(adjustToIndonesiaTime(booking.start_time), 'HH:mm')} - ${format(adjustToIndonesiaTime(booking.end_time), 'HH:mm')}`}
+            </span>
           </div>
           <div className="flex items-center">
             <Star className="w-4 h-4 mr-2 text-yellow-400" />
@@ -702,11 +739,28 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
         </div>
       </div>
       
-      {/* Bottom layer - Updated with new buttons */}
       <div className="flex justify-between items-center">
-        <div className="flex items-center">
-          <DollarSign className="w-5 h-5 mr-2 text-green-500" />
-          <span className="font-semibold text-lg">Rp {booking.price.toLocaleString()}</span>
+        <div className="flex items-center gap-3 text-sm">
+          <DollarSign className="h-4 w-4 text-gray-400" />
+          <div className="flex flex-col">
+            {hasDiscount ? (
+              <>
+                <span className="line-through text-gray-400">
+                  Rp {booking.price.toLocaleString()}
+                </span>
+                <span className="font-medium text-green-600">
+                  Rp {displayPrice.toLocaleString()}
+                  <span className="text-xs ml-2">
+                    (Saved Rp {discountAmount.toLocaleString()})
+                  </span>
+                </span>
+              </>
+            ) : (
+              <span className="font-medium">
+                Rp {displayPrice.toLocaleString()}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
           {booking.status.toLowerCase() === 'completed' && (
@@ -722,7 +776,6 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
         </div>
       </div>
 
-      {/* Add these buttons only for reschedule_requested status */}
       {booking.status === 'reschedule_requested' && (
         <div className="flex flex-row gap-2 mt-4 sm:justify-end">
           <Button
@@ -744,7 +797,6 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
         </div>
       )}
 
-      {/* Modals */}
       {isRatingModalOpen && (
         <RatingModal 
           isOpen={isRatingModalOpen} 
@@ -791,106 +843,142 @@ export default function ClientBookings() {
   const [clientName, setClientName] = useState('');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState('Upcoming');
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const bookingsPerPage = 10;
 
-  const fetchClientData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (user) {
-      // Fetch client name
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('first_name')
-        .eq('id', user.id)
-        .single();
-      
-      if (userData) {
-        setClientName(userData.first_name);
-      } else if (userError) {
-        console.error("Error fetching user data:", userError);
-        setError("Failed to fetch user data");
-      }
-
-      // Fetch bookings
-      const { data: bookingsData, error: bookingsError } = await supabase
-        .from('bookings')
-        .select(`
-          id,
-          start_time,
-          end_time,
-          platform,
-          status,
-          created_at,
-          price,
-          special_request,
-          streamer:streamer_id (
-            id,
-            first_name,
-            last_name,
-            platform,
-            image_url
-          )
-        `)
-        .eq('client_id', user.id)
-        .not('status', 'eq', 'payment_pending')
-        .order('created_at', { ascending: false });
-
-      if (bookingsError) {
-        console.error('Error fetching bookings:', bookingsError);
-        setError("Failed to fetch bookings");
-      } else if (bookingsData) {
-        // Get unique streamer IDs
-        const streamerIds = Array.from(
-          new Set(
-            bookingsData.map((booking: any) => booking.streamer.id)
-          )
-        );
-
-        // Fetch ratings
-        const { data: ratingsData, error: ratingsError } = await supabase
-          .from('streamer_ratings')
-          .select('streamer_id, rating')
-          .in('streamer_id', streamerIds);
-
-        if (ratingsError) {
-          console.error('Error fetching ratings:', ratingsError);
-        } else {
-          // Calculate average ratings with proper typing
-          const averageRatings = (ratingsData || []).reduce((acc: Record<number, { sum: number; count: number }>, curr) => {
-            if (!acc[curr.streamer_id]) {
-              acc[curr.streamer_id] = { sum: 0, count: 0 };
-            }
-            acc[curr.streamer_id].sum += curr.rating;
-            acc[curr.streamer_id].count += 1;
-            return acc;
-          }, {});
-
-          // Add ratings to bookings with proper typing
-          const bookingsWithRatings: Booking[] = bookingsData.map((booking: any) => ({
-            ...booking,
-            streamer_id: booking.streamer.id,
-            streamer: {
-              ...booking.streamer,
-              rating: averageRatings[booking.streamer.id]
-                ? (averageRatings[booking.streamer.id].sum / averageRatings[booking.streamer.id].count)
-                : 0
-            }
-          }));
-
-          setBookings(bookingsWithRatings);
-        }
-      } else {
-        setBookings([]);
-      }
-    } else {
-      setError("User not authenticated");
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending': return <Clock className="w-3 h-3" />;
+      case 'accepted': return <CheckCircle className="w-3 h-3" />;
+      case 'completed': return <Check className="w-3 h-3" />;
+      case 'live': return <Radio className="w-3 h-3" />;
+      case 'rejected': return <XCircle className="w-3 h-3" />;
+      case 'cancelled': return <X className="w-3 h-3" />;
+      default: return null;
     }
-    setIsLoading(false);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending': return 'bg-blue-50 text-blue-700 border border-blue-200';
+      case 'accepted': return 'bg-green-50 text-green-700 border border-green-200';
+      case 'completed': return 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+      case 'live': return 'bg-red-50 text-red-700 border border-red-200';
+      case 'rejected': return 'bg-gray-50 text-gray-700 border border-gray-200';
+      case 'cancelled': return 'bg-gray-50 text-gray-700 border border-gray-200';
+      default: return 'bg-gray-50 text-gray-700 border border-gray-200';
+    }
+  };
+
+  const fetchClientData = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Fetch client name
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('first_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (userData) {
+          setClientName(userData.first_name);
+        } else if (userError) {
+          console.error("Error fetching user data:", userError);
+          toast.error("Failed to fetch user data");
+        }
+
+        // Fetch bookings
+        const { data: bookingsData, error: bookingsError } = await supabase
+          .from('bookings')
+          .select(`
+            id,
+            start_time,
+            end_time,
+            platform,
+            status,
+            created_at,
+            price,
+            special_request,
+            streamer:streamer_id (
+              id,
+              first_name,
+              last_name,
+              platform,
+              image_url
+            ),
+            voucher_usage (
+              final_price,
+              discount_applied
+            )
+          `)
+          .eq('client_id', user.id)
+          .not('status', 'eq', 'payment_pending')
+          .order('created_at', { ascending: false });
+
+        if (bookingsError) {
+          console.error('Error fetching bookings:', bookingsError);
+          toast.error("Failed to fetch bookings");
+        } else if (bookingsData) {
+          // Get unique streamer IDs
+          const streamerIds = Array.from(
+            new Set(
+              bookingsData.map((booking: any) => booking.streamer.id)
+            )
+          );
+
+          // Fetch ratings
+          const { data: ratingsData, error: ratingsError } = await supabase
+            .from('streamer_ratings')
+            .select('streamer_id, rating')
+            .in('streamer_id', streamerIds);
+
+          if (ratingsError) {
+            console.error('Error fetching ratings:', ratingsError);
+          } else {
+            // Calculate average ratings
+            const averageRatings = (ratingsData || []).reduce((acc: Record<number, { sum: number; count: number }>, curr) => {
+              if (!acc[curr.streamer_id]) {
+                acc[curr.streamer_id] = { sum: 0, count: 0 };
+              }
+              acc[curr.streamer_id].sum += curr.rating;
+              acc[curr.streamer_id].count += 1;
+              return acc;
+            }, {});
+
+            // Add ratings to bookings
+            const bookingsWithRatings: Booking[] = bookingsData.map((booking: any) => ({
+              ...booking,
+              streamer_id: booking.streamer.id,
+              streamer: {
+                ...booking.streamer,
+                rating: averageRatings[booking.streamer.id]
+                  ? (averageRatings[booking.streamer.id].sum / averageRatings[booking.streamer.id].count)
+                  : 0
+              }
+            }));
+
+            setBookings(bookingsWithRatings);
+          }
+        } else {
+          setBookings([]);
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("Something went wrong while fetching data");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -898,12 +986,39 @@ export default function ClientBookings() {
   }, [fetchClientData]);
 
   const refreshBookings = () => {
+    setIsRefreshing(true);
     fetchClientData();
   };
 
+  // Filter bookings based on active tab
+  const filteredBookings = useMemo(() => {
+    return bookings.filter(booking => {
+      const status = booking.status.toLowerCase();
+      const bookingDate = new Date(booking.start_time);
+      const now = new Date();
+      
+      switch (activeTab.toLowerCase()) {
+        case 'upcoming':
+          return ['accepted', 'pending'].includes(status) && bookingDate > now;
+        case 'pending':
+          return status === 'pending';
+        case 'recurring':
+          // Add logic for recurring bookings if needed
+          return false;
+        case 'past':
+          return ['completed', 'rejected'].includes(status);
+        case 'cancelled':
+          return status === 'cancelled';
+        default:
+          return true;
+      }
+    });
+  }, [bookings, activeTab]);
+
+  // Update pagination to use filtered bookings
   const indexOfLastBooking = currentPage * bookingsPerPage;
   const indexOfFirstBooking = indexOfLastBooking - bookingsPerPage;
-  const currentBookings = bookings.slice(indexOfFirstBooking, indexOfLastBooking);
+  const currentBookings = filteredBookings.slice(indexOfFirstBooking, indexOfLastBooking);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
@@ -918,73 +1033,209 @@ export default function ClientBookings() {
   };
 
   if (isLoading) {
-    return <div className="container mx-auto p-4 text-sm">Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="container mx-auto p-4 text-red-500 text-sm">Error: {error}</div>;
+    return <div className="min-h-screen bg-[#faf96f]/10 p-8">
+      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-6">
+        <p className="text-red-500 text-sm">Error: {error}</p>
+      </div>
+    </div>;
   }
 
+  const tabs = ['Upcoming', 'Pending', 'Recurring', 'Past', 'Cancelled'];
+
   return (
-    <div className="container mx-auto px-4 max-w-3xl font-sans pt-12">
-      <div className="mb-8 border-b pb-4">
-        <div className="flex items-center gap-4">
-          <Button 
-            onClick={() => router.push('/protected')} 
-            variant="ghost" 
-            size="lg"
-            className="text-gray-600 hover:text-gray-800 p-0"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </Button>
-          <div className="flex items-center justify-between flex-grow">
-            <h1 className="text-2xl">{clientName}'s Bookings</h1>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg relative">
+        {isRefreshing && (
+          <div className="absolute inset-0 bg-white/50 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        )}
+        
+        <div className="p-6 border-b">
+          <div className="flex items-center gap-4">
             <Button 
-              onClick={refreshBookings} 
-              size="sm" 
-              variant="ghost"
-              className="p-2"
+              onClick={() => router.push('/protected')} 
+              variant="ghost" 
+              size="lg"
+              className="text-gray-600 hover:text-gray-800 p-0"
             >
-              <RefreshCw className="w-5 h-5" />
+              <ChevronLeft className="w-6 h-6" />
+            </Button>
+            <div className="flex items-center justify-between flex-grow">
+              <h1 className="text-2xl font-semibold">Salda Booking Management</h1>
+              <Button 
+                onClick={refreshBookings} 
+                size="sm" 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="mb-6">
+            <p className="text-gray-600">Manage and track all your Salda streaming sessions in one place.</p>
+          </div>
+
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+            {tabs.map((tab) => (
+              <Button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                variant={activeTab === tab ? "default" : "outline"}
+                className={`${
+                  activeTab === tab 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                    : 'hover:bg-blue-50 border-blue-200'
+                } rounded-full px-6`}
+              >
+                {tab}
+              </Button>
+            ))}
+          </div>
+
+          <div className="space-y-4">
+            {currentBookings.map((booking) => (
+              <div key={booking.id} className="bg-white rounded-xl border hover:shadow-md transition-shadow p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-4">
+                    <Image 
+                      src={booking.streamer.image_url || '/default-avatar.png'}
+                      alt={`${booking.streamer.first_name} ${booking.streamer.last_name}`}
+                      width={60}
+                      height={60}
+                      className="rounded-full"
+                    />
+                    <div>
+                      <h3 className="font-medium text-lg">{`${booking.streamer.first_name} ${booking.streamer.last_name}`}</h3>
+                      <p className="text-gray-600 text-sm">{booking.platform}</p>
+                    </div>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-sm flex items-center gap-1.5 ${getStatusColor(booking.status)}`}>
+                    {getStatusIcon(booking.status)}
+                    {booking.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="text-sm text-gray-600">Schedule</p>
+                      <p className="font-medium">
+                        {format(adjustToIndonesiaTime(booking.start_time), 'EEEE, MMM d')}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {`${format(adjustToIndonesiaTime(booking.start_time), 'HH:mm')} - ${format(adjustToIndonesiaTime(booking.end_time), 'HH:mm')}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Star className="w-5 h-5 text-yellow-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Streamer Rating</p>
+                      <p className="font-medium">{isNaN(parseFloat(booking.streamer.rating as unknown as string)) ? 'N/A' : parseFloat(booking.streamer.rating as unknown as string).toFixed(1)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="text-sm text-gray-600">Session Price</p>
+                      <div className="flex flex-col">
+                        {booking.voucher_usage?.[0]?.discount_applied ? (
+                          <>
+                            <span className="line-through text-gray-400 text-sm">
+                              Rp {booking.price.toLocaleString()}
+                            </span>
+                            <span className="font-medium text-green-600">
+                              Rp {(booking.voucher_usage[0].final_price).toLocaleString()}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="font-medium">
+                            Rp {booking.price.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 justify-end">
+                  {booking.status.toLowerCase() === 'completed' && !booking.items_received && (
+                    <Button 
+                      variant="default"
+                      size="sm" 
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => setIsRatingModalOpen(true)}
+                    >
+                      Rate Session
+                    </Button>
+                  )}
+                  {booking.status === 'reschedule_requested' && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 border-red-500 hover:bg-red-50"
+                        onClick={() => setIsCancelModalOpen(true)}
+                      >
+                        Cancel Request
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => setIsRescheduleModalOpen(true)}
+                      >
+                        Modify Schedule
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {filteredBookings.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No streaming sessions found for this category.</p>
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-between items-center">
+            <Button
+              onClick={() => paginate(currentPage - 1)}
+              disabled={currentPage === 1}
+              variant="outline"
+              className="border-blue-200 hover:bg-blue-50"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <span className="text-sm font-medium">
+              Page {currentPage} of {Math.ceil(filteredBookings.length / bookingsPerPage)}
+            </span>
+            <Button
+              onClick={() => paginate(currentPage + 1)}
+              disabled={indexOfLastBooking >= filteredBookings.length}
+              variant="outline"
+              className="border-blue-200 hover:bg-blue-50"
+            >
+              <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
         </div>
-      </div>
-
-      <div className="space-y-3">
-        {currentBookings.map((booking) => (
-          <BookingEntry 
-            key={booking.id} 
-            booking={booking} 
-            onRatingSubmit={refreshBookings}
-            onStatusUpdate={handleStatusUpdate}
-          />
-        ))}
-        {bookings.length === 0 && (
-          <p className="text-center mt-4 text-gray-500">No bookings found.</p>
-        )}
-      </div>
-
-      <div className="mt-6 flex justify-between items-center">
-        <Button
-          onClick={() => paginate(currentPage - 1)}
-          disabled={currentPage === 1}
-          size="sm"
-          variant="ghost"
-          className="p-2"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-        <span className="text-sm">Page {currentPage} of {Math.ceil(bookings.length / bookingsPerPage)}</span>
-        <Button
-          onClick={() => paginate(currentPage + 1)}
-          disabled={indexOfLastBooking >= bookings.length}
-          size="sm"
-          variant="ghost"
-          className="p-2"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </Button>
       </div>
     </div>
   );

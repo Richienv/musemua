@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { Info, ArrowLeft, ArrowRight, Youtube, HelpCircle } from 'lucide-react';
 import { StreamerCard, Streamer } from "@/components/streamer-card";
@@ -19,18 +19,6 @@ import { createClient } from "@/utils/supabase/client";
 
 const platforms = ["TikTok", "Shopee"];
 const categories = ["Fashion", "Technology", "Beauty", "Gaming", "Cooking", "Fitness", "Music", "Others"];
-const indonesiaCities = [
-  "Jakarta", 
-  "Surabaya", 
-  "Bandung", 
-  "Medan", 
-  "Semarang", 
-  "Makassar", 
-  "Palembang", 
-  "Tangerang",
-  "Malang",  // Added new city
-  "Bali"     // Added new city
-];
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -340,11 +328,11 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   const renderStepIndicator = () => {
     return (
-      <div className="flex items-center justify-center mb-8">
+      <div className="flex items-center justify-center mb-6 px-4 max-w-full overflow-x-auto">
         {[1, 2, 3, 4, 5, 6].map((step) => (
           <div key={step} className="flex items-center">
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-sm ${
                 step === currentStep
                   ? 'bg-red-600 text-white'
                   : step < currentStep
@@ -356,7 +344,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             </div>
             {step < 6 && (
               <div
-                className={`w-12 h-1 ${
+                className={`w-6 sm:w-10 h-0.5 ${
                   step < currentStep ? 'bg-green-500' : 'bg-gray-200'
                 }`}
               />
@@ -365,6 +353,12 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         ))}
       </div>
     );
+  };
+
+  const handleCityInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Capitalize each word
+    const value = e.target.value.replace(/\b\w/g, (c) => c.toUpperCase());
+    updateFormData('basicInfo', 'city', value);
   };
 
   const renderBasicInfo = () => {
@@ -410,21 +404,18 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
         <div className="space-y-1">
           <Label htmlFor="city" className="text-gray-700">Kota</Label>
-          <Select 
+          <Input 
+            name="city"
+            type="text"
             value={formData.basicInfo.city}
-            onValueChange={(value) => updateFormData('basicInfo', 'city', value)}
-          >
-            <SelectTrigger className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base">
-              <SelectValue placeholder="Pilih kota" />
-            </SelectTrigger>
-            <SelectContent>
-              {indonesiaCities.map((city) => (
-                <SelectItem key={city} value={city}>
-                  {city}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={handleCityInput}
+            placeholder="Contoh: Jakarta" 
+            required 
+            className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Contoh: Jakarta, Bandung, Surabaya
+          </p>
         </div>
 
         <div className="space-y-1">
@@ -437,6 +428,9 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             required
             className="min-h-[80px] bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Untuk kebutuhan pengiriman barang dari Brand
+          </p>
         </div>
       </div>
     );
@@ -1130,7 +1124,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
   };
 
   return (
-    <div className="w-full max-w-[480px]">
+    <div className="w-full max-w-[480px] min-h-screen py-8">
       <div className="mb-8 flex justify-center lg:hidden">
         <Image
           src="/images/salda-logoB.png"
@@ -1143,7 +1137,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
       </div>
 
       <div className="overflow-hidden rounded-xl bg-white/95 backdrop-blur-sm shadow-2xl">
-        <div className="px-6 py-8 sm:px-8">
+        <div className="px-6 py-8 sm:px-8 overflow-y-auto">
           <div className="mb-6">
             <h1 className="text-2xl font-semibold bg-gradient-to-r from-red-600 to-red-400 bg-clip-text text-transparent">
               Daftar sebagai Host

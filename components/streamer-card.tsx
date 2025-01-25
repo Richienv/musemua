@@ -1264,9 +1264,10 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       {/* Profile Modal */}
       <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6 animate-none fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] w-[95vw] sm:w-auto">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6 animate-none">
           <DialogClose className="absolute right-4 top-4 rounded-full bg-gradient-to-r from-[#1e40af] to-[#6b21a8] p-1 text-white hover:from-[#1e3a8a] hover:to-[#581c87] transition-colors z-50">
             <X className="h-4 w-4" />
           </DialogClose>
@@ -1280,11 +1281,11 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           ) : extendedProfile ? (
             <>
               {/* Professional ID Card Layout */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100 shadow-sm mb-6">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100 shadow-sm mb-8">
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                   {/* Left Column - Photo and Basic Info */}
-                  <div className="flex flex-col items-center space-y-3 w-full sm:min-w-[150px]">
-                    <div className="relative w-24 h-24 sm:w-32 sm:h-32">
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="relative w-28 h-28 sm:w-32 sm:h-32">
                       <Image
                         src={streamer.image_url}
                         alt={formatName(streamer.first_name, streamer.last_name)}
@@ -1304,52 +1305,48 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                   <div className="flex-1 space-y-4">
                     {/* Name and Title */}
                     <div className="border-b border-blue-200 pb-3">
-                      <h2 className="text-lg sm:text-xl font-semibold text-blue-900">
+                      <h2 className="text-xl font-semibold text-blue-900">
                         {formatName(streamer.first_name, streamer.last_name)}
                       </h2>
                       <p className="text-sm text-blue-600 font-medium">Professional Livestreamer</p>
                     </div>
 
-                    {/* Info Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-blue-100 rounded-md">
-                            <User className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-blue-600 font-medium">Age</p>
-                            <p className="text-sm">{extendedProfile.age ? `${extendedProfile.age} Years` : 'Not specified'}</p>
-                          </div>
+                    {/* Info Stack - Redesigned for better mobile view */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-blue-100 rounded-md">
+                          <User className="w-4 h-4 text-blue-600" />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-blue-100 rounded-md">
-                            <User className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-blue-600 font-medium">Gender</p>
-                            <p className="text-sm">{extendedProfile.gender || 'Not specified'}</p>
-                          </div>
+                        <div>
+                          <p className="text-xs text-blue-600 font-medium">Age</p>
+                          <p className="text-sm">{extendedProfile.age ? `${extendedProfile.age} Years` : 'Not specified'}</p>
                         </div>
                       </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-blue-100 rounded-md">
-                            <Clock className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-blue-600 font-medium">Experience</p>
-                            <p className="text-sm">{extendedProfile.experience || 'Not specified'}</p>
-                          </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-blue-100 rounded-md">
+                          <User className="w-4 h-4 text-blue-600" />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-blue-100 rounded-md">
-                            <MapPin className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-blue-600 font-medium">Location</p>
-                            <p className="text-sm">{extendedProfile.location || 'Not specified'}</p>
-                          </div>
+                        <div>
+                          <p className="text-xs text-blue-600 font-medium">Gender</p>
+                          <p className="text-sm">{extendedProfile.gender || 'Not specified'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-blue-100 rounded-md">
+                          <Clock className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-600 font-medium">Experience</p>
+                          <p className="text-sm">{extendedProfile.experience || 'Not specified'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-blue-100 rounded-md">
+                          <MapPin className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-600 font-medium">Location</p>
+                          <p className="text-sm">{extendedProfile.location || 'Not specified'}</p>
                         </div>
                       </div>
                     </div>
@@ -1373,7 +1370,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
               </div>
 
               {/* Bio Section */}
-              <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-100 shadow-sm mb-6">
+              <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-6">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">About Me</h3>
                 <p className="text-sm text-gray-600 whitespace-pre-wrap">
                   {extendedProfile.fullBio || extendedProfile.bio || 'Belum ada deskripsi tersedia'}
@@ -1402,13 +1399,13 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
               <div className="mb-6">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">Gallery</h3>
                 {isLoadingGallery ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {[1, 2, 3, 4].map((n) => (
                       <div key={n} className="aspect-square bg-gray-200 rounded animate-pulse" />
                     ))}
                   </div>
                 ) : extendedProfile.gallery?.photos.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {extendedProfile.gallery.photos.map((photo) => (
                       <div
                         key={photo.id}
@@ -1419,7 +1416,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                           alt={`Gallery photo ${photo.order_number}`}
                           fill
                           className="object-cover hover:scale-105 transition-transform duration-300"
-                          sizes="(max-width: 600px) 50vw, (max-width: 1024px) 25vw, 150px"
+                          sizes="(max-width: 600px) 25vw, 150px"
                         />
                       </div>
                     ))}
@@ -1439,7 +1436,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                     ))}
                   </div>
                 ) : extendedProfile.testimonials?.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     {extendedProfile.testimonials.map((testimonial, index) => (
                       <div key={index} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100">
                         <div className="flex items-center gap-2 mb-2">

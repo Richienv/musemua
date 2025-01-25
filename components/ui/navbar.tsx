@@ -130,7 +130,7 @@ export function Navbar({ onFilterChange }: NavbarProps) {
                 }`}>
                   <Input
                     type="text"
-                    placeholder="Cari Host"
+                    placeholder="Cari Host di Salda"
                     className="w-full pl-4 sm:pl-8 pr-12 sm:pr-16 py-3 sm:py-4 text-sm sm:text-base rounded-full border border-gray-200 
                       shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.15)] 
                       focus:shadow-[0_6px_16px_-4px_rgba(0,0,0,0.2)] 
