@@ -770,7 +770,7 @@ export async function acceptBooking(bookingId: number) {
     await createNotification({
       user_id: bookingData.client_id,
       streamer_id: bookingData.streamer_id,
-      message: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name} telah menerima booking Anda untuk ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')} pada platform ${bookingData.platform}.`,
+      message: `${bookingData.streamers.first_name} telah menerima booking Anda untuk ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')} pada platform ${bookingData.platform}.`,
       type: 'booking_accepted',
       booking_id: bookingId,
       is_read: false
@@ -849,14 +849,19 @@ export async function startStream(bookingId: number, streamLink: string) {
 
     if (updateError) throw updateError;
 
+    // Get streamer name safely
+    const streamerName = bookingData.streamers?.first_name || 'Streamer';
+
     // Create notification using the notification service to ensure proper type handling
-    await createNotification({
-      user_id: bookingData.client_id,
+    await createStreamNotifications({
+      client_id: bookingData.client_id,
       streamer_id: bookingData.streamer_id,
-      message: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name} telah memulai live stream untuk booking Anda pada ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')} di platform ${bookingData.platform}${streamLink ? `. Bergabung disini: ${streamLink}` : ''}`,
-      type: 'stream_started',
       booking_id: bookingId,
-      is_read: false
+      streamer_name: bookingData.streamers.first_name,
+      start_time: format(new Date(bookingData.start_time), 'dd MMMM HH:mm'),
+      platform: bookingData.platform,
+      stream_link: streamLink,
+      type: 'stream_started'
     });
 
     revalidatePath('/streamer-dashboard');
@@ -879,6 +884,7 @@ export async function endStream(bookingId: number) {
       .single();
 
     if (bookingFetchError) throw bookingFetchError;
+    if (!bookingData) throw new Error('Booking not found');
 
     // Update the booking status to 'completed'
     const { error: updateError } = await supabase
@@ -891,12 +897,15 @@ export async function endStream(bookingId: number) {
 
     if (updateError) throw updateError;
 
+    // Get streamer name safely
+    const streamerName = bookingData.streamers?.first_name || 'Streamer';
+
     // Create notification using the helper function with proper error handling
     await createStreamNotifications({
       client_id: bookingData.client_id,
       streamer_id: bookingData.streamer_id,
       booking_id: bookingId,
-      streamer_name: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name}`,
+      streamer_name: streamerName,
       start_time: format(new Date(bookingData.start_time), 'dd MMMM HH:mm'),
       platform: bookingData.platform,
       type: 'stream_ended'

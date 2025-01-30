@@ -34,6 +34,20 @@ export async function createNotification(payload: NotificationPayload) {
     // Log the payload for debugging
     console.log('Creating notification with payload:', payload);
 
+    // If there's a booking_id, verify it exists first
+    if (payload.booking_id) {
+      const { data: bookingExists, error: bookingCheckError } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('id', payload.booking_id)
+        .single();
+
+      if (bookingCheckError || !bookingExists) {
+        console.error('Booking not found:', payload.booking_id);
+        throw new Error(`Booking ${payload.booking_id} not found`);
+      }
+    }
+
     const { data, error } = await supabase
       .from('notifications')
       .insert([{
@@ -77,12 +91,15 @@ export async function createStreamNotifications({
   type: 'stream_started' | 'stream_ended';
 }) {
   try {
+    // Extract first name only
+    const firstName = streamer_name.split(' ')[0];
+    
     return await createNotification({
       user_id: client_id,
       streamer_id,
       message: type === 'stream_started'
-        ? `${streamer_name} telah memulai live stream untuk booking Anda pada ${start_time} di platform ${platform}${stream_link ? `. Bergabung disini: ${stream_link}` : ''}`
-        : `${streamer_name} telah mengakhiri live stream untuk booking Anda pada ${start_time} di platform ${platform}.`,
+        ? `${firstName} telah memulai live stream untuk booking Anda pada ${start_time} di platform ${platform}${stream_link ? `. Bergabung disini: ${stream_link}` : ''}`
+        : `${firstName} telah mengakhiri live stream untuk booking Anda pada ${start_time} di platform ${platform}.`,
       type,
       booking_id,
       is_read: false
@@ -105,10 +122,13 @@ export async function createItemReceivedNotification({
   streamer_name: string;
 }) {
   try {
+    // Extract first name only
+    const firstName = streamer_name.split(' ')[0];
+    
     return await createNotification({
       user_id: client_id,
       streamer_id,
-      message: `${streamer_name} telah menerima barang Anda dan siap untuk memulai live streaming.`,
+      message: `${firstName} telah menerima barang Anda dan siap untuk memulai live streaming.`,
       type: 'item_received',
       booking_id,
       is_read: false

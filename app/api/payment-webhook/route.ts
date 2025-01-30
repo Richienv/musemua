@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       await createNotification({
         user_id: bookingData.client_id,
         streamer_id: bookingData.streamer_id,
-        message: `Payment confirmed for your booking with ${bookingData.streamers.first_name} ${bookingData.streamers.last_name} on ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')}.`,
+        message: `Payment confirmed for your booking with ${bookingData.streamers.first_name} on ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')}.`,
         type: 'booking_payment',
         booking_id: parseInt(bookingId),
         is_read: false
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       // Notification for streamer
       await createNotification({
         streamer_id: bookingData.streamer_id,
-        message: `New booking payment received from ${bookingData.client_first_name} ${bookingData.client_last_name} for ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')}.`,
+        message: `New booking payment received from ${bookingData.client_first_name} for ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')}.`,
         type: 'booking_payment',
         booking_id: parseInt(bookingId),
         is_read: false
