@@ -1,24 +1,43 @@
 import { createClient } from "@/utils/supabase/client";
 import { format } from 'date-fns';
 
-interface NotificationData {
-  user_id?: string | null;
-  streamer_id?: number | null;
+// Simple type for notification types matching database exactly
+export type NotificationType = 
+  | 'info'
+  | 'warning'
+  | 'confirmation'
+  | 'booking_request'
+  | 'booking_payment'
+  | 'booking_accepted'
+  | 'booking_rejected'
+  | 'booking_cancelled'
+  | 'stream_started'
+  | 'stream_ended'
+  | 'reschedule_request'
+  | 'reschedule_accepted'
+  | 'reschedule_rejected'
+  | 'item_received';
+
+interface NotificationPayload {
+  user_id?: string;
+  streamer_id?: number;
   message: string;
-  type: 'booking_request' | 'booking_payment' | 'booking_cancelled' | 'booking_accepted' | 'booking_rejected' | 'confirmation';
-  booking_id: number;
+  type: NotificationType;
+  booking_id?: number;
+  is_read: boolean;
 }
 
-export async function createNotification(data: NotificationData) {
+export async function createNotification(payload: NotificationPayload) {
   const supabase = createClient();
   
   try {
-    console.log('Creating notification:', data);
-    
-    const { data: notification, error } = await supabase
+    // Log the payload for debugging
+    console.log('Creating notification with payload:', payload);
+
+    const { data, error } = await supabase
       .from('notifications')
       .insert([{
-        ...data,
+        ...payload,
         created_at: new Date().toISOString(),
         is_read: false
       }])
@@ -30,116 +49,104 @@ export async function createNotification(data: NotificationData) {
       throw error;
     }
 
-    console.log('Notification created:', notification);
-    return notification;
+    console.log('Successfully created notification:', data);
+    return data;
   } catch (error) {
     console.error('Error in createNotification:', error);
     throw error;
   }
 }
 
-export async function createBookingNotifications(booking: any, type: string) {
+export async function createStreamNotifications({
+  client_id,
+  streamer_id,
+  booking_id,
+  streamer_name,
+  start_time,
+  platform,
+  stream_link,
+  type
+}: {
+  client_id: string;
+  streamer_id: number;
+  booking_id: number;
+  streamer_name: string;
+  start_time: string;
+  platform: string;
+  stream_link?: string;
+  type: 'stream_started' | 'stream_ended';
+}) {
   try {
-    console.log('Creating booking notifications for:', { booking, type });
-    
-    const supabase = createClient();
-    const { data: streamerData, error: streamerError } = await supabase
-      .from('streamers')
-      .select('first_name, last_name, user_id')
-      .eq('id', booking.streamer_id)
-      .single();
-
-    if (streamerError) {
-      console.error('Error fetching streamer data:', streamerError);
-      throw streamerError;
-    }
-
-    const notifications: NotificationData[] = [];
-
-    switch (type) {
-      case 'initial_booking':
-        notifications.push(
-          {
-            streamer_id: booking.streamer_id,
-            message: `${booking.client_first_name} ${booking.client_last_name} wants to book your services for ${format(new Date(booking.start_time), 'dd MMMM HH:mm')} - ${format(new Date(booking.end_time), 'HH:mm')}`,
-            type: 'booking_request',
-            booking_id: booking.id
-          },
-          {
-            user_id: booking.client_id,
-            message: `Booking request sent to ${streamerData.first_name} ${streamerData.last_name}. Waiting for confirmation.`,
-            type: 'booking_request',
-            booking_id: booking.id
-          }
-        );
-        break;
-
-      case 'payment_success':
-        notifications.push(
-          {
-            streamer_id: booking.streamer_id,
-            message: `New booking request from ${booking.client_first_name} ${booking.client_last_name}. Payment confirmed.`,
-            type: 'booking_payment',
-            booking_id: booking.id
-          },
-          {
-            user_id: booking.client_id,
-            message: `Payment confirmed. Waiting for ${streamerData.first_name} ${streamerData.last_name} to accept your booking.`,
-            type: 'booking_payment',
-            booking_id: booking.id
-          }
-        );
-        break;
-
-      case 'booking_accepted':
-        notifications.push(
-          {
-            user_id: booking.client_id,
-            message: `${streamerData.first_name} ${streamerData.last_name} has accepted your booking for ${format(new Date(booking.start_time), 'dd MMMM HH:mm')}`,
-            type: 'confirmation',
-            booking_id: booking.id
-          }
-        );
-        break;
-
-      case 'booking_rejected':
-        notifications.push(
-          {
-            user_id: booking.client_id,
-            message: `Your booking for ${format(new Date(booking.start_time), 'dd MMMM HH:mm')} has been rejected.`,
-            type: 'booking_rejected',
-            booking_id: booking.id
-          }
-        );
-        break;
-
-      case 'booking_cancelled':
-        // Notify both parties
-        notifications.push(
-          {
-            streamer_id: booking.streamer_id,
-            message: `Booking cancelled by ${booking.client_first_name} ${booking.client_last_name}`,
-            type: 'booking_cancelled',
-            booking_id: booking.id
-          },
-          {
-            user_id: booking.client_id,
-            message: `Your booking with ${streamerData.first_name} ${streamerData.last_name} has been cancelled`,
-            type: 'booking_cancelled',
-            booking_id: booking.id
-          }
-        );
-        break;
-    }
-
-    // Create all notifications
-    for (const notif of notifications) {
-      await createNotification(notif);
-    }
-
-    console.log('Successfully created all notifications');
+    return await createNotification({
+      user_id: client_id,
+      streamer_id,
+      message: type === 'stream_started'
+        ? `${streamer_name} telah memulai live stream untuk booking Anda pada ${start_time} di platform ${platform}${stream_link ? `. Bergabung disini: ${stream_link}` : ''}`
+        : `${streamer_name} telah mengakhiri live stream untuk booking Anda pada ${start_time} di platform ${platform}.`,
+      type,
+      booking_id,
+      is_read: false
+    });
   } catch (error) {
-    console.error('Error in createBookingNotifications:', error);
+    console.error('Error in createStreamNotifications:', error);
+    throw error;
+  }
+}
+
+export async function createItemReceivedNotification({
+  client_id,
+  streamer_id,
+  booking_id,
+  streamer_name
+}: {
+  client_id: string;
+  streamer_id: number;
+  booking_id: number;
+  streamer_name: string;
+}) {
+  try {
+    return await createNotification({
+      user_id: client_id,
+      streamer_id,
+      message: `${streamer_name} telah menerima barang Anda dan siap untuk memulai live streaming.`,
+      type: 'item_received',
+      booking_id,
+      is_read: false
+    });
+  } catch (error) {
+    console.error('Error in createItemReceivedNotification:', error);
+    throw error;
+  }
+}
+
+export async function markNotificationAsRead(notificationId: string) {
+  const supabase = createClient();
+  
+  try {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notificationId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    throw error;
+  }
+}
+
+export async function markAllNotificationsAsRead(userId: string) {
+  const supabase = createClient();
+  
+  try {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', userId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
     throw error;
   }
 } 

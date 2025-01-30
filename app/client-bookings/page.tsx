@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from "@/utils/supabase/client";
 import { format, differenceInHours, isBefore, startOfDay, isSameDay } from 'date-fns';
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X, XCircle, CheckCircle, Check, Radio } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X, XCircle, CheckCircle, Check, Radio, FileText, MapPin, Copy } from 'lucide-react';
 import Image from 'next/image';
 import RatingModal from '@/components/rating-modal';
 import { useRouter } from 'next/navigation';
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "react-hot-toast";
 import { BookingCalendar } from '@/components/booking-calendar';
+import { AddressButton } from "@/components/ui/address-button";
 
 interface Booking {
   id: number;
@@ -558,6 +559,8 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
+  const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   // Add debug logging
   useEffect(() => {
@@ -701,6 +704,93 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   const discountAmount = booking.voucher_usage?.[0]?.discount_applied;
   const hasDiscount = discountAmount && discountAmount > 0;
 
+  const DeliveryInfoCard = () => {
+    return (
+      <>
+        {/* Dark overlay backdrop */}
+        <div 
+          className="fixed inset-0 bg-black/50 transition-opacity z-40"
+          onClick={() => setShowDeliveryInfo(false)}
+        />
+        
+        {/* Centered card */}
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="p-4">
+              {/* Header with close button */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative w-10 h-10 rounded-lg overflow-hidden">
+                    <Image
+                      src={booking.streamer.image_url || '/default-avatar.png'}
+                      alt="Streamer"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">
+                      {booking.streamer.first_name} {booking.streamer.last_name?.charAt(0)}.
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Rp {booking.price?.toLocaleString('id-ID')}/jam
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowDeliveryInfo(false)}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <XCircle className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
+
+              {/* Booking ID */}
+              <div className="flex items-center gap-2 mb-4 bg-blue-50 p-2 rounded-lg">
+                <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-3.5 w-3.5 text-blue-600" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Booking ID:</span>
+                  <span className="text-sm font-medium text-gray-900">#{booking.id}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                    Accepted
+                  </span>
+                </div>
+              </div>
+
+              {/* Address section with improved styling */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <MapPin className="h-4 w-4" />
+                  <h4 className="font-medium">Alamat Pengiriman</h4>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                  <p className="font-medium text-gray-900">Studio Ponsel</p>
+                  <p className="text-gray-600 text-sm">Jl. Example Street No. 123</p>
+                  <p className="text-gray-600 text-sm">Apartment Tower A Unit 456</p>
+                  <p className="text-gray-600 text-sm">Jakarta Selatan, 12345</p>
+                  <p className="text-gray-600 text-sm">DKI Jakarta</p>
+                </div>
+                <button
+                  onClick={() => {
+                    const fullAddress = `Studio Ponsel\nJl. Example Street No. 123\nApartment Tower A Unit 456\nJakarta Selatan, 12345\nDKI Jakarta`;
+                    navigator.clipboard.writeText(fullAddress);
+                    toast.success("Alamat berhasil disalin!");
+                  }}
+                  className="w-full mt-4 py-2.5 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                >
+                  <Copy className="h-4 w-4" />
+                  Salin Alamat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="border rounded-lg shadow-sm p-4 pb-4 mb-4 text-sm hover:shadow-md transition-shadow relative">
       <div className="flex justify-between items-center mb-3 pb-3 border-b">
@@ -762,40 +852,53 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
             )}
           </div>
         </div>
-        <div className="flex gap-2">
-          {booking.status.toLowerCase() === 'completed' && (
+        <div className="flex gap-2 justify-end">
+          {booking.status.toLowerCase() === 'completed' && !booking.items_received && (
             <Button 
-              variant="outline" 
+              variant="default"
               size="sm" 
-              className="text-sm py-2 px-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white hover:from-blue-700 hover:to-blue-900 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 hover:text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
               onClick={() => setIsRatingModalOpen(true)}
             >
-              Give Rating
+              Rate Session
             </Button>
+          )}
+          {booking.status.toLowerCase() === 'accepted' && (
+            <Button
+              variant="default"
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => {
+                setSelectedBooking(booking);
+                setShowDeliveryInfo(true);
+              }}
+            >
+              <MapPin className="h-4 w-4 mr-2" />
+              Lihat Alamat
+            </Button>
+          )}
+          {booking.status === 'reschedule_requested' && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-500 border-red-500 hover:bg-red-50"
+                onClick={() => setIsCancelModalOpen(true)}
+              >
+                Cancel Request
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => setIsRescheduleModalOpen(true)}
+              >
+                Modify Schedule
+              </Button>
+            </>
           )}
         </div>
       </div>
-
-      {booking.status === 'reschedule_requested' && (
-        <div className="flex flex-row gap-2 mt-4 sm:justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 sm:flex-initial text-xs sm:text-sm h-9 sm:h-10 px-4 border border-red-500 text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors font-medium"
-            onClick={() => setIsCancelModalOpen(true)}
-          >
-            Batalkan
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 sm:flex-initial text-xs sm:text-sm h-9 sm:h-10 px-4 border border-[#E23744] text-[#E23744] hover:bg-[#E23744]/5 hover:text-[#E23744] transition-colors font-medium"
-            onClick={() => setIsRescheduleModalOpen(true)}
-          >
-            Reschedule
-          </Button>
-        </div>
-      )}
 
       {isRatingModalOpen && (
         <RatingModal 
@@ -834,6 +937,8 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
         onConfirm={handleCancel}
         isSubmitting={isSubmittingCancel}
       />
+
+      {showDeliveryInfo && selectedBooking && <DeliveryInfoCard />}
     </div>
   );
 }
@@ -850,6 +955,8 @@ export default function ClientBookings() {
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const bookingsPerPage = 10;
 
   const getStatusIcon = (status: string) => {
@@ -1058,7 +1165,92 @@ export default function ClientBookings() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         )}
-        
+
+        {showDeliveryInfo && selectedBooking && (
+          <>
+            {/* Dark overlay backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/50 transition-opacity z-40"
+              onClick={() => setShowDeliveryInfo(false)}
+            />
+            
+            {/* Centered card */}
+            <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-200">
+                <div className="p-4">
+                  {/* Header with close button */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-10 h-10 rounded-lg overflow-hidden">
+                        <Image
+                          src={selectedBooking.streamer.image_url || '/default-avatar.png'}
+                          alt="Streamer"
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">
+                          {selectedBooking.streamer.first_name} {selectedBooking.streamer.last_name?.charAt(0)}.
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          Rp {selectedBooking.price?.toLocaleString('id-ID')}/jam
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setShowDeliveryInfo(false)}
+                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                    >
+                      <XCircle className="h-5 w-5 text-gray-400" />
+                    </button>
+                  </div>
+
+                  {/* Booking ID */}
+                  <div className="flex items-center gap-2 mb-4 bg-blue-50 p-2 rounded-lg">
+                    <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <FileText className="h-3.5 w-3.5 text-blue-600" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Booking ID:</span>
+                      <span className="text-sm font-medium text-gray-900">#{selectedBooking.id}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                        Accepted
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Address section with improved styling */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-blue-600">
+                      <MapPin className="h-4 w-4" />
+                      <h4 className="font-medium">Alamat Pengiriman</h4>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                      <p className="font-medium text-gray-900">Studio Ponsel</p>
+                      <p className="text-gray-600 text-sm">Jl. Example Street No. 123</p>
+                      <p className="text-gray-600 text-sm">Apartment Tower A Unit 456</p>
+                      <p className="text-gray-600 text-sm">Jakarta Selatan, 12345</p>
+                      <p className="text-gray-600 text-sm">DKI Jakarta</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const fullAddress = `Studio Ponsel\nJl. Example Street No. 123\nApartment Tower A Unit 456\nJakarta Selatan, 12345\nDKI Jakarta`;
+                        navigator.clipboard.writeText(fullAddress);
+                        toast.success("Alamat berhasil disalin!");
+                      }}
+                      className="w-full mt-4 py-2.5 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Salin Alamat
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
         <div className="p-6 border-b">
           <div className="flex items-center gap-4">
             <Button 
@@ -1181,6 +1373,20 @@ export default function ClientBookings() {
                       onClick={() => setIsRatingModalOpen(true)}
                     >
                       Rate Session
+                    </Button>
+                  )}
+                  {booking.status.toLowerCase() === 'accepted' && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => {
+                        setSelectedBooking(booking);
+                        setShowDeliveryInfo(true);
+                      }}
+                    >
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Lihat Alamat
                     </Button>
                   )}
                   {booking.status === 'reschedule_requested' && (

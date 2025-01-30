@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
-import { createBookingNotifications } from '@/services/notification-service';
+import { createNotification } from '@/services/notification-service';
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -28,36 +28,24 @@ export async function POST(req: Request) {
 
     // Create initial notifications
     try {
-      // Create notifications for both parties
-      const notifications = [
-        {
-          streamer_id: booking.streamer_id,
-          message: `${booking.client_first_name} ${booking.client_last_name} wants to book your services`,
-          type: 'booking_request',
-          booking_id: booking.id,
-          created_at: new Date().toISOString(),
-          is_read: false
-        },
-        {
-          user_id: booking.client_id,
-          message: `Booking request sent to ${booking.streamer.first_name} ${booking.streamer.last_name}. Please complete payment.`,
-          type: 'booking_request',
-          booking_id: booking.id,
-          created_at: new Date().toISOString(),
-          is_read: false
-        }
-      ];
+      // Create notification for streamer
+      await createNotification({
+        streamer_id: booking.streamer_id,
+        message: `${booking.client_first_name} ${booking.client_last_name} wants to book your services`,
+        type: 'booking_request',
+        booking_id: booking.id,
+        is_read: false
+      });
 
-      // Insert notifications directly
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert(notifications);
+      // Create notification for client
+      await createNotification({
+        user_id: booking.client_id,
+        message: `Booking request sent to ${booking.streamer.first_name} ${booking.streamer.last_name}. Please complete payment.`,
+        type: 'booking_request',
+        booking_id: booking.id,
+        is_read: false
+      });
 
-      if (notificationError) {
-        console.error('Error creating notifications:', notificationError);
-      } else {
-        console.log('Successfully created initial booking notifications');
-      }
     } catch (notifError) {
       console.error('Error in notification creation:', notifError);
     }

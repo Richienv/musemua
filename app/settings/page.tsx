@@ -8,12 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateUserProfile, updateStreamerProfile, updateStreamerPrice } from "@/app/actions";
 import { createClient } from "@/utils/supabase/client";
 import Image from 'next/image';
-import { Loader2, User, Mail, FileText, Camera, Youtube, AlertCircle, ChevronLeft, Upload, MapPin, AlertTriangle, DollarSign, XCircle } from 'lucide-react';
+import { Loader2, User, Mail, FileText, Camera, Youtube, AlertCircle, ChevronLeft, Upload, MapPin, AlertTriangle, DollarSign, XCircle, Monitor, ImageIcon, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB in bytes
 
@@ -158,6 +160,12 @@ function SettingsContent() {
   const [previousPrice, setPreviousPrice] = useState<number | null>(null);
   const [discountPercentage, setDiscountPercentage] = useState<number | null>(null);
   const [brandName, setBrandName] = useState('');
+  // Add new state variables for gender, age, and experience
+  const [gender, setGender] = useState('');
+  const [age, setAge] = useState('');
+  const [experience, setExperience] = useState('');
+  const [category, setCategory] = useState('');
+  const [fullAddress, setFullAddress] = useState('');
 
   // Move fetchUserData outside of useEffect
   const fetchUserData = async () => {
@@ -231,6 +239,12 @@ function SettingsContent() {
           setImageUrl(streamerData.image_url || '');
           setBio(streamerData.bio || '');
           setLastPriceUpdate(streamerData.last_price_update);
+          // Add new fields
+          setGender(streamerData.gender || '');
+          setAge(streamerData.age?.toString() || '');
+          setExperience(streamerData.experience || '');
+          setCategory(streamerData.category || '');
+          setFullAddress(streamerData.full_address || '');
 
           // Calculate next available update time if last_price_update exists
           if (streamerData.last_price_update) {
@@ -308,6 +322,9 @@ function SettingsContent() {
         // Handle streamer-specific updates
         formData.append('platform', platform);
         formData.append('youtubeVideoUrl', youtubeVideoUrl);
+        formData.append('bio', bio);
+        formData.append('category', category);
+        formData.append('fullAddress', fullAddress);
         
         newGalleryPhotos.forEach((photo) => {
           formData.append('gallery', photo);
@@ -315,15 +332,48 @@ function SettingsContent() {
         
         formData.append('existingGalleryPhotos', JSON.stringify(galleryPhotos));
 
-        // Update price if changed
-        if (price) {
-          await handlePriceUpdate(price);
+        // Add new fields
+        formData.append('gender', gender);
+        formData.append('age', age);
+        formData.append('experience', experience);
+
+        // Only update price if it has been changed
+        if (newPrice) {
+          const priceUpdateResult = await handlePriceUpdate(price);
+          // If price update failed, return early and don't update other profile info
+          if (!priceUpdateResult?.success) {
+            setIsLoading(false);
+            return;
+          }
         }
+
+        console.log('Submitting streamer profile update with data:', {
+          firstName,
+          lastName,
+          location,
+          platform,
+          youtubeVideoUrl,
+          bio,
+          category,
+          fullAddress,
+          gender,
+          age,
+          experience
+        });
 
         const result = await updateStreamerProfile(formData);
         if ('error' in result && result.error) {
           throw new Error(result.error);
         }
+
+        // Update local state to reflect changes
+        setBio(formData.get('bio') as string);
+        setPlatform(formData.get('platform') as string);
+        setCategory(formData.get('category') as string);
+        setFullAddress(formData.get('fullAddress') as string);
+
+        toast.success('Profile berhasil diupdate');
+        await fetchUserData(); // Refresh the data
       } else {
         // Handle client-specific updates
         formData.append('brandName', brandName);
@@ -336,9 +386,6 @@ function SettingsContent() {
           throw new Error(result.error);
         }
       }
-
-      toast.success('Profile berhasil diupdate');
-      await fetchUserData();
 
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -425,8 +472,8 @@ function SettingsContent() {
 
   const handlePriceUpdate = async (currentPrice?: number) => {
     if (!newPrice || !streamerId) {
-      setPriceError('Please enter a valid price');
-      return;
+      setPriceError('Silakan masukkan harga yang valid');
+      return { success: false };
     }
 
     try {
@@ -440,12 +487,30 @@ function SettingsContent() {
         setLastPriceUpdate(new Date().toISOString());
         setNewPrice('');
         await fetchUserData();
+        toast.success('Harga berhasil diperbarui');
+        return { success: true };
       } else {
-        setPriceError(result.error || 'Failed to update price');
+        const errorMessage = result.error || 'Gagal mengubah harga';
+        setPriceError(errorMessage);
+        
+        // Check for specific error types and show appropriate messages
+        if (errorMessage.includes('24 hours')) {
+          const nextUpdate = nextAvailableUpdate ? format(new Date(nextAvailableUpdate), 'HH:mm, dd MMMM yyyy') : 'besok';
+          toast.error(`Anda sudah mengubah harga hari ini. Silakan coba lagi pada ${nextUpdate} WIB`);
+        } else if (errorMessage.includes('25%')) {
+          const minPrice = calculatePriceLimits(price).minPrice;
+          const maxPrice = calculatePriceLimits(price).maxPrice;
+          toast.error(`Perubahan harga maksimal 25%: Rp ${minPrice.toLocaleString('id-ID')} - Rp ${maxPrice.toLocaleString('id-ID')}`);
+        } else {
+          toast.error('Gagal mengubah harga. Silakan coba lagi.');
+        }
+        return { success: false };
       }
     } catch (error) {
       console.error('Error updating price:', error);
-      setPriceError('Failed to update price');
+      setPriceError('Gagal mengubah harga');
+      toast.error('Gagal mengubah harga. Silakan coba lagi.');
+      return { success: false };
     }
   };
 
@@ -459,11 +524,15 @@ function SettingsContent() {
   const getPriceErrorMessage = (errorMessage: string) => {
     switch (errorMessage) {
       case 'Price can only be updated once every 24 hours':
-        return 'Kamu hanya bisa update harga sekali dalam 24 jam';
+        const nextUpdateTime = nextAvailableUpdate ? format(new Date(nextAvailableUpdate), 'HH:mm') : '';
+        const nextUpdateDate = nextAvailableUpdate ? format(new Date(nextAvailableUpdate), 'dd MMMM yyyy') : '';
+        return `Anda sudah mengubah harga hari ini. Perubahan harga berikutnya dapat dilakukan besok pada ${nextUpdateTime} WIB, ${nextUpdateDate}`;
       case 'Price change cannot exceed 25%':
-        return 'Perubahan harga tidak boleh lebih dari 25%';
+        const minPrice = calculatePriceLimits(price).minPrice;
+        const maxPrice = calculatePriceLimits(price).maxPrice;
+        return `Perubahan harga tidak boleh lebih dari 25%. Untuk harga saat ini (Rp ${price.toLocaleString('id-ID')}), batas perubahan adalah: Rp ${minPrice.toLocaleString('id-ID')} - Rp ${maxPrice.toLocaleString('id-ID')}`;
       default:
-        return errorMessage;
+        return 'Gagal mengubah harga. Silakan coba lagi.';
     }
   };
 
@@ -506,7 +575,7 @@ function SettingsContent() {
 
       <Card className="border-0 shadow-lg bg-[#faf9f6]">
         <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-[#faf9f6] py-8">
-          <CardTitle className="text-xl sm:text-2xl font-semibold text-gray-900">Informasi Profil</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl font-semibold text-gray-900">Pengaturan Profil</CardTitle>
         </CardHeader>
         <CardContent className="p-8">
           {loading ? (
@@ -515,6 +584,7 @@ function SettingsContent() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-8">
+              {/* Profile Picture Section */}
               <div className="flex flex-col items-center mb-10">
                 <div className="relative w-32 h-32 sm:w-40 sm:h-40 mb-4">
                   {(previewUrl || imageUrl) ? (
@@ -555,301 +625,380 @@ function SettingsContent() {
                 )}
               </div>
 
-              {/* Show price settings only for streamers */}
               {type === 'streamer' && (
-                <div className="bg-gradient-to-r from-gray-50 to-white rounded-2xl p-8 mb-8 border border-gray-100">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-2 mb-4">
-                      <DollarSign className="h-5 w-5 text-[#E23744]" />
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">Tarif Dasar Kamu</h3>
-                    </div>
+                <>
+                  {/* Pricing Card - Enhanced with rules and warnings */}
+                  <Card className="border border-[#E23744]/20 shadow-lg mb-8 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-[#E23744]" />
+                    <Collapsible defaultOpen>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="bg-white hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                              <DollarSign className="h-5 w-5 text-[#E23744]" />
+                              Pengaturan Harga
+                            </CardTitle>
+                            <ChevronDown className="h-5 w-5 text-gray-500 transition-transform duration-200 ui-expanded:rotate-180" />
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="p-6 space-y-6">
+                          <div className="relative">
+                            <Input
+                              id="price"
+                              type="text"
+                              value={newPrice}
+                              onChange={handlePriceChange}
+                              placeholder={price ? price.toString() : "Masukkan harga baru"}
+                              className="pl-12 h-11 text-base sm:text-lg"
+                            />
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-base sm:text-lg">
+                              Rp.
+                            </span>
+                          </div>
 
-                    <div className="relative">
-                      <Input
-                        id="price"
-                        type="text"
-                        value={newPrice}
-                        onChange={handlePriceChange}
-                        placeholder={price ? price.toString() : "Masukkan harga baru"}
-                        className="pl-8 h-11 text-base sm:text-lg border-gray-200 focus:border-[#E23744] focus:ring-[#E23744]"
-                      />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-base sm:text-lg">
-                        Rp
-                      </span>
-                    </div>
-                    
-                    <p className="text-xs sm:text-sm text-gray-600">
-                      Contoh: Ketik "50000" untuk harga Rp 50.000
-                    </p>
+                          {/* Price Rules and Guidelines */}
+                          <div className="flex items-start gap-2 p-4 sm:p-5 bg-[#E23744]/5 rounded-xl border border-[#E23744]/10">
+                            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-[#E23744] flex-shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium text-gray-900">Peraturan Perubahan Harga:</p>
+                              <ul className="text-xs sm:text-sm text-gray-600 list-disc pl-4 space-y-1">
+                                <li>Perubahan harga dibatasi maksimal <strong>25%</strong> naik atau turun per hari</li>
+                                <li>Harga yang dilihat client akan otomatis ditambah <strong>30%</strong> sebagai biaya layanan platform</li>
+                                <li>Perubahan harga hanya dapat dilakukan <strong>1 kali dalam 24 jam</strong></li>
+                              </ul>
+                            </div>
+                          </div>
 
-                    {/* Price guidance message */}
-                    {price > 0 && (
-                      <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-100 space-y-2 sm:space-y-3">
-                        <p className="text-sm sm:text-base font-medium text-gray-900">Batas perubahan harga:</p>
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                          <div className="bg-[#E23744]/5 rounded-lg p-3 sm:p-4">
-                            <p className="text-xs sm:text-sm text-gray-600">Minimum</p>
-                            <p className="text-sm sm:text-base font-semibold text-gray-900">
-                              Rp {calculatePriceLimits(price).minPrice.toLocaleString('id-ID')}
+                          {/* Price Limits Display */}
+                          {price > 0 && (
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="bg-[#E23744]/5 rounded-xl p-4 border border-[#E23744]/10">
+                                <p className="text-sm text-gray-600 mb-1">Minimum</p>
+                                <p className="text-base font-semibold text-gray-900">
+                                  Rp {calculatePriceLimits(price).minPrice.toLocaleString('id-ID')}
+                                </p>
+                              </div>
+                              <div className="bg-[#E23744]/5 rounded-xl p-4 border border-[#E23744]/10">
+                                <p className="text-sm text-gray-600 mb-1">Maximum</p>
+                                <p className="text-base font-semibold text-gray-900">
+                                  Rp {calculatePriceLimits(price).maxPrice.toLocaleString('id-ID')}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Final Price Display */}
+                          <div className="bg-[#E23744]/10 rounded-xl p-4 border border-[#E23744]/20">
+                            <p className="text-sm font-medium text-gray-900 mb-1">
+                              Harga Yang Dilihat Client:
+                            </p>
+                            <p className="text-xl font-bold text-[#E23744]">
+                              Rp {Math.round(calculatePriceWithPlatformFee(price)).toLocaleString('id-ID')} / jam
                             </p>
                           </div>
-                          <div className="bg-[#E23744]/5 rounded-lg p-3 sm:p-4">
-                            <p className="text-xs sm:text-sm text-gray-600">Maximum</p>
-                            <p className="text-sm sm:text-base font-semibold text-gray-900">
-                              Rp {calculatePriceLimits(price).maxPrice.toLocaleString('id-ID')}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Display final price with platform fee */}
-                    <div className="bg-[#E23744]/5 rounded-xl p-4 sm:p-6 border border-[#E23744]/10">
-                      <p className="text-sm sm:text-base font-medium text-gray-900 mb-1 sm:mb-2">
-                        Harga Yang Dilihat Client:
-                      </p>
-                      <p className="text-lg sm:text-xl font-bold text-[#E23744]">
-                        Rp {Math.round(calculatePriceWithPlatformFee(price)).toLocaleString('id-ID')} / jam
-                      </p>
-                    </div>
-                    
-                    {priceError && (
-                      <div className="flex items-start gap-2 p-3 sm:p-4 bg-red-50 rounded-xl border border-red-100">
-                        <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs sm:text-sm font-medium text-red-800">Error:</p>
-                          <p className="text-xs sm:text-sm text-red-700">{getPriceErrorMessage(priceError)}</p>
-                        </div>
-                      </div>
-                    )}
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
 
-                    <div className="flex items-start gap-2 p-4 sm:p-5 bg-gray-50 rounded-xl border border-gray-100">
-                      <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 flex-shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-gray-900">Perhatian:</p>
-                        <p className="text-xs sm:text-sm text-gray-600">
-                          Untuk menjaga kestabilan platform, perubahan harga dibatasi maksimal 25% naik atau turun per hari. Harga yang dilihat client akan otomatis ditambah 30% sebagai biaya layanan platform.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  {/* Personal Information Card */}
+                  <Card className="border border-gray-200 shadow-sm mb-8">
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="bg-white hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                              <User className="h-5 w-5 text-gray-600" />
+                              Informasi Pribadi
+                            </CardTitle>
+                            <ChevronDown className="h-5 w-5 text-gray-500 transition-transform duration-200 ui-expanded:rotate-180" />
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="p-6">
+                          <div className="grid gap-6">
+                            <div className="grid sm:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="firstName">Nama Depan</Label>
+                                <Input
+                                  id="firstName"
+                                  value={firstName}
+                                  onChange={(e) => setFirstName(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="lastName">Nama Belakang</Label>
+                                <Input
+                                  id="lastName"
+                                  value={lastName}
+                                  onChange={(e) => setLastName(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div className="grid sm:grid-cols-3 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="gender">Gender</Label>
+                                <Select value={gender} onValueChange={setGender}>
+                                  <SelectTrigger id="gender">
+                                    <SelectValue placeholder="Pilih gender" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="male">Laki-laki</SelectItem>
+                                    <SelectItem value="female">Perempuan</SelectItem>
+                                    <SelectItem value="other">Prefer not to say</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="age">Umur</Label>
+                                <Input
+                                  id="age"
+                                  type="number"
+                                  min="18"
+                                  max="100"
+                                  value={age}
+                                  onChange={(e) => setAge(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="experience">Pengalaman</Label>
+                                <Select value={experience} onValueChange={setExperience}>
+                                  <SelectTrigger id="experience">
+                                    <SelectValue placeholder="Pilih pengalaman" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="beginner">Pemula ({`<`} 1 tahun)</SelectItem>
+                                    <SelectItem value="intermediate">Menengah (1-3 tahun)</SelectItem>
+                                    <SelectItem value="advanced">Berpengalaman ({`>`} 3 tahun)</SelectItem>
+                                    <SelectItem value="expert">Expert ({`>`} 5 tahun)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
+
+                  {/* Streamer Profile Card */}
+                  <Card className="border border-gray-200 shadow-sm mb-8">
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="bg-white hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                              <Monitor className="h-5 w-5 text-gray-600" />
+                              Profil Streamer
+                            </CardTitle>
+                            <ChevronDown className="h-5 w-5 text-gray-500 transition-transform duration-200 ui-expanded:rotate-180" />
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="p-6">
+                          <div className="space-y-6">
+                            <div className="space-y-2">
+                              <Label htmlFor="bio">Bio</Label>
+                              <Textarea
+                                id="bio"
+                                value={bio}
+                                onChange={(e) => setBio(e.target.value)}
+                                placeholder="Ceritakan tentang dirimu, pengalaman streaming, dan konten yang kamu buat..."
+                                className="min-h-[120px]"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="platform">Platform</Label>
+                              <Select value={platform} onValueChange={setPlatform}>
+                                <SelectTrigger id="platform">
+                                  <SelectValue placeholder="Pilih platform" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="tiktok">TikTok</SelectItem>
+                                  <SelectItem value="shopee">Shopee</SelectItem>
+                                  <SelectItem value="both">TikTok & Shopee</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Kategori Konten (Pilih maksimal 3)</Label>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {[
+                                  "gaming", "lifestyle", "education",
+                                  "entertainment", "music", "sports",
+                                  "food", "travel", "technology",
+                                  "beauty", "fashion", "other"
+                                ].map((cat) => (
+                                  <div
+                                    key={cat}
+                                    onClick={() => {
+                                      const categories = category.split(',').filter(Boolean);
+                                      if (categories.includes(cat)) {
+                                        setCategory(categories.filter(c => c !== cat).join(','));
+                                      } else if (categories.length < 3) {
+                                        setCategory([...categories, cat].join(','));
+                                      }
+                                    }}
+                                    className={`
+                                      cursor-pointer p-2 rounded-lg border transition-all duration-200
+                                      ${category.split(',').includes(cat)
+                                        ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                        : 'border-gray-200 hover:border-purple-500 hover:bg-purple-50/50'
+                                      }
+                                    `}
+                                  >
+                                    <span className="text-sm font-medium capitalize">{cat}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
+
+                  {/* Location & Contact Card */}
+                  <Card className="border border-gray-200 shadow-sm mb-8">
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="bg-white hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                              <MapPin className="h-5 w-5 text-gray-600" />
+                              Lokasi & Kontak
+                            </CardTitle>
+                            <ChevronDown className="h-5 w-5 text-gray-500 transition-transform duration-200 ui-expanded:rotate-180" />
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="p-6">
+                          <div className="space-y-6">
+                            <div className="space-y-2">
+                              <Label htmlFor="location">Kota</Label>
+                              <Input
+                                id="location"
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="fullAddress">Alamat Lengkap</Label>
+                              <Textarea
+                                id="fullAddress"
+                                value={fullAddress}
+                                onChange={(e) => setFullAddress(e.target.value)}
+                                placeholder="Masukkan alamat lengkap Anda..."
+                                className="min-h-[80px]"
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
+
+                  {/* Media & Gallery Card */}
+                  <Card className="border border-gray-200 shadow-sm mb-8">
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="bg-white hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                              <ImageIcon className="h-5 w-5 text-gray-600" />
+                              Media & Galeri
+                            </CardTitle>
+                            <ChevronDown className="h-5 w-5 text-gray-500 transition-transform duration-200 ui-expanded:rotate-180" />
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="p-6">
+                          <div className="space-y-6">
+                            <div className="space-y-2">
+                              <Label htmlFor="youtubeVideoUrl">Video YouTube</Label>
+                              <Input
+                                id="youtubeVideoUrl"
+                                value={youtubeVideoUrl}
+                                onChange={(e) => setYoutubeVideoUrl(e.target.value)}
+                                placeholder="https://youtube.com/watch?v=..."
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Foto Galeri (Maksimal 5)</Label>
+                              <Input
+                                type="file"
+                                onChange={handleGalleryPhotoChange}
+                                accept="image/*"
+                                multiple
+                                disabled={galleryPhotos.length + newGalleryPhotos.length >= maxGalleryPhotos}
+                              />
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mt-4">
+                                {galleryPhotos.map((photo, index) => (
+                                  <div key={index} className="relative aspect-square">
+                                    <Image
+                                      src={photo}
+                                      alt={`Gallery photo ${index + 1}`}
+                                      width={200}
+                                      height={200}
+                                      className="w-full h-full object-cover rounded-lg"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeGalleryPhoto(index)}
+                                      className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
+                                    >
+                                      <XCircle className="h-5 w-5 text-red-500" />
+                                    </button>
+                                  </div>
+                                ))}
+                                {newGalleryPhotos.map((photo, index) => (
+                                  <div key={`new-${index}`} className="relative aspect-square">
+                                    <Image
+                                      src={URL.createObjectURL(photo)}
+                                      alt={`New gallery photo ${index + 1}`}
+                                      width={200}
+                                      height={200}
+                                      className="w-full h-full object-cover rounded-lg"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeGalleryPhoto(index, true)}
+                                      className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
+                                    >
+                                      <XCircle className="h-5 w-5 text-red-500" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
+                </>
               )}
 
-              <div className="grid gap-8">
-                <div className="grid sm:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <Label htmlFor="firstName" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
-                      <User className="mr-2 h-5 w-5 text-blue-600" />
-                      Nama Depan
-                    </Label>
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="h-11 text-base sm:text-lg border-gray-200 focus:border-blue-600 focus:ring-blue-600 bg-white"
-                    />
-                    <p className="text-xs sm:text-sm text-gray-600">
-                      Nama depan saat ini: {firstName || 'Belum diatur'}
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <Label htmlFor="lastName" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
-                      <User className="mr-2 h-5 w-5 text-blue-600" />
-                      Nama Belakang
-                    </Label>
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="h-11 text-base sm:text-lg border-gray-200 focus:border-blue-600 focus:ring-blue-600 bg-white"
-                    />
-                    <p className="text-xs sm:text-sm text-gray-600">
-                      Nama belakang saat ini: {lastName || 'Belum diatur'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <Label htmlFor="location" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
-                    <MapPin className="mr-2 h-5 w-5 text-blue-600" />
-                    Lokasi
-                  </Label>
-                  <Input
-                    id="location"
-                    name="location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="h-11 text-base sm:text-lg border-gray-200 focus:border-blue-600 focus:ring-blue-600 bg-white"
-                  />
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    Lokasi saat ini: {location || 'Belum diatur'}
-                  </p>
-                </div>
-
-                {/* Client-specific fields */}
-                {type === 'client' && (
+              <Button 
+                type="submit" 
+                className="w-full h-14 text-white text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744]"
+                disabled={isLoading}
+              >
+                {isLoading ? (
                   <>
-                    <div className="space-y-3">
-                      <Label htmlFor="brandName" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
-                        <FileText className="mr-2 h-5 w-5 text-blue-600" />
-                        Nama Brand
-                      </Label>
-                      <Input
-                        id="brandName"
-                        name="brandName"
-                        value={brandName}
-                        onChange={(e) => setBrandName(e.target.value)}
-                        className="h-11 text-base sm:text-lg border-gray-200 focus:border-blue-600 focus:ring-blue-600 bg-white"
-                      />
-                      <p className="text-xs sm:text-sm text-gray-600">
-                        Nama brand saat ini: {brandName || 'Belum diatur'}
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label htmlFor="brandGuidelines" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
-                        <FileText className="mr-2 h-5 w-5 text-blue-600" />
-                        Brand Guidelines
-                      </Label>
-                      <div className="bg-white rounded-xl p-6 border border-gray-200">
-                        <Input
-                          type="file"
-                          id="brandGuidelines"
-                          onChange={handleBrandGuidelineChange}
-                          accept=".pdf,.doc,.docx"
-                          className="h-11 text-base sm:text-lg border-gray-200 focus:border-blue-600 focus:ring-blue-600"
-                        />
-                        {brandGuidelineUrl && (
-                          <p className="text-xs sm:text-sm text-gray-600 mt-3">
-                            Brand guidelines saat ini:{' '}
-                            <a 
-                              href={brandGuidelineUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-700 hover:underline"
-                            >
-                              Lihat dokumen
-                            </a>
-                          </p>
-                        )}
-                        {brandGuidelineError && (
-                          <p className="text-red-500 text-sm mt-2">{brandGuidelineError}</p>
-                        )}
-                      </div>
-                    </div>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Menyimpan Perubahan...
                   </>
+                ) : (
+                  'Simpan Perubahan'
                 )}
-
-                {/* Streamer-specific fields */}
-                {type === 'streamer' && (
-                  <>
-                    <div className="space-y-3">
-                      <Label htmlFor="youtubeVideoUrl" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
-                        <Youtube className="mr-2 h-5 w-5 text-[#E23744]" />
-                        Video YouTube
-                      </Label>
-                      <Input
-                        id="youtubeVideoUrl"
-                        name="youtubeVideoUrl"
-                        value={youtubeVideoUrl}
-                        onChange={(e) => setYoutubeVideoUrl(e.target.value)}
-                        placeholder="https://youtube.com/watch?v=..."
-                        className="h-11 text-base sm:text-lg border-gray-200 focus:border-[#E23744] focus:ring-[#E23744]"
-                      />
-                      <p className="text-xs sm:text-sm text-gray-600">
-                        {youtubeVideoUrl ? 
-                          `Video saat ini: ${youtubeVideoUrl}` : 
-                          'Tambahkan video untuk menunjukkan gaya streaming Anda'
-                        }
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      <Label htmlFor="galleryPhotos" className="flex items-center text-base sm:text-lg font-medium text-gray-900">
-                        <Camera className="mr-2 h-5 w-5 text-[#E23744]" />
-                        Foto Galeri (Maks. 5)
-                      </Label>
-                      
-                      <div className="bg-[#E23744]/5 rounded-xl p-6 border border-[#E23744]/10">
-                        <Input
-                          type="file"
-                          id="galleryPhotos"
-                          onChange={handleGalleryPhotoChange}
-                          accept="image/*"
-                          multiple
-                          className="mb-4 text-base"
-                          disabled={galleryPhotos.length + newGalleryPhotos.length >= maxGalleryPhotos}
-                        />
-                        {galleryError && (
-                          <p className="text-red-500 text-sm mb-4">{galleryError}</p>
-                        )}
-                        
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                          {galleryPhotos.map((photo, index) => (
-                            <div key={index} className="relative aspect-square">
-                              <Image
-                                src={photo}
-                                alt={`Gallery photo ${index + 1}`}
-                                width={200}
-                                height={200}
-                                className="w-full h-full object-cover rounded-lg"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeGalleryPhoto(index)}
-                                className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
-                              >
-                                <XCircle className="h-5 w-5 text-red-500" />
-                              </button>
-                            </div>
-                          ))}
-                          {newGalleryPhotos.map((photo, index) => (
-                            <div key={`new-${index}`} className="relative aspect-square">
-                              <Image
-                                src={URL.createObjectURL(photo)}
-                                alt={`New gallery photo ${index + 1}`}
-                                width={200}
-                                height={200}
-                                className="w-full h-full object-cover rounded-lg"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeGalleryPhoto(index, true)}
-                                className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
-                              >
-                                <XCircle className="h-5 w-5 text-red-500" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <Button 
-                  type="submit" 
-                  className={`w-full h-14 text-white text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 ${
-                    type === 'client' 
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
-                      : 'bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744]'
-                  }`}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Menyimpan Perubahan...
-                    </>
-                  ) : (
-                    'Simpan Perubahan'
-                  )}
-                </Button>
-              </div>
+              </Button>
             </form>
           )}
         </CardContent>

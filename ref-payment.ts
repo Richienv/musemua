@@ -1,7 +1,5 @@
 import { createClient } from "@/utils/supabase/client";
 import midtransClient from 'midtrans-client';
-import { createNotification, type NotificationType } from '@/services/notification-service';
-import { format } from 'date-fns';
 
 // Initialize Snap client with proper error handling
 const snap = new midtransClient.Snap({
@@ -130,7 +128,7 @@ export async function createBookingAfterPayment(
       special_request: metadata.specialRequest || null,
       sub_acc_link: metadata.sub_acc_link || null,
       sub_acc_pass: metadata.sub_acc_pass || null,
-      price: metadata.price,
+      price: metadata.price, // Original price
       client_first_name: metadata.firstName,
       client_last_name: metadata.lastName,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -158,6 +156,7 @@ export async function createBookingAfterPayment(
 
     // Handle voucher if present
     if (metadata.voucher) {
+      // Record voucher usage with final price
       const { error: voucherError } = await supabase
         .from('voucher_usage')
         .insert({
@@ -166,7 +165,7 @@ export async function createBookingAfterPayment(
           user_id: metadata.userId,
           discount_applied: metadata.voucher.discountAmount,
           original_price: metadata.price,
-          final_price: metadata.finalPrice,
+          final_price: metadata.finalPrice, // Final price goes here
           used_at: new Date().toISOString()
         });
 
@@ -175,6 +174,7 @@ export async function createBookingAfterPayment(
         throw voucherError;
       }
 
+      // Update voucher quantity
       const { error: updateError } = await supabase
         .rpc('decrement_voucher_quantity', {
           voucher_uuid: metadata.voucher.id
@@ -209,23 +209,29 @@ export async function createBookingAfterPayment(
       throw paymentError;
     }
 
-    // Create notifications using simplified approach
-    await createNotification({
-      user_id: metadata.userId,
-      message: `Booking confirmed with ${metadata.firstName} ${metadata.lastName}. Payment successful.`,
-      type: 'booking_payment',
-      booking_id: newBooking.id,
-      streamer_id: parseInt(metadata.streamerId),
-      is_read: false
-    });
+    // Create notifications
+    const notifications = [
+      {
+        user_id: metadata.userId,
+        message: `Booking confirmed with ${metadata.firstName} ${metadata.lastName}. Payment successful.`,
+        type: 'confirmation',
+        booking_id: newBooking.id,
+        streamer_id: parseInt(metadata.streamerId),
+        created_at: new Date().toISOString(),
+        is_read: false
+      },
+      {
+        user_id: newBooking.streamer_id,
+        message: `New booking request from ${metadata.firstName} ${metadata.lastName}. Payment confirmed.`,
+        type: 'confirmation',
+        booking_id: newBooking.id,
+        streamer_id: parseInt(metadata.streamerId),
+        created_at: new Date().toISOString(),
+        is_read: false
+      }
+    ];
 
-    await createNotification({
-      streamer_id: parseInt(metadata.streamerId),
-      message: `New booking request from ${metadata.firstName} ${metadata.lastName}. Payment confirmed.`,
-      type: 'booking_payment',
-      booking_id: newBooking.id,
-      is_read: false
-    });
+    await supabase.from('notifications').insert(notifications);
 
     return {
       id: newBooking.id,

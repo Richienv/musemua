@@ -63,7 +63,12 @@ export const streamerService = {
     // Get all bookings including last month
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
-      .select('price, status, start_time, end_time')
+      .select(`
+        price,
+        status,
+        start_time,
+        end_time
+      `)
       .eq('streamer_id', streamerId)
       .gte('start_time', lastMonthStart.toISOString());
 
@@ -110,15 +115,17 @@ export const streamerService = {
       cancellations: 0
     };
 
-    // Process bookings
+    // Process bookings - Calculate actual earnings by working backwards from final price
     bookings?.forEach(booking => {
       const bookingDate = new Date(booking.start_time);
       const stats = bookingDate >= currentMonthStart ? currentMonthStats : lastMonthStats;
 
       if (booking.status === 'completed') {
-        stats.earnings += booking.price || 0;
+        // Calculate base price (X) from final price (n) using n = X × 1.443
+        const basePrice = booking.price / 1.443; // This gives us the original price before platform fee and tax
+        stats.earnings += basePrice;
         stats.lives += 1;
-      } else if (booking.status === 'rejected') {
+      } else if (booking.status === 'rejected' || booking.status === 'cancelled') {
         stats.cancellations += 1;
       }
       stats.bookings += 1;

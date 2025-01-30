@@ -1,111 +1,76 @@
 import { createClient } from "@/utils/supabase/server";
-import { headers } from 'next/headers';
+import { NextResponse } from "next/server";
+import { createNotification } from "@/services/notification-service";
+import { format } from 'date-fns';
 
-export async function POST(req: Request) {
-  const supabase = createClient();
-  
-  // Add webhook request logging
-  console.log('=== WEBHOOK REQUEST START ===');
-  console.log('Headers:', Object.fromEntries(req.headers));
-  const body = await req.json();
-  console.log('Raw Body:', body);
-  console.log('=== WEBHOOK REQUEST END ===');
-
-  console.log('===============================');
-  console.log('Payment Webhook Called');
-  console.log('Body:', body);
-  console.log('===============================');
-
+export async function POST(request: Request) {
   try {
-    const { 
-      transaction_status: paymentStatus,
-      order_id,
-      transaction_id
-    } = body;
+    const supabase = createClient();
+    const payload = await request.json();
 
-    console.log('Payment Status:', paymentStatus);
-    console.log('Order ID:', order_id);
+    // Validate the payment notification
+    if (!payload.transaction_status || !payload.order_id) {
+      throw new Error('Invalid payment notification payload');
+    }
 
-    // Extract booking ID from order_id
-    const bookingId = order_id.split('_')[1];
-    
-    // Get booking details with streamer info
-    const { data: booking } = await supabase
+    // Get the booking ID from the order ID
+    const bookingId = payload.order_id.split('-')[1];
+    if (!bookingId) {
+      throw new Error('Invalid order ID format');
+    }
+
+    // Fetch the booking data
+    const { data: bookingData, error: bookingError } = await supabase
       .from('bookings')
-      .select(`
-        *,
-        streamer:streamers (
-          id,
-          first_name,
-          last_name,
-          user_id
-        )
-      `)
+      .select('*, streamers(first_name, last_name)')
       .eq('id', bookingId)
       .single();
 
-    if (!booking) {
-      console.error('Booking not found:', bookingId);
-      return new Response('Booking not found', { status: 404 });
+    if (bookingError) throw bookingError;
+    if (!bookingData) throw new Error('Booking not found');
+
+    // Update payment status
+    const { error: updateError } = await supabase
+      .from('payments')
+      .update({
+        status: payload.transaction_status,
+        midtrans_response: payload,
+        updated_at: new Date().toISOString()
+      })
+      .eq('booking_id', bookingId);
+
+    if (updateError) throw updateError;
+
+    // If payment is successful, create notifications
+    if (payload.transaction_status === 'settlement') {
+      // Notification for client
+      await createNotification({
+        user_id: bookingData.client_id,
+        streamer_id: bookingData.streamer_id,
+        message: `Payment confirmed for your booking with ${bookingData.streamers.first_name} ${bookingData.streamers.last_name} on ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')}.`,
+        type: 'booking_payment',
+        booking_id: parseInt(bookingId),
+        is_read: false
+      });
+
+      // Notification for streamer
+      await createNotification({
+        streamer_id: bookingData.streamer_id,
+        message: `New booking payment received from ${bookingData.client_first_name} ${bookingData.client_last_name} for ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')}.`,
+        type: 'booking_payment',
+        booking_id: parseInt(bookingId),
+        is_read: false
+      });
     }
 
-    console.log('Found booking:', booking);
-
-    if (paymentStatus === 'settlement' || paymentStatus === 'capture') {
-      console.log('Processing successful payment...');
-
-      // First update payment status
-      await supabase
-        .from('payments')
-        .update({
-          status: 'completed',
-          payment_status: paymentStatus,
-          transaction_id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('booking_id', bookingId);
-
-      // Then update booking status
-      await supabase
-        .from('bookings')
-        .update({ status: 'confirmed' })
-        .eq('id', bookingId);
-
-      // Create notifications for both parties
-      const notifications = [
-        {
-          streamer_id: booking.streamer_id,
-          message: `Payment received for booking with ${booking.client_first_name} ${booking.client_last_name}`,
-          type: 'booking_payment',
-          booking_id: booking.id,
-          created_at: new Date().toISOString(),
-          is_read: false
-        },
-        {
-          user_id: booking.client_id,
-          message: `Payment confirmed for your booking with ${booking.streamer.first_name} ${booking.streamer.last_name}`,
-          type: 'booking_payment',
-          booking_id: booking.id,
-          created_at: new Date().toISOString(),
-          is_read: false
-        }
-      ];
-
-      // Insert notifications
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert(notifications);
-
-      if (notificationError) {
-        console.error('Error creating notifications:', notificationError);
-      } else {
-        console.log('Successfully created notifications');
-      }
-    }
-
-    return new Response('OK', { status: 200 });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Webhook Error:', error);
-    return new Response('Error processing webhook', { status: 500 });
+    console.error('Error processing payment webhook:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to process payment webhook: ' + (error instanceof Error ? error.message : String(error))
+      },
+      { status: 500 }
+    );
   }
 } 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, Send, AlertTriangle, XCircle } from "lucide-react";
+import { ChevronLeft, Send, AlertTriangle, XCircle, MapPin, Copy, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from 'next/image';
 import { createClient } from "@/utils/supabase/client";
@@ -11,6 +11,7 @@ import { getConversations, getMessages, sendMessage } from '@/services/message-s
 import { formatMessageTime, formatMessageDate, formatLastMessageTime } from '@/utils/date-format';
 import { toast } from "sonner";
 import { Toaster } from 'sonner';
+import { AddressButton } from "@/components/ui/address-button";
 
 interface Message {
   id: string;
@@ -27,6 +28,9 @@ interface StreamerProfile {
   last_name: string;
   image_url: string;
   user_id: string;
+  location: string;
+  price: number;
+  full_address?: string;
 }
 
 interface ClientProfile {
@@ -62,6 +66,7 @@ export default function MessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isMobileChat, setIsMobileChat] = useState(false);
   const [userType, setUserType] = useState<'streamer' | 'client' | null>(null);
+  const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
 
   useEffect(() => {
     const initializeChat = async () => {
@@ -440,6 +445,93 @@ export default function MessagesPage() {
     }
   };
 
+  const DeliveryInfoCard = () => {
+    return (
+      <>
+        {/* Dark overlay backdrop */}
+        <div 
+          className="fixed inset-0 bg-black/50 transition-opacity z-40"
+          onClick={() => setShowDeliveryInfo(false)}
+        />
+        
+        {/* Centered card */}
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="p-4">
+              {/* Header with close button */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative w-10 h-10 rounded-lg overflow-hidden">
+                    <Image
+                      src={selectedConversation?.streamer?.image_url || '/default-avatar.png'}
+                      alt="Streamer"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">
+                      {selectedConversation?.streamer?.first_name} {selectedConversation?.streamer?.last_name?.charAt(0)}.
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Rp {selectedConversation?.streamer?.price?.toLocaleString('id-ID')}/jam
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowDeliveryInfo(false)}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <XCircle className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
+
+              {/* Booking ID */}
+              <div className="flex items-center gap-2 mb-4 bg-blue-50 p-2 rounded-lg">
+                <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-3.5 w-3.5 text-blue-600" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Booking ID:</span>
+                  <span className="text-sm font-medium text-gray-900">#B12345</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                    Accepted
+                  </span>
+                </div>
+              </div>
+
+              {/* Address section with improved styling */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <MapPin className="h-4 w-4" />
+                  <h4 className="font-medium">Alamat Pengiriman</h4>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                  <p className="font-medium text-gray-900">Studio Ponsel</p>
+                  <p className="text-gray-600 text-sm">Jl. Example Street No. 123</p>
+                  <p className="text-gray-600 text-sm">Apartment Tower A Unit 456</p>
+                  <p className="text-gray-600 text-sm">Jakarta Selatan, 12345</p>
+                  <p className="text-gray-600 text-sm">DKI Jakarta</p>
+                </div>
+                <button
+                  onClick={() => {
+                    const fullAddress = `Studio Ponsel\nJl. Example Street No. 123\nApartment Tower A Unit 456\nJakarta Selatan, 12345\nDKI Jakarta`;
+                    navigator.clipboard.writeText(fullAddress);
+                    toast.success("Alamat berhasil disalin!");
+                  }}
+                  className="w-full mt-4 py-2.5 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                >
+                  <Copy className="h-4 w-4" />
+                  Salin Alamat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="flex flex-col h-screen w-full bg-[#faf9f6]">
       <Toaster richColors position="top-center" />
@@ -484,24 +576,35 @@ export default function MessagesPage() {
             <>
               {/* Header */}
               <div className="bg-[#faf9f6] p-4 border-b border-gray-200">
-                <div className="flex items-center">
-                  <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-200">
-                    <Image
-                      src={userType === 'client'
-                        ? (selectedConversation.streamer?.image_url || '/default-avatar.png')
-                        : (selectedConversation.client?.profile_picture_url || '/default-avatar.png')
-                      }
-                      alt="Profile"
-                      fill
-                      className="object-cover"
-                    />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-200">
+                      <Image
+                        src={userType === 'client'
+                          ? (selectedConversation.streamer?.image_url || '/default-avatar.png')
+                          : (selectedConversation.client?.profile_picture_url || '/default-avatar.png')
+                        }
+                        alt="Profile"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="ml-3">
+                      <span className="font-semibold text-base block">
+                        {userType === 'client'
+                          ? formatName(selectedConversation.streamer?.first_name || '', selectedConversation.streamer?.last_name || '')
+                          : formatName(selectedConversation.client?.first_name || '', selectedConversation.client?.last_name || '')
+                        }
+                      </span>
+                    </div>
                   </div>
-                  <span className="font-semibold text-base truncate ml-3">
-                    {userType === 'client'
-                      ? formatName(selectedConversation.streamer?.first_name || '', selectedConversation.streamer?.last_name || '')
-                      : formatName(selectedConversation.client?.first_name || '', selectedConversation.client?.last_name || '')
-                    }
-                  </span>
+                  {selectedConversation?.streamer && userType === 'client' && (
+                    <AddressButton
+                      streamerId={selectedConversation.streamer.id}
+                      clientId={selectedConversation.client_id}
+                      onShowAddress={() => setShowDeliveryInfo(true)}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -509,7 +612,7 @@ export default function MessagesPage() {
               <div className="bg-blue-50 p-3 text-sm text-blue-800 flex items-start border-b border-blue-100">
                 <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
                 <p className="flex-1">
-                  Hati-hati penipuan! Mohon tidak bertransaksi di luar Salda dan tidak memberikan data pribadi kepada streamer, seperti nomor HP dan alamat. Tetap berinteraksi melalui aplikasi Salda, ya.
+                  Hati-hati penipuan! Mohon tidak memberikan data pribadi kepada streamer.
                 </p>
               </div>
 
@@ -520,7 +623,9 @@ export default function MessagesPage() {
               </div>
 
               {/* Input */}
-              <div className="bg-white p-4 border-t border-gray-200">
+              <div className="bg-white p-4 border-t border-gray-200 relative">
+                {showDeliveryInfo && <DeliveryInfoCard />}
+                
                 <div className="flex items-center gap-3">
                   <Input
                     type="text"

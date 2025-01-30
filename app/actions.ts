@@ -8,6 +8,8 @@ import { revalidatePath } from "next/cache";
 import { cookies } from 'next/headers';
 import { v4 as uuidv4 } from 'uuid';
 import { SignUpResponse } from "@/app/types/auth";
+import { format } from 'date-fns';
+import { createNotification, createStreamNotifications, createItemReceivedNotification, type NotificationType } from '@/services/notification-service';
 
 // Add this helper function at the top of the file
 function sanitizeFileName(fileName: string): string {
@@ -527,6 +529,9 @@ export async function streamerSignUpAction(formData: FormData): Promise<SignUpRe
           location: formData.get('city') as string,
           full_address: formData.get('full_address') as string,
           video_url: formData.get('video_url') as string,
+          gender: formData.get('gender') as string,
+          age: parseInt(formData.get('age') as string),
+          experience: formData.get('experience') as string,
         })
         .select()
         .single();
@@ -603,16 +608,26 @@ export async function updateStreamerProfile(formData: FormData): Promise<Streame
       location: formData.get('location'),
       video_url: formData.get('youtubeVideoUrl'),
       platform: formData.get('platform'),
-      category: 'General',
+      category: formData.get('category'),
+      bio: formData.get('bio'),
+      gender: formData.get('gender'),
+      age: parseInt(formData.get('age') as string) || null,
+      experience: formData.get('experience'),
+      full_address: formData.get('fullAddress'),
       ...(imageUrl && { image_url: imageUrl }),
     };
+
+    console.log('Updating streamer profile with data:', updateData); // Debug log
 
     const { error: updateError } = await supabase
       .from('streamers')
       .update(updateData)
       .eq('user_id', user.id);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('Error updating streamer profile:', updateError);
+      throw updateError;
+    }
 
     // Get streamer ID first
     const { data: streamerData, error: streamerError } = await supabase
@@ -734,57 +749,32 @@ export async function acceptBooking(bookingId: number) {
   }
 
   try {
-    // Fetch the booking first to get the correct types
+    // Fetch the booking first
     const { data: bookingData, error: bookingFetchError } = await supabase
       .from('bookings')
-      .select('*')
+      .select('*, streamers(first_name, last_name)')
       .eq('id', bookingId)
       .single();
 
-    if (bookingFetchError) {
-      console.error('Error fetching booking:', bookingFetchError);
-      throw bookingFetchError;
-    }
+    if (bookingFetchError) throw bookingFetchError;
 
-    // Now update the booking status
-    const { data, error } = await supabase
+    // Update booking status
+    const { error: updateError } = await supabase
       .from('bookings')
       .update({ status: 'accepted' })
-      .eq('id', bookingId)
-      .select()
-      .single();
+      .eq('id', bookingId);
 
-    if (error) {
-      console.error('Error updating booking status:', error);
-      throw error;
-    }
+    if (updateError) throw updateError;
 
-    // Create notification for client
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('first_name, last_name')
-      .eq('id', user.id)
-      .single();
-
-    if (userError) {
-      console.error('User data fetch error:', userError);
-      throw userError;
-    }
-
-    const streamerName = userData ? `${userData.first_name} ${userData.last_name}` : 'The streamer';
-    const clientNotificationMessage = `${streamerName} has accepted your booking for ${new Date(bookingData.start_time).toLocaleString()} - ${new Date(bookingData.end_time).toLocaleString()} on ${bookingData.platform}.`;
-
-    const { error: notificationError } = await supabase.from('notifications').insert({
+    // Create notification using direct approach
+    await createNotification({
       user_id: bookingData.client_id,
-      message: clientNotificationMessage,
-      type: 'confirmation',
+      streamer_id: bookingData.streamer_id,
+      message: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name} telah menerima booking Anda untuk ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')} pada platform ${bookingData.platform}.`,
+      type: 'booking_accepted',
+      booking_id: bookingId,
       is_read: false
     });
-
-    if (notificationError) {
-      console.error('Notification creation error:', notificationError);
-      throw notificationError;
-    }
 
     revalidatePath('/streamer-dashboard');
     return { success: true };
@@ -796,40 +786,34 @@ export async function acceptBooking(bookingId: number) {
 
 export async function rejectBooking(bookingId: number) {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { error: "Not authenticated" };
-  }
-
+  
   try {
-    // Update booking status to 'rejected'
-    const { data, error } = await supabase
+    // Fetch the booking first to get client and streamer details
+    const { data: bookingData, error: bookingFetchError } = await supabase
       .from('bookings')
-      .update({ status: 'rejected' })
+      .select('*, streamers(first_name, last_name)')
       .eq('id', bookingId)
-      .select()
       .single();
 
-    if (error) {
-      console.error('Booking update error:', error);
-      throw error;
-    }
+    if (bookingFetchError) throw bookingFetchError;
 
-    // Create notification for client
-    const clientNotificationMessage = `Your booking for ${new Date(data.start_time).toLocaleString()} - ${new Date(data.end_time).toLocaleString()} on ${data.platform} has been rejected.`;
+    // Update booking status
+    const { error: updateError } = await supabase
+      .from('bookings')
+      .update({ status: 'rejected' })
+      .eq('id', bookingId);
 
-    const { error: notificationError } = await supabase.from('notifications').insert({
-      user_id: data.client_id,
-      message: clientNotificationMessage,
-      type: 'warning',
+    if (updateError) throw updateError;
+
+    // Create notification with proper type and error handling
+    await createNotification({
+      user_id: bookingData.client_id,
+      streamer_id: bookingData.streamer_id,
+      message: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name} telah menolak booking Anda untuk ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')} pada platform ${bookingData.platform}.`,
+      type: 'booking_rejected',
+      booking_id: bookingId,
       is_read: false
     });
-
-    if (notificationError) {
-      console.error('Notification creation error:', notificationError);
-      throw notificationError;
-    }
 
     revalidatePath('/streamer-dashboard');
     return { success: true };
@@ -843,72 +827,43 @@ export async function startStream(bookingId: number, streamLink: string) {
   const supabase = createClient();
 
   try {
-    console.log(`Starting stream for booking ${bookingId} with link ${streamLink}`);
+    // Fetch booking data first
+    const { data: bookingData, error: bookingFetchError } = await supabase
+      .from('bookings')
+      .select('*, streamers(first_name, last_name)')
+      .eq('id', bookingId)
+      .single();
+
+    if (bookingFetchError) throw bookingFetchError;
+    if (!bookingData) throw new Error('Booking not found');
 
     // Update the booking with the stream link and change status to 'live'
-    const { data: updatedBooking, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from('bookings')
-      .update({ stream_link: streamLink, status: 'live' })
-      .eq('id', bookingId)
-      .select('client_id, streamer_id, start_time, end_time, platform')
-      .single();
-
-    if (updateError) {
-      console.error('Error updating booking:', updateError);
-      throw updateError;
-    }
-
-    if (!updatedBooking) {
-      console.error('Booking not found');
-      throw new Error('Booking not found');
-    }
-
-    console.log('Updated booking:', updatedBooking);
-
-    // Get streamer name
-    const { data: streamerData, error: streamerError } = await supabase
-      .from('streamers')
-      .select('first_name, last_name')
-      .eq('id', updatedBooking.streamer_id)
-      .single();
-
-    if (streamerError) {
-      console.error('Error fetching streamer data:', streamerError);
-      throw streamerError;
-    }
-
-    console.log('Streamer data:', streamerData);
-
-    // Create a notification for the client
-    const notificationMessage = `${streamerData.first_name} ${streamerData.last_name} has started their live stream for your booking on ${new Date(updatedBooking.start_time).toLocaleString()} - ${new Date(updatedBooking.end_time).toLocaleString()} on ${updatedBooking.platform}. Join here: ${streamLink}`;
-    
-    console.log('Creating notification with message:', notificationMessage);
-
-    const { data: notificationData, error: notificationError } = await supabase
-      .from('notifications')
-      .insert({
-        user_id: updatedBooking.client_id,
-        message: notificationMessage,
-        type: 'info', // Changed from 'stream_started' to 'info'
-        is_read: false,
-        streamer_id: updatedBooking.streamer_id,
-        booking_id: bookingId
+      .update({ 
+        stream_link: streamLink, 
+        status: 'live',
+        updated_at: new Date().toISOString()
       })
-      .select()
-      .single();
+      .eq('id', bookingId);
 
-    if (notificationError) {
-      console.error('Error creating notification:', notificationError);
-      throw notificationError;
-    }
+    if (updateError) throw updateError;
 
-    console.log('Created notification:', notificationData);
+    // Create notification using the notification service to ensure proper type handling
+    await createNotification({
+      user_id: bookingData.client_id,
+      streamer_id: bookingData.streamer_id,
+      message: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name} telah memulai live stream untuk booking Anda pada ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')} di platform ${bookingData.platform}${streamLink ? `. Bergabung disini: ${streamLink}` : ''}`,
+      type: 'stream_started',
+      booking_id: bookingId,
+      is_read: false
+    });
 
     revalidatePath('/streamer-dashboard');
-    return { success: true, updatedBooking };
+    return { success: true, updatedBooking: bookingData };
   } catch (error) {
     console.error('Error starting stream:', error);
-    return { success: false, error: 'Failed to start stream' };
+    return { success: false, error: 'Failed to start stream: ' + (error instanceof Error ? error.message : String(error)) };
   }
 }
 
@@ -916,50 +871,42 @@ export async function endStream(bookingId: number) {
   const supabase = createClient();
 
   try {
-    // Update the booking status to 'completed'
-    const { data: updatedBooking, error: updateError } = await supabase
+    // Fetch booking data first
+    const { data: bookingData, error: bookingFetchError } = await supabase
       .from('bookings')
-      .update({ status: 'completed' })
+      .select('*, streamers(first_name, last_name)')
       .eq('id', bookingId)
-      .select('client_id, streamer_id, start_time, end_time, platform')
       .single();
+
+    if (bookingFetchError) throw bookingFetchError;
+
+    // Update the booking status to 'completed'
+    const { error: updateError } = await supabase
+      .from('bookings')
+      .update({ 
+        status: 'completed',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bookingId);
 
     if (updateError) throw updateError;
 
-    if (!updatedBooking) {
-      throw new Error('Booking not found');
-    }
-
-    // Get streamer name
-    const { data: streamerData, error: streamerError } = await supabase
-      .from('streamers')
-      .select('first_name, last_name')
-      .eq('id', updatedBooking.streamer_id)
-      .single();
-
-    if (streamerError) throw streamerError;
-
-    // Create a notification for the client
-    const notificationMessage = `${streamerData.first_name} ${streamerData.last_name} has ended their live stream for your booking on ${new Date(updatedBooking.start_time).toLocaleString()} - ${new Date(updatedBooking.end_time).toLocaleString()} on ${updatedBooking.platform}.`;
-    
-    const { error: notificationError } = await supabase
-      .from('notifications')
-      .insert({
-        user_id: updatedBooking.client_id,
-        message: notificationMessage,
-        type: 'info', // Changed from 'stream_ended' to 'info'
-        is_read: false,
-        streamer_id: updatedBooking.streamer_id,
-        booking_id: bookingId
-      });
-
-    if (notificationError) throw notificationError;
+    // Create notification using the helper function with proper error handling
+    await createStreamNotifications({
+      client_id: bookingData.client_id,
+      streamer_id: bookingData.streamer_id,
+      booking_id: bookingId,
+      streamer_name: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name}`,
+      start_time: format(new Date(bookingData.start_time), 'dd MMMM HH:mm'),
+      platform: bookingData.platform,
+      type: 'stream_ended'
+    });
 
     revalidatePath('/streamer-dashboard');
     return { success: true };
   } catch (error) {
     console.error('Error ending stream:', error);
-    return { success: false, error: 'Failed to end stream' };
+    return { success: false, error: 'Failed to end stream: ' + (error instanceof Error ? error.message : String(error)) };
   }
 }
 
@@ -1055,5 +1002,89 @@ export async function updateStreamerPrice(streamerId: number, newPrice: number) 
       success: false, 
       error: error instanceof Error ? error.message : 'Failed to update price' 
     };
+  }
+}
+
+export async function acceptItems(bookingId: number) {
+  const supabase = createClient();
+  
+  try {
+    // Fetch the booking first to get client and streamer details
+    const { data: bookingData, error: bookingFetchError } = await supabase
+      .from('bookings')
+      .select('*, streamers(first_name, last_name)')
+      .eq('id', bookingId)
+      .single();
+
+    if (bookingFetchError) throw bookingFetchError;
+
+    // Update booking status
+    const { error: updateError } = await supabase
+      .from('bookings')
+      .update({ 
+        items_received: true,
+        items_received_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bookingId);
+
+    if (updateError) throw updateError;
+
+    // Create notification with proper error handling
+    await createItemReceivedNotification({
+      client_id: bookingData.client_id,
+      streamer_id: bookingData.streamer_id,
+      booking_id: bookingId,
+      streamer_name: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name}`
+    });
+
+    revalidatePath('/streamer-dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error accepting items:', error);
+    return { error: 'Failed to accept items: ' + (error instanceof Error ? error.message : String(error)) };
+  }
+}
+
+export async function requestReschedule(bookingId: number, reason: string) {
+  const supabase = createClient();
+  
+  try {
+    // Fetch the booking first to get client and streamer details
+    const { data: bookingData, error: bookingFetchError } = await supabase
+      .from('bookings')
+      .select('*, streamers(first_name, last_name)')
+      .eq('id', bookingId)
+      .single();
+
+    if (bookingFetchError) throw bookingFetchError;
+
+    // Update booking status with reason
+    const { error: updateError } = await supabase
+      .from('bookings')
+      .update({ 
+        status: 'reschedule_requested',
+        updated_at: new Date().toISOString(),
+        reason: reason
+      })
+      .eq('id', bookingId);
+
+    if (updateError) throw updateError;
+
+    // Create notification for client
+    await createNotification({
+      user_id: bookingData.client_id,
+      streamer_id: bookingData.streamer_id,
+      message: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name} mengajukan reschedule untuk sesi live streaming Anda. Alasan: ${reason}`,
+      type: 'reschedule_request',
+      booking_id: bookingId,
+      is_read: false
+    });
+
+    revalidatePath('/streamer-dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error requesting reschedule:', error);
+    return { error: 'Failed to request reschedule: ' + (error instanceof Error ? error.message : String(error)) };
   }
 }

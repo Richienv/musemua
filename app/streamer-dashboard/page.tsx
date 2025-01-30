@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { signOutAction, acceptBooking, rejectBooking, startStream, endStream } from "@/app/actions";
+import { signOutAction, acceptBooking, rejectBooking, startStream, endStream, acceptItems, requestReschedule } from "@/app/actions";
 import { useState, useEffect, useCallback } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { format, isToday, isThisWeek, isThisMonth, parseISO, differenceInHours, addHours, parse } from 'date-fns';
-import { Calendar, Clock, Monitor, DollarSign, MessageSquare, Link as LinkIcon, AlertTriangle, MapPin, Users, XCircle, Video, Settings, Loader2, Info } from 'lucide-react';
+import { Calendar, Clock, Monitor, DollarSign, MessageSquare, Link as LinkIcon, AlertTriangle, MapPin, Users, XCircle, Video, Settings, Loader2, Info, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import {
   Dialog,
@@ -30,6 +30,7 @@ import { id as idLocale } from "date-fns/locale";
 import Image from 'next/image';
 import { BookingCalendar, type BookingCalendarProps } from "@/components/booking-calendar";
 import { Textarea } from "@/components/ui/textarea";
+import { createNotification, createStreamNotifications, createItemReceivedNotification, type NotificationType } from "@/services/notification-service";
 
 interface UserData {
   user_type: string;
@@ -116,7 +117,6 @@ function ItemAcceptanceModal({
 }) {
   const [isConfirming, setIsConfirming] = useState(false);
 
-  // Add effect to prevent body scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -144,72 +144,98 @@ function ItemAcceptanceModal({
   return (
     <div 
       className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
-      onClick={onClose} // Close when clicking the backdrop
+      onClick={onClose}
     >
       <div 
-        className="bg-white rounded-xl w-full max-w-lg relative mx-4"
-        onClick={e => e.stopPropagation()} // Prevent closing when clicking the modal content
+        className="bg-white rounded-xl w-full max-w-lg mx-4 overflow-hidden shadow-xl"
+        onClick={e => e.stopPropagation()}
       >
-        {/* X Button */}
-        <button 
-          onClick={onClose}
-          className="absolute left-4 top-4 text-gray-400 hover:text-gray-600 transition-colors"
-          disabled={isConfirming}
-        >
-          <XCircle className="h-6 w-6" />
-        </button>
-
         {/* Header */}
-        <div className="pt-6 px-8 pb-4">
-          <h2 className="text-2xl font-semibold text-center text-gray-900">
-            Konfirmasi Penerimaan Barang
-          </h2>
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Konfirmasi Penerimaan Barang
+            </h2>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              disabled={isConfirming}
+            >
+              <XCircle className="h-6 w-6" />
+            </button>
+          </div>
         </div>
         
         {/* Content */}
-        <div className="px-8 py-6 space-y-6">
+        <div className="px-6 py-6 space-y-6">
           {/* Guidelines */}
-          <div className="bg-red-50 rounded-xl p-6">
-            <h4 className="text-red-800 font-semibold mb-4 text-lg">
-              Panduan Penerimaan Barang:
-            </h4>
-            <ul className="list-disc pl-5 space-y-3 text-sm text-red-700">
-              <li>Pastikan barang dalam kondisi baik dan sesuai dengan deskripsi</li>
-              <li>Periksa kelengkapan dan kualitas setiap item</li>
-              <li>Simpan foto kemasan dan isi paket sebagai dokumentasi</li>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <Info className="h-4 w-4 text-blue-600" />
+              </div>
+              <h4 className="text-base font-medium text-gray-900">
+                Panduan Penerimaan Barang
+              </h4>
+            </div>
+            <ul className="space-y-3 pl-11">
+              <li className="flex items-center gap-2 text-gray-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                <span className="text-sm">Pastikan barang dalam kondisi baik dan sesuai dengan deskripsi</span>
+              </li>
+              <li className="flex items-center gap-2 text-gray-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                <span className="text-sm">Periksa kelengkapan dan kualitas setiap item</span>
+              </li>
+              <li className="flex items-center gap-2 text-gray-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                <span className="text-sm">Simpan foto kemasan dan isi paket sebagai dokumentasi</span>
+              </li>
             </ul>
           </div>
 
-          {/* Warning Section */}
-          <div className="bg-yellow-50 rounded-xl p-6">
-            <div className="flex items-start gap-4">
-              <div className="shrink-0">
-                <AlertTriangle className="h-6 w-6 text-yellow-600" />
+          {/* Important Notice */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <AlertTriangle className="h-3.5 w-3.5 text-gray-600" />
               </div>
-              <div className="text-sm text-yellow-800">
-                <p className="font-semibold mb-2 text-base">Penting:</p>
-                <p>Pastikan Anda telah menyimpan foto bukti penerimaan barang sebelum melanjutkan. Foto ini diperlukan untuk dokumentasi dan perlindungan Anda sebagai streamer.</p>
+              <div>
+                <p className="text-sm font-medium text-gray-900 mb-1">Penting:</p>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Pastikan Anda telah menyimpan foto bukti penerimaan barang sebelum melanjutkan. 
+                  Foto ini diperlukan untuk dokumentasi dan perlindungan Anda sebagai streamer.
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer with single button */}
-        <div className="px-8 py-6 bg-gray-50 rounded-b-xl">
-          <button
-            onClick={handleSubmit}
-            disabled={isConfirming}
-            className="w-full py-3 px-4 text-base font-semibold text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isConfirming ? (
-              <div className="flex items-center justify-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Memproses...</span>
-              </div>
-            ) : (
-              'Konfirmasi Penerimaan'
-            )}
-          </button>
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={onClose}
+              disabled={isConfirming}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 transition-colors"
+            >
+              Batal
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isConfirming}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isConfirming ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Memproses...</span>
+                </>
+              ) : (
+                'Konfirmasi Penerimaan'
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -227,8 +253,8 @@ function RescheduleModal({
   onConfirm: (reason: string) => void;
   booking: Booking;
 }) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [reason, setReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
@@ -239,121 +265,131 @@ function RescheduleModal({
 
     setIsSubmitting(true);
     try {
-      const supabase = createClient();
-      
-      // Update the existing booking
-      const { error: updateError } = await supabase
-        .from('bookings')
-        .update({ 
-          status: 'reschedule_requested',
-          updated_at: new Date().toISOString(),
-          reason: reason
-        })
-        .eq('id', booking.id);
-
-      if (updateError) throw updateError;
-
-      // Create notification for client
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: booking.client_id,
-          message: `Streamer mengajukan reschedule untuk sesi live streaming Anda. Alasan: ${reason}`,
-          type: 'reschedule_request',
-          booking_id: booking.id,
-          created_at: new Date().toISOString(),
-          is_read: false,
-          streamer_id: booking.streamer_id
-        });
-
-      if (notificationError) {
-        console.error('Notification error:', notificationError);
-      }
-
-      // Close the modal and show single toast notification
-      onClose();
-      toast.success('Pengajuan reschedule berhasil dikirim');
+      await onConfirm(reason);
     } catch (error) {
-      console.error('Error requesting reschedule:', error);
-      toast.error('Gagal mengajukan reschedule');
+      console.error('Error submitting reschedule:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="fixed left-[46%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[calc(100%-32px)] sm:w-full sm:max-w-[500px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6 rounded-lg">
-        <DialogHeader>
-          <DialogTitle className="text-lg sm:text-2xl font-semibold mb-0.5">
-            Pengajuan Reschedule
-          </DialogTitle>
-          <DialogDescription className="text-sm sm:text-base">
-            Mohon berikan alasan untuk pengajuan reschedule
-          </DialogDescription>
-        </DialogHeader>
+  if (!isOpen) return null;
 
-        {/* Policy Notice */}
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <div className="flex gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-red-800">
-                Kebijakan Reschedule:
-              </p>
-              <ul className="text-xs text-red-700 space-y-1 list-disc pl-4">
-                <li>Pengajuan reschedule akan mempengaruhi performa dan reputasi Anda sebagai streamer</li>
-                <li>Reschedule mendadak dapat mengurangi tingkat kepercayaan client</li>
-                <li>Pastikan Anda memiliki alasan yang kuat sebelum mengajukan reschedule</li>
-                <li>Pengajuan reschedule yang terlalu sering dapat mempengaruhi visibilitas profil Anda</li>
-              </ul>
+  return (
+    <div 
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl w-full max-w-lg mx-4 overflow-hidden shadow-xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Pengajuan Reschedule
+            </h2>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              disabled={isSubmitting}
+            >
+              <XCircle className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="px-6 py-6 space-y-6">
+          {/* Guidelines */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <Info className="h-4 w-4 text-blue-600" />
+              </div>
+              <h4 className="text-base font-medium text-gray-900">
+                Kebijakan Reschedule
+              </h4>
+            </div>
+            <ul className="space-y-3 pl-11">
+              <li className="flex items-center gap-2 text-gray-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                <span className="text-sm">Pengajuan reschedule akan mempengaruhi performa dan reputasi Anda sebagai streamer</span>
+              </li>
+              <li className="flex items-center gap-2 text-gray-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                <span className="text-sm">Reschedule mendadak dapat mengurangi tingkat kepercayaan client</span>
+              </li>
+              <li className="flex items-center gap-2 text-gray-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                <span className="text-sm">Pastikan Anda memiliki alasan yang kuat sebelum mengajukan reschedule</span>
+              </li>
+              <li className="flex items-center gap-2 text-gray-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                <span className="text-sm">Pengajuan reschedule yang terlalu sering dapat mempengaruhi visibilitas profil Anda</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Reason Input */}
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <AlertTriangle className="h-3.5 w-3.5 text-gray-600" />
+              </div>
+              <div>
+                <label htmlFor="reschedule-reason" className="block text-sm font-medium text-gray-900">
+                  Alasan Reschedule<span className="text-blue-600">*</span>
+                </label>
+                <textarea
+                  id="reschedule-reason"
+                  value={reason}
+                  onChange={(e) => {
+                    setReason(e.target.value);
+                    if (error) setError('');
+                  }}
+                  placeholder="Mohon jelaskan alasan Anda mengajukan reschedule..."
+                  className={`mt-2 w-full min-h-[100px] p-3 text-sm text-gray-900 rounded-lg border ${
+                    error ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-blue-500'
+                  } focus:border-transparent focus:ring-2 bg-white resize-none`}
+                />
+                {error && (
+                  <p className="mt-1 text-xs text-red-600">{error}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Reason Field */}
-        <div className="space-y-2">
-          <Label htmlFor="reschedule-reason" className="text-sm font-medium">
-            Alasan Reschedule<span className="text-red-500">*</span>
-          </Label>
-          <textarea
-            id="reschedule-reason"
-            className={`w-full min-h-[100px] p-3 rounded-md border ${
-              error ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-red-500 bg-white text-sm`}
-            placeholder="Mohon jelaskan alasan Anda mengajukan reschedule..."
-            value={reason}
-            onChange={(e) => {
-              setReason(e.target.value);
-              if (error) setError('');
-            }}
-          />
-          {error && (
-            <p className="text-xs text-red-500">{error}</p>
-          )}
-        </div>
-
-        <DialogFooter className="mt-6">
-          <div className="flex flex-col sm:flex-row gap-2 w-full">
-            <Button
-              variant="outline"
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+          <div className="flex items-center justify-end gap-3">
+            <button
               onClick={onClose}
               disabled={isSubmitting}
-              className="w-full sm:w-auto border-red-500 text-red-500 hover:bg-red-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 transition-colors"
             >
               Batal
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={handleSubmit}
               disabled={isSubmitting || !reason.trim()}
-              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Memproses...' : 'Konfirmasi'}
-            </Button>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Memproses...</span>
+                </>
+              ) : (
+                'Konfirmasi'
+              )}
+            </button>
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -371,20 +407,36 @@ interface ScheduleCardProps {
 // Add this before the ScheduleCard component
 function StatusFlow({ status, itemsReceived }: { status: string; itemsReceived: boolean }) {
   const steps = [
-    { label: 'Barang Diterima', completed: itemsReceived },
-    { label: 'Start Live', completed: status === 'live' },
-    { label: 'End Live', completed: status === 'completed' }
+    { 
+      label: 'Barang Diterima', 
+      completed: itemsReceived,
+      current: !itemsReceived && status === 'accepted'
+    },
+    { 
+      label: 'Start Live', 
+      completed: status === 'live',
+      current: itemsReceived && status === 'accepted'
+    },
+    { 
+      label: 'End Live', 
+      completed: status === 'completed',
+      current: status === 'live'
+    }
   ];
 
   return (
-    <div className="flex items-center justify-center gap-2 mb-6">
+    <div className="flex items-center justify-center gap-2 mb-4">
       {steps.map((step, index) => (
         <div key={`step-${index}`} className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${
-            step.completed ? 'bg-blue-600' : 'bg-gray-300'
+            step.completed ? 'bg-blue-600' : 
+            step.current ? 'bg-blue-600 animate-pulse' : 
+            'bg-gray-300'
           }`} />
           <span className={`text-sm ${
-            step.completed ? 'text-blue-600 font-medium' : 'text-gray-400'
+            step.completed ? 'text-blue-600 font-medium' : 
+            step.current ? 'text-blue-600' :
+            'text-gray-400'
           }`}>
             {step.label}
           </span>
@@ -392,6 +444,8 @@ function StatusFlow({ status, itemsReceived }: { status: string; itemsReceived: 
             <div className={`h-px w-12 ${
               steps[index].completed && steps[index + 1].completed 
                 ? 'bg-blue-600' 
+                : steps[index].completed 
+                ? 'bg-gradient-to-r from-blue-600 to-gray-200'
                 : 'bg-gray-200'
             }`} />
           )}
@@ -413,30 +467,32 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
   const handleStartLive = async () => {
     setIsStarting(true);
     try {
-      // Optimistically update the UI
-      const updatedBooking = { ...booking, status: 'live', stream_link: streamLink };
-      setBookings(prev => prev.map(b => b.id === booking.id ? updatedBooking : b));
+      if (!streamLink) {
+        throw new Error('Stream link is required');
+      }
+
+      const result = await startStream(booking.id, streamLink);
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      // Update local state
+      setBookings(prev => prev.map(b => 
+        b.id === booking.id 
+          ? { ...b, status: 'live', stream_link: streamLink }
+          : b
+      ));
+
+      // Close start modal and open live modal
       setIsStartLiveModalOpen(false);
       setIsLiveStreamModalOpen(true);
+      onStreamStart();
+      toast.success('Live stream started successfully');
 
-      // Make the actual API call
-      const result = await startStream(booking.id, streamLink);
-      if (!result.success) {
-        // Revert changes if the API call fails
-        setBookings(prev => prev.map(b => b.id === booking.id ? booking : b));
-        setIsLiveStreamModalOpen(false);
-        setIsStartLiveModalOpen(true);
-        toast.error(result.error || "Failed to start stream");
-      } else {
-        onStreamStart();
-        toast.success("Live stream started successfully");
-      }
     } catch (error) {
-      // Revert changes if there's an error
-      setBookings(prev => prev.map(b => b.id === booking.id ? booking : b));
-      setIsLiveStreamModalOpen(false);
-      setIsStartLiveModalOpen(true);
-      toast.error("An error occurred while starting the stream");
+      console.error('Error starting stream:', error);
+      toast.error('Failed to start stream: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsStarting(false);
     }
@@ -447,133 +503,71 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
     if (!confirmed) return;
     
     try {
-      const supabase = createClient();
+      const result = await acceptItems(booking.id);
       
-      // Update booking with item acceptance
-      const { error: updateError } = await supabase
-        .from('bookings')
-        .update({ 
-          items_received: true,
-          items_received_at: new Date().toISOString()
-        })
-        .eq('id', booking.id)
-        .select()
-        .single();
-
-      if (updateError) {
-        console.error('Update error:', updateError);
-        throw updateError;
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      // Create notification for client
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: booking.client_id,
-          message: 'Streamer telah menerima barang Anda dan siap untuk memulai live streaming.',
-          type: 'item_received',
-          booking_id: booking.id,
-          created_at: new Date().toISOString()
-        });
-
-      if (notificationError) {
-        console.error('Notification error:', notificationError);
-      }
-
+      // Update local state
       setHasAcceptedItems(true);
       setIsItemAcceptanceModalOpen(false);
+      setBookings(prev => prev.map(b => 
+        b.id === booking.id 
+          ? { ...b, items_received: true, items_received_at: new Date().toISOString() }
+          : b
+      ));
+      
       toast.success('Konfirmasi penerimaan barang berhasil');
     } catch (error) {
       console.error('Error confirming item acceptance:', error);
-      toast.error('Gagal mengkonfirmasi penerimaan barang');
+      toast.error('Gagal mengkonfirmasi penerimaan barang: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
   const handleEndStream = async () => {
     try {
-      const supabase = createClient();
+      const result = await endStream(booking.id);
       
-      // Update booking status
-      const { error: bookingError } = await supabase
-        .from('bookings')
-        .update({ 
-          status: 'completed',
-          stream_link: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', booking.id);
-
-      if (bookingError) {
-        console.error('Booking update error:', bookingError);
-        throw bookingError;
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
-      // Create notification for client
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert([{
-          user_id: booking.client_id,
-          message: `Stream session has ended.`,
-          type: 'stream_complete',
-          booking_id: booking.id,
-          created_at: new Date().toISOString(),
-          is_read: false
-        }]);
+      // Update local state
+      setBookings(prev => prev.map(b => 
+        b.id === booking.id 
+          ? { ...b, status: 'completed' }
+          : b
+      ));
 
-      if (notificationError) {
-        console.error('Notification error:', notificationError);
-      }
-
-      // Close modal and notify parent
       setIsLiveStreamModalOpen(false);
-      onStreamEnd(); // This will trigger a refetch in the parent component
-      toast.success("Stream ended successfully");
-
+      onStreamEnd();
+      toast.success('Live stream ended successfully');
     } catch (error) {
       console.error('Error ending stream:', error);
-      toast.error("Failed to end stream. Please try again.");
+      toast.error('Failed to end stream: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
   const handleReschedule = async (reason: string) => {
     try {
-      const supabase = createClient();
+      const result = await requestReschedule(booking.id, reason);
       
-      // Update booking status with reason
-      const { error: updateError } = await supabase
-        .from('bookings')
-        .update({ 
-          status: 'reschedule_requested',
-          updated_at: new Date().toISOString(),
-          reason: reason
-        })
-        .eq('id', booking.id);
-
-      if (updateError) throw updateError;
-
-      // Create notification for client
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: booking.client_id,
-          message: `Streamer mengajukan reschedule untuk sesi live streaming Anda. Alasan: ${reason}`,
-          type: 'reschedule_request',
-          booking_id: booking.id,
-          created_at: new Date().toISOString(),
-          is_read: false,
-          streamer_id: booking.streamer_id
-        });
-
-      if (notificationError) {
-        console.error('Notification error:', notificationError);
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
       setIsRescheduleModalOpen(false);
       toast.success('Pengajuan reschedule berhasil dikirim');
     } catch (error) {
       console.error('Error requesting reschedule:', error);
-      toast.error('Gagal mengajukan reschedule');
+      toast.error('Gagal mengajukan reschedule: ' + (error instanceof Error ? error.message : String(error)));
     }
+  };
+
+  // Add this utility function at the top of the file
+  const calculateBasePrice = (finalPrice: number): number => {
+    return Math.round(finalPrice / 1.443); // Convert final price back to base price
   };
 
   return (
@@ -590,7 +584,7 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
 
       {/* Stream Time Indicator */}
       {new Date(booking.start_time).getTime() - new Date().getTime() < 1000 * 60 * 30 && !booking.status.includes('completed') && (
-        <div className="absolute left-0 top-0 w-full bg-yellow-50 text-yellow-800 px-4 py-3 text-sm border-b border-yellow-100">
+        <div className="absolute left-0 top-0 w-full bg-yellow-50 text-yellow-800 px-4 py-2 text-sm border-b border-yellow-100">
           <div className="flex items-center justify-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             {new Date(booking.start_time).getTime() > new Date().getTime() 
@@ -610,10 +604,10 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
         {/* Right circle cutout */}
         <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#faf9f6] rounded-full border border-gray-100"></div>
 
-        <div className="p-4 sm:p-6">
-          <div className={`${new Date(booking.start_time).getTime() - new Date().getTime() < 1000 * 60 * 30 && !booking.status.includes('completed') ? 'pt-6' : ''}`}>
+        <div className="p-4">
+          <div className={`${new Date(booking.start_time).getTime() - new Date().getTime() < 1000 * 60 * 30 && !booking.status.includes('completed') ? 'pt-4' : ''}`}>
             {/* Status Flow */}
-            <div className="mt-2 sm:mt-4 mb-6 sm:mb-8">
+            <div className="mt-2 mb-4">
               <StatusFlow 
                 status={booking.status} 
                 itemsReceived={booking.items_received || false} 
@@ -621,38 +615,38 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
             </div>
 
             {/* Header - Client Name and Route */}
-            <div className="mb-4 sm:mb-6">
-              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
                 {booking.client_first_name} {booking.client_last_name}
               </h3>
               <div className="flex items-center gap-2">
                 <Monitor className="h-4 w-4 text-gray-400" />
-                <span className="text-xs sm:text-sm text-gray-500">{booking.platform}</span>
+                <span className="text-sm text-gray-500">{booking.platform}</span>
               </div>
             </div>
 
             {/* Time Section */}
-            <div className="flex items-center justify-between mb-6 sm:mb-8 px-2 sm:px-8">
+            <div className="flex items-center justify-between mb-4 px-2">
               {/* Start Time */}
               <div className="text-left flex-1">
-                <div className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">Start</div>
-                <div className="text-xl sm:text-3xl font-bold text-gray-900">
+                <div className="text-xs text-gray-500 mb-1">Start</div>
+                <div className="text-lg font-bold text-gray-900">
                   {format(adjustToIndonesiaTime(booking.start_time), 'HH:mm')}
                 </div>
               </div>
 
               {/* Duration Line with Logo */}
-              <div className="flex-1 flex flex-col items-center px-2 sm:px-4">
+              <div className="flex-1 flex flex-col items-center px-2">
                 <Image
-                  src="/images/salda-logoB.png"
+                  src="/images/salda-icon.png"
                   alt="Salda"
                   width={80}
-                  height={32}
-                  className="mb-2 sm:mb-4 w-auto h-auto"
+                  height={30}
+                  className="mb-1"
                 />
                 <div className="w-full flex items-center gap-2">
                   <div className="h-px bg-gray-200 flex-1"></div>
-                  <div className="bg-gray-50 rounded-lg px-2 sm:px-4 py-1 text-xs sm:text-sm font-medium text-gray-600">
+                  <div className="bg-gray-50 rounded-lg px-2 py-1 text-xs font-medium text-gray-600">
                     {differenceInHours(new Date(booking.end_time), new Date(booking.start_time))}h
                   </div>
                   <div className="h-px bg-gray-200 flex-1"></div>
@@ -661,71 +655,71 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
 
               {/* End Time */}
               <div className="text-right flex-1">
-                <div className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">End</div>
-                <div className="text-xl sm:text-3xl font-bold text-gray-900">
+                <div className="text-xs text-gray-500 mb-1">End</div>
+                <div className="text-lg font-bold text-gray-900">
                   {format(adjustToIndonesiaTime(booking.end_time), 'HH:mm')}
                 </div>
               </div>
             </div>
 
             {/* Price and Date Section */}
-            <div className="flex justify-between items-center mb-4 sm:mb-6">
+            <div className="flex justify-between items-center mb-4">
               <div>
-                <div className="text-xs sm:text-sm text-gray-500 mb-1">Date</div>
-                <div className="text-sm sm:text-base font-medium">
+                <div className="text-xs text-gray-500 mb-1">Date</div>
+                <div className="text-sm font-medium">
                   {format(adjustToIndonesiaTime(booking.start_time), 'MMMM d, yyyy')}
                 </div>
               </div>
               <div>
-                <div className="text-xs sm:text-sm text-gray-500 mb-1">Price</div>
-                <div className="text-xl sm:text-2xl font-bold text-blue-600">
-                  Rp {booking.price.toLocaleString('id-ID')}
+                <div className="text-xs text-gray-500 mb-1">Price</div>
+                <div className="text-lg font-bold text-blue-600">
+                  Rp {calculateBasePrice(booking.price).toLocaleString('id-ID')}
                 </div>
               </div>
             </div>
 
             {/* Special Request Section */}
             {booking.special_request && (
-              <div className="mb-4 sm:mb-6 p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
-                  <span className="text-xs sm:text-sm font-medium text-gray-700">Special Request</span>
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <MessageSquare className="h-3 w-3 text-blue-500" />
+                  <span className="text-xs font-medium text-gray-700">Special Request</span>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600">{booking.special_request}</p>
+                <p className="text-xs text-gray-600">{booking.special_request}</p>
               </div>
             )}
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-2 sm:gap-3 pt-4 sm:pt-6 border-t border-dashed border-gray-200">
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-dashed border-gray-200">
               {booking.status === 'live' ? (
                 <button
                   onClick={() => setIsLiveStreamModalOpen(true)}
-                  className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors text-xs sm:text-sm"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors text-xs"
                 >
-                  <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-white animate-pulse" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                   View Live Stream
                 </button>
               ) : booking.status === 'accepted' && (
                 !hasAcceptedItems ? (
                   <button
                     onClick={() => setIsItemAcceptanceModalOpen(true)}
-                    className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
                   >
                     Barang Diterima
                   </button>
                 ) : (
-                  <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => setIsRescheduleModalOpen(true)}
-                      className="text-xs sm:text-sm text-gray-500 hover:text-blue-600 transition-colors"
+                      className="text-xs text-gray-500 hover:text-blue-600 transition-colors"
                     >
                       reschedule
                     </button>
                     <button
                       onClick={() => setIsStartLiveModalOpen(true)}
-                      className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-xs sm:text-sm"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-xs"
                     >
-                      <Video className="h-3 w-3 sm:h-4 sm:w-4" />
+                      <Video className="h-3 w-3" />
                       Start Live
                     </button>
                   </div>
@@ -737,70 +731,132 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
       </div>
 
       {/* Start Live Modal */}
-      <Dialog open={isStartLiveModalOpen} onOpenChange={setIsStartLiveModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <div className="px-8 py-8 space-y-8">
-            <DialogHeader className="space-y-4">
-              <DialogTitle className="text-2xl font-bold">Start Live Stream</DialogTitle>
-              <DialogDescription className="text-base text-gray-600">
-                Pastikan semua persiapan telah selesai sebelum memulai live streaming.
-              </DialogDescription>
-            </DialogHeader>
+      <div 
+        className={`fixed inset-0 bg-black/50 z-50 flex items-center justify-center ${isStartLiveModalOpen ? '' : 'hidden'}`}
+        onClick={() => setIsStartLiveModalOpen(false)}
+      >
+        <div 
+          className="bg-white rounded-xl w-full max-w-lg mx-4 overflow-hidden shadow-xl"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Start Live Stream
+              </h2>
+              <button 
+                onClick={() => setIsStartLiveModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                disabled={isStarting}
+              >
+                <XCircle className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
 
-            <div className="space-y-8">
-              <div className="space-y-4">
-                <Label className="text-base font-medium">Stream Link</Label>
-                <Input
-                  placeholder="Masukkan link stream Anda"
-                  value={streamLink}
-                  onChange={(e) => setStreamLink(e.target.value)}
-                  className="h-12 text-lg"
-                />
+          {/* Content */}
+          <div className="px-6 py-6 space-y-6">
+            {/* Stream Link Input */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <LinkIcon className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <label htmlFor="stream-link" className="block text-sm font-medium text-gray-900">
+                    Stream Link<span className="text-blue-600">*</span>
+                  </label>
+                  <p className="text-sm text-gray-500">Masukkan link stream Anda untuk memulai sesi live streaming</p>
+                </div>
               </div>
+              <input
+                id="stream-link"
+                type="text"
+                placeholder="https://..."
+                value={streamLink}
+                onChange={(e) => setStreamLink(e.target.value)}
+                className="w-full px-3 py-2 text-sm text-gray-900 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              />
+            </div>
 
-              <div className="bg-yellow-50 p-8 rounded-2xl text-base text-yellow-800">
-                <div className="flex items-start gap-4">
-                  <AlertTriangle className="h-6 w-6 text-yellow-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <p className="font-semibold text-lg mb-4">Checklist Sebelum Live:</p>
-                    <ul className="list-disc pl-5 space-y-3">
-                      <li>Pastikan koneksi internet stabil</li>
-                      <li>Periksa kembali barang yang akan di-review</li>
-                      <li>Siapkan script atau poin-poin pembahasan</li>
-                      <li>Test audio dan pencahayaan</li>
-                    </ul>
-                  </div>
+            {/* Guidelines */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <Info className="h-4 w-4 text-blue-600" />
+                </div>
+                <h4 className="text-base font-medium text-gray-900">
+                  Checklist Sebelum Live
+                </h4>
+              </div>
+              <ul className="space-y-3 pl-11">
+                <li className="flex items-center gap-2 text-gray-600">
+                  <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                  <span className="text-sm">Pastikan koneksi internet stabil</span>
+                </li>
+                <li className="flex items-center gap-2 text-gray-600">
+                  <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                  <span className="text-sm">Periksa kembali barang yang akan di-review</span>
+                </li>
+                <li className="flex items-center gap-2 text-gray-600">
+                  <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                  <span className="text-sm">Siapkan script atau poin-poin pembahasan</span>
+                </li>
+                <li className="flex items-center gap-2 text-gray-600">
+                  <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                  <span className="text-sm">Test audio dan pencahayaan</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Important Notice */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 mb-1">Penting:</p>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Pastikan Anda telah melakukan pengecekan terhadap semua peralatan streaming sebelum memulai sesi live.
+                  </p>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-100">
-              <Button
-                variant="outline"
+          {/* Footer */}
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+            <div className="flex items-center justify-end gap-3">
+              <button
                 onClick={() => setIsStartLiveModalOpen(false)}
                 disabled={isStarting}
-                className="px-8 py-6 text-base"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 transition-colors"
               >
                 Cancel
-              </Button>
-              <Button
+              </button>
+              <button
                 onClick={handleStartLive}
-                disabled={!streamLink || isStarting}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-base"
+                disabled={isStarting || !streamLink.trim()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isStarting ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Starting...
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Starting...</span>
                   </>
                 ) : (
-                  'Start Stream'
+                  <>
+                    <Video className="h-4 w-4" />
+                    <span>Start Stream</span>
+                  </>
                 )}
-              </Button>
+              </button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
 
       {/* Keep other existing modals */}
       <LiveStreamModal
@@ -988,34 +1044,25 @@ function RejectionModal({
   );
 }
 
-function BookingCard({ booking, onAccept, onReject }: { 
-  booking: Booking; 
+// Update the BookingCard component props interface
+interface BookingCardProps {
+  booking: Booking;
   onAccept: (id: number) => void;
-  onReject: (id: number) => void;
-}) {
+  onReject: (id: number, reason: string) => void;
+}
+
+// Update the BookingCard component
+function BookingCard({ booking, onAccept, onReject }: BookingCardProps) {
   const [isRejectionModalOpen, setIsRejectionModalOpen] = useState(false);
 
   const handleReject = async (reason: string) => {
-    try {
-      const supabase = createClient();
-      
-      // Update booking with rejection reason
-      const { error: updateError } = await supabase
-        .from('bookings')
-        .update({ 
-          rejection_reason: reason,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', booking.id);
+    await onReject(booking.id, reason);
+    setIsRejectionModalOpen(false);
+  };
 
-      if (updateError) throw updateError;
-
-      // Call the reject handler
-      onReject(booking.id);
-    } catch (error) {
-      console.error('Error rejecting booking:', error);
-      toast.error('Gagal menolak booking');
-    }
+  // Add this utility function at the top of the file
+  const calculateBasePrice = (finalPrice: number): number => {
+    return Math.round(finalPrice / 1.443); // Convert final price back to base price
   };
 
   return (
@@ -1098,7 +1145,7 @@ function BookingCard({ booking, onAccept, onReject }: {
             <div>
               <div className="text-sm text-gray-500 mb-1">Price</div>
               <div className="text-2xl font-bold text-blue-600">
-                Rp {booking.price.toLocaleString('id-ID')}
+                Rp {calculateBasePrice(booking.price).toLocaleString('id-ID')}
               </div>
             </div>
           </div>
@@ -1279,19 +1326,6 @@ function LiveStreamModal({
 }) {
   const [elapsedTime, setElapsedTime] = useState(0);
 
-  // Prevent background scrolling when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen]);
-
-  // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isOpen) {
@@ -1304,7 +1338,6 @@ function LiveStreamModal({
     };
   }, [isOpen]);
 
-  // Format elapsed time as HH:MM:SS
   const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -1315,62 +1348,95 @@ function LiveStreamModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl relative">
-        {/* Close Button */}
-        <button 
-          onClick={onClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <XCircle className="h-6 w-6" />
-        </button>
-
-        <div className="p-10 space-y-8">
-          {/* Header */}
-          <div className="text-center space-y-4">
-            <div className="inline-flex items-center px-6 py-2.5 rounded-full bg-red-100 text-red-600">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-600 animate-pulse mr-3" />
-              LIVE
+    <div 
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl w-full max-w-lg mx-4 overflow-hidden shadow-xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full">
+                <div className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
+                <span className="text-sm font-medium text-blue-600">LIVE</span>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                Live Streaming in Progress
+              </h2>
             </div>
-            <h2 className="text-3xl font-bold text-gray-900">Live Streaming in Progress</h2>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <XCircle className="h-6 w-6" />
+            </button>
           </div>
+        </div>
 
+        {/* Content */}
+        <div className="px-6 py-6 space-y-6">
           {/* Timer */}
-          <div className="text-center py-4">
-            <div className="text-5xl font-mono font-bold text-gray-900 tracking-wider">
+          <div className="flex flex-col items-center">
+            <div className="text-4xl font-mono font-bold text-gray-900 tracking-wider tabular-nums">
               {formatTime(elapsedTime)}
             </div>
-            <p className="text-base text-gray-500 mt-3">Elapsed Time</p>
+            <p className="text-sm text-gray-500 mt-2">Elapsed Time</p>
           </div>
 
           {/* Stream Info */}
-          <div className="space-y-6 bg-gray-50 rounded-2xl p-8">
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-2">Client</p>
-              <p className="text-lg font-semibold">{booking.client_first_name} {booking.client_last_name}</p>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <Info className="h-4 w-4 text-blue-600" />
+              </div>
+              <h4 className="text-base font-medium text-gray-900">
+                Stream Information
+              </h4>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-2">Platform</p>
-              <p className="text-lg font-semibold">{booking.platform}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-2">Stream Link</p>
-              <a 
-                href={streamLink} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline break-all text-base"
-              >
-                {streamLink}
-              </a>
+
+            <div className="space-y-4 pl-11">
+              {/* Client Info */}
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500">Client</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {booking.client_first_name} {booking.client_last_name}
+                </p>
+              </div>
+
+              {/* Platform */}
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500">Platform</p>
+                <p className="text-sm font-medium text-gray-900">{booking.platform}</p>
+              </div>
+
+              {/* Stream Link */}
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500">Stream Link</p>
+                <a 
+                  href={streamLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-700 hover:underline break-all inline-flex items-center gap-1"
+                >
+                  {streamLink}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* End Stream Button */}
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
           <button
             onClick={onEndStream}
-            className="w-full py-4 px-6 text-lg font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors duration-200 shadow-sm hover:shadow-md"
+            className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
           >
+            <Video className="h-4 w-4" />
             End Stream
           </button>
         </div>
@@ -1776,10 +1842,12 @@ export default function StreamerDashboard() {
         return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'accepted':
         return 'bg-green-100 text-green-800 border-green-300';
-      case 'rejected':
-        return 'bg-red-100 text-red-800 border-red-300';
       case 'completed':
         return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'live':
+        return 'bg-green-100 text-green-800 border-green-300';
+      case 'rejected':
+        return 'bg-red-100 text-red-800 border-red-300';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-300';
     }
@@ -1811,19 +1879,50 @@ export default function StreamerDashboard() {
     }
   };
 
-  const handleRejectBooking = async (bookingId: number) => {
-    const result = await rejectBooking(bookingId);
-    if (result.success) {
+  const handleRejectBooking = async (bookingId: number, reason: string) => {
+    try {
+      const supabase = createClient();
+      
+      // Update booking status and rejection reason
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ 
+          status: 'rejected',
+          rejection_reason: reason,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', bookingId);
+
+      if (updateError) throw updateError;
+
       // Find the booking to be rejected
       const rejectedBooking = pendingBookings.find(b => b.id === bookingId);
       if (rejectedBooking) {
+        // Create notification for client
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: rejectedBooking.client_id,
+            message: `Booking Anda telah ditolak oleh streamer. Alasan: ${reason}`,
+            type: 'booking_rejected',
+            booking_id: bookingId,
+            created_at: new Date().toISOString(),
+            is_read: false,
+            streamer_id: rejectedBooking.streamer_id
+          });
+
+        if (notificationError) {
+          console.error('Notification error:', notificationError);
+        }
+
         // Update states immediately
         setPendingBookings(prev => prev.filter(b => b.id !== bookingId));
-        setRejectedBookings(prev => [...prev, { ...rejectedBooking, status: 'rejected' }]);
+        setRejectedBookings(prev => [...prev, { ...rejectedBooking, status: 'rejected', rejection_reason: reason }]);
         toast.success("Booking rejected successfully");
       }
-    } else {
-      toast.error(result.error || "Failed to reject booking");
+    } catch (error) {
+      console.error('Error rejecting booking:', error);
+      toast.error("Failed to reject booking");
     }
   };
 

@@ -48,6 +48,9 @@ interface FormData {
     bio: string;
     video_url: string;
     gallery: GalleryImage[];
+    gender: string;
+    experience: string;
+    age: string;
   };
 }
 
@@ -74,6 +77,9 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
       bio: '',
       video_url: '',
       gallery: [],
+      gender: '',
+      experience: '',
+      age: '',
     }
   });
 
@@ -128,7 +134,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         break;
         
       case 3: // Profile
-        const { image, platforms, categories, price } = formData.profile;
+        const { image, platforms, categories, price, gender, age, experience } = formData.profile;
         if (!image) {
           setError('Please upload a profile image');
           return false;
@@ -143,6 +149,23 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         }
         if (!price) {
           setError('Please enter your price per hour');
+          return false;
+        }
+        if (!gender) {
+          setError('Please select your gender');
+          return false;
+        }
+        if (!age) {
+          setError('Please enter your age');
+          return false;
+        }
+        const ageNum = parseInt(age);
+        if (isNaN(ageNum) || ageNum < 18 || ageNum > 100) {
+          setError('Please enter a valid age between 18 and 100');
+          return false;
+        }
+        if (!experience) {
+          setError('Please select your experience level');
           return false;
         }
         break;
@@ -239,6 +262,9 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
       submitFormData.append('price', formData.profile.price.replace(/\./g, ''));
       submitFormData.append('bio', formData.profile.bio);
       submitFormData.append('video_url', formData.profile.video_url);
+      submitFormData.append('gender', formData.profile.gender);
+      submitFormData.append('age', formData.profile.age);
+      submitFormData.append('experience', formData.profile.experience);
 
       const result: SignUpResponse = await streamerSignUpAction(submitFormData);
       
@@ -563,6 +589,61 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             className="hidden"
             required
           />
+        </div>
+
+        {/* Personal Information */}
+        <div className="space-y-6">
+          {/* Gender */}
+          <div className="space-y-1">
+            <Label htmlFor="gender" className="text-gray-700">Gender</Label>
+            <Select
+              value={formData.profile.gender}
+              onValueChange={(value) => updateFormData('profile', 'gender', value)}
+            >
+              <SelectTrigger id="gender" className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base">
+                <SelectValue placeholder="Pilih gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Laki-laki</SelectItem>
+                <SelectItem value="female">Perempuan</SelectItem>
+                <SelectItem value="other">Prefer not to say</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Age */}
+          <div className="space-y-1">
+            <Label htmlFor="age" className="text-gray-700">Umur</Label>
+            <Input
+              type="number"
+              name="age"
+              value={formData.profile.age}
+              onChange={(e) => updateFormData('profile', 'age', e.target.value)}
+              min="18"
+              max="100"
+              placeholder="Masukkan umur Anda"
+              className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+            />
+          </div>
+
+          {/* Experience */}
+          <div className="space-y-1">
+            <Label htmlFor="experience" className="text-gray-700">Pengalaman Live Streaming</Label>
+            <Select
+              value={formData.profile.experience}
+              onValueChange={(value) => updateFormData('profile', 'experience', value)}
+            >
+              <SelectTrigger id="experience" className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base">
+                <SelectValue placeholder="Pilih pengalaman" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="beginner">Pemula (kurang dari 1 tahun)</SelectItem>
+                <SelectItem value="intermediate">Menengah (1-3 tahun)</SelectItem>
+                <SelectItem value="advanced">Berpengalaman (lebih dari 3 tahun)</SelectItem>
+                <SelectItem value="expert">Expert (lebih dari 5 tahun)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Platform */}
@@ -1125,17 +1206,6 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   return (
     <div className="w-full max-w-[480px] min-h-screen py-8">
-      <div className="mb-8 flex justify-center lg:hidden">
-        <Image
-          src="/images/salda-logoB.png"
-          alt="Salda Logo"
-          width={150}
-          height={150}
-          priority
-          className="w-auto h-auto"
-        />
-      </div>
-
       <div className="overflow-hidden rounded-xl bg-white/95 backdrop-blur-sm shadow-2xl">
         <div className="px-6 py-8 sm:px-8 overflow-y-auto">
           <div className="mb-6">

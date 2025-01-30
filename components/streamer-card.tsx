@@ -56,7 +56,7 @@ const convertToUTC = (date: Date, hour: number): Date => {
   return d;
 };
 
-// Update the Streamer interface to include video_url
+// Update the Streamer interface to include new fields
 export interface Streamer {
   id: number;
   user_id: string;
@@ -81,6 +81,9 @@ export interface Streamer {
   video_url: string | null;
   availableTimeSlots?: string[];
   discount_percentage?: number | null;
+  gender?: string;
+  age?: number;
+  experience?: string;
 }
 
 // Update the testimonial interface
@@ -92,9 +95,6 @@ interface Testimonial {
 
 // Update the StreamerProfile interface
 interface StreamerProfile extends Streamer {
-  age: number;
-  gender: string;
-  experience: string;
   fullBio: string;
   gallery: {
     photos: { id: number; photo_url: string; order_number: number }[];
@@ -420,10 +420,10 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   }, [streamer.id]);
 
   useEffect(() => {
-    if (extendedProfile && extendedProfile.gallery.photos.length > 0) {
+    if (isProfileModalOpen && extendedProfile?.gallery?.photos?.[0]?.photo_url) {
       setSelectedImage(extendedProfile.gallery.photos[0].photo_url);
     }
-  }, [extendedProfile]);
+  }, [extendedProfile, isProfileModalOpen]);
 
   useEffect(() => {
     const fetchClientLocation = async () => {
@@ -463,41 +463,65 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
   // Progressive profile loading
   const fetchExtendedProfile = async () => {
-    if (extendedProfile) return;
+    // Clear the cache to ensure fresh data
+    profileCache.current = null;
+
     setIsLoadingProfile(true);
+    const supabase = createClient();
 
     try {
-      // Use cached basic data if available
-      const basicProfile = profileCache.current || await fetchExtendedProfileBasic(streamer.id);
+      // Fetch basic profile data
+      const { data: profileData, error: profileError } = await supabase
+        .from('streamers')
+        .select(`
+          id,
+          user_id,
+          first_name,
+          last_name,
+          bio,
+          location,
+          video_url,
+          gender,
+          age,
+          experience,
+          rating,
+          platform,
+          category,
+          price,
+          image_url
+        `)
+        .eq('id', streamer.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Fetch gallery photos
+      const { photos } = await fetchGallery();
       
-      if (!basicProfile) {
-        throw new Error('Failed to fetch basic profile data');
-      }
+      // Fetch testimonials
+      const testimonials = await fetchTestimonials();
 
-      // Set initial profile data
-      setExtendedProfile({
-        ...streamer,
-        ...basicProfile,
-        gallery: { photos: [] },
-        testimonials: []
-      } as StreamerProfile);
+      const extendedProfileData: StreamerProfile = {
+        ...profileData,
+        gallery: { photos },
+        testimonials,
+        fullBio: profileData.bio,
+        // Ensure all required properties are included
+        platforms: profileData.platform ? [profileData.platform] : [],
+        categories: profileData.category ? [profileData.category] : [],
+        availableTimeSlots: [],
+        discount_percentage: null,
+        previous_price: null,
+        last_price_update: undefined,
+        price_history: []
+      };
 
-      // Load gallery and testimonials in parallel
-      const [galleryData, testimonialsData] = await Promise.all([
-        fetchGallery(),
-        fetchTestimonials()
-      ]);
-
-      // Update with gallery and testimonials
-      setExtendedProfile(prev => ({
-        ...(prev as StreamerProfile),
-        gallery: galleryData || { photos: [] },
-        testimonials: testimonialsData || []
-      }));
+      setExtendedProfile(extendedProfileData);
+      profileCache.current = extendedProfileData;
 
     } catch (error) {
       console.error('Error fetching extended profile:', error);
-      toast.error('Failed to load complete profile');
+      setExtendedProfile(null);
     } finally {
       setIsLoadingProfile(false);
     }
@@ -1266,209 +1290,226 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
       </Dialog>
 
       {/* Profile Modal */}
-      <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6 animate-none">
-          <DialogClose className="absolute right-4 top-4 rounded-full bg-gradient-to-r from-[#1e40af] to-[#6b21a8] p-1 text-white hover:from-[#1e3a8a] hover:to-[#581c87] transition-colors z-50">
-            <X className="h-4 w-4" />
-          </DialogClose>
-
-          {isLoadingProfile ? (
-            <div className="space-y-4">
-              <div className="h-4 bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2" />
-            </div>
-          ) : extendedProfile ? (
-            <>
-              {/* Professional ID Card Layout */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100 shadow-sm mb-8">
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                  {/* Left Column - Photo and Basic Info */}
-                  <div className="flex flex-col items-center space-y-3">
-                    <div className="relative w-28 h-28 sm:w-32 sm:h-32">
-                      <Image
-                        src={streamer.image_url}
-                        alt={formatName(streamer.first_name, streamer.last_name)}
-                        fill
-                        className="rounded-lg object-cover border-2 border-white shadow-md"
-                      />
+      {isProfileModalOpen && (
+        <Dialog
+          open={isProfileModalOpen}
+          onOpenChange={setIsProfileModalOpen}
+        >
+          <DialogContent 
+            className="max-w-2xl w-full h-[85vh] overflow-y-auto z-[100] fixed inset-0 top-[55%] left-[50%] translate-x-[-50%] translate-y-[-50%] p-6"
+          >
+            <DialogHeader className="bg-white pb-4">
+              <DialogTitle>Streamer Profile</DialogTitle>
+              <DialogDescription>
+                View detailed information about this streamer
+              </DialogDescription>
+            </DialogHeader>
+            
+            {isLoadingProfile ? (
+              <div className="space-y-4">
+                <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2" />
+              </div>
+            ) : extendedProfile ? (
+              <>
+                {/* Professional ID Card Layout */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100 shadow-sm mb-8">
+                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                    {/* Left Column - Photo and Basic Info */}
+                    <div className="flex flex-col items-center space-y-3">
+                      <div className="relative w-28 h-28 sm:w-32 sm:h-32">
+                        <Image
+                          src={streamer.image_url}
+                          alt={formatName(streamer.first_name, streamer.last_name)}
+                          fill
+                          className="rounded-lg object-cover border-2 border-white shadow-md"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                        <span className="text-sm font-medium">
+                          {extendedProfile.rating ? `${Number(extendedProfile.rating).toFixed(1)} / 5.0` : 'Not rated yet'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                      <span className="text-sm font-medium">
-                        {extendedProfile.rating ? `${Number(extendedProfile.rating).toFixed(1)} / 5.0` : 'Not rated yet'}
-                      </span>
+
+                    {/* Right Column - Details */}
+                    <div className="flex-1 space-y-4">
+                      {/* Name and Title */}
+                      <div className="border-b border-blue-200 pb-3">
+                        <h2 className="text-xl font-semibold text-blue-900">
+                          {formatName(streamer.first_name, streamer.last_name)}
+                        </h2>
+                        <p className="text-sm text-blue-600 font-medium">Professional Livestreamer</p>
+                      </div>
+
+                      {/* Info Grid - Redesigned for better desktop view */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+                        {/* Age */}
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <User className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Age</p>
+                            <p className="text-sm">{extendedProfile.age ? `${extendedProfile.age} Years` : 'Not specified'}</p>
+                          </div>
+                        </div>
+
+                        {/* Gender */}
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <User className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Gender</p>
+                            <p className="text-sm">{extendedProfile.gender || 'Not specified'}</p>
+                          </div>
+                        </div>
+
+                        {/* Experience */}
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <Clock className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Experience</p>
+                            <p className="text-sm">{extendedProfile.experience || 'Not specified'}</p>
+                          </div>
+                        </div>
+
+                        {/* Location */}
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <MapPin className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Location</p>
+                            <p className="text-sm">{extendedProfile.location || 'Not specified'}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Platform Tags */}
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {(streamer.platforms || [streamer.platform]).map((platform) => (
+                          <div
+                            key={platform}
+                            className={`px-3 py-1 rounded-full text-white text-xs font-medium
+                              ${platform.toLowerCase() === 'shopee' 
+                                ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
+                                : 'bg-gradient-to-r from-blue-600 to-indigo-600'}`}
+                          >
+                            {platform}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Right Column - Details */}
-                  <div className="flex-1 space-y-4">
-                    {/* Name and Title */}
-                    <div className="border-b border-blue-200 pb-3">
-                      <h2 className="text-xl font-semibold text-blue-900">
-                        {formatName(streamer.first_name, streamer.last_name)}
-                      </h2>
-                      <p className="text-sm text-blue-600 font-medium">Professional Livestreamer</p>
+                {/* Bio Section */}
+                <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">About Me</h3>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                    {extendedProfile.fullBio || extendedProfile.bio || 'Belum ada deskripsi tersedia'}
+                  </p>
+                </div>
+
+                {/* Video Section */}
+                {extendedProfile.video_url && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Featured Content</h3>
+                    <div className="w-full aspect-video">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src={`https://www.youtube.com/embed/${getYouTubeVideoId(extendedProfile.video_url) || ''}`}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="rounded-lg shadow-sm"
+                      />
                     </div>
+                  </div>
+                )}
 
-                    {/* Info Stack - Redesigned for better mobile view */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-blue-100 rounded-md">
-                          <User className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-blue-600 font-medium">Age</p>
-                          <p className="text-sm">{extendedProfile.age ? `${extendedProfile.age} Years` : 'Not specified'}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-blue-100 rounded-md">
-                          <User className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-blue-600 font-medium">Gender</p>
-                          <p className="text-sm">{extendedProfile.gender || 'Not specified'}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-blue-100 rounded-md">
-                          <Clock className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-blue-600 font-medium">Experience</p>
-                          <p className="text-sm">{extendedProfile.experience || 'Not specified'}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-blue-100 rounded-md">
-                          <MapPin className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-blue-600 font-medium">Location</p>
-                          <p className="text-sm">{extendedProfile.location || 'Not specified'}</p>
-                        </div>
-                      </div>
+                {/* Gallery Section */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Gallery</h3>
+                  {isLoadingGallery ? (
+                    <div className="grid grid-cols-4 gap-2">
+                      {[1, 2, 3, 4].map((n) => (
+                        <div key={n} className="aspect-square bg-gray-200 rounded animate-pulse" />
+                      ))}
                     </div>
-
-                    {/* Platform Tags */}
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {(streamer.platforms || [streamer.platform]).map((platform) => (
+                  ) : extendedProfile?.gallery?.photos && extendedProfile.gallery.photos.length > 0 ? (
+                    <div className="grid grid-cols-4 gap-2">
+                      {extendedProfile.gallery.photos.map((photo) => (
                         <div
-                          key={platform}
-                          className={`px-3 py-1 rounded-full text-white text-xs font-medium
-                            ${platform.toLowerCase() === 'shopee' 
-                              ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
-                              : 'bg-gradient-to-r from-blue-600 to-indigo-600'}`}
+                          key={photo.id}
+                          className="aspect-square relative overflow-hidden rounded-lg shadow-sm"
                         >
-                          {platform}
+                          <Image
+                            src={photo.photo_url}
+                            alt={`Gallery photo ${photo.order_number}`}
+                            fill
+                            className="object-cover hover:scale-105 transition-transform duration-300"
+                            sizes="(max-width: 600px) 25vw, 150px"
+                          />
                         </div>
                       ))}
                     </div>
-                  </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center">No gallery photos available</p>
+                  )}
                 </div>
-              </div>
 
-              {/* Bio Section */}
-              <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">About Me</h3>
-                <p className="text-sm text-gray-600 whitespace-pre-wrap">
-                  {extendedProfile.fullBio || extendedProfile.bio || 'Belum ada deskripsi tersedia'}
-                </p>
-              </div>
-
-              {/* Video Section */}
-              {extendedProfile.video_url && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Featured Content</h3>
-                  <div className="w-full aspect-video">
-                    <iframe
-                      width="100%"
-                      height="100%"
-                      src={`https://www.youtube.com/embed/${getYouTubeVideoId(extendedProfile.video_url) || ''}`}
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="rounded-lg shadow-sm"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Gallery Section */}
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Gallery</h3>
-                {isLoadingGallery ? (
-                  <div className="grid grid-cols-4 gap-2">
-                    {[1, 2, 3, 4].map((n) => (
-                      <div key={n} className="aspect-square bg-gray-200 rounded animate-pulse" />
-                    ))}
-                  </div>
-                ) : extendedProfile.gallery?.photos.length > 0 ? (
-                  <div className="grid grid-cols-4 gap-2">
-                    {extendedProfile.gallery.photos.map((photo) => (
-                      <div
-                        key={photo.id}
-                        className="aspect-square relative overflow-hidden rounded-lg shadow-sm"
-                      >
-                        <Image
-                          src={photo.photo_url}
-                          alt={`Gallery photo ${photo.order_number}`}
-                          fill
-                          className="object-cover hover:scale-105 transition-transform duration-300"
-                          sizes="(max-width: 600px) 25vw, 150px"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 text-center">No gallery photos available</p>
-                )}
-              </div>
-
-              {/* Testimonials Section */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Client Testimonials</h3>
-                {isLoadingTestimonials ? (
-                  <div className="space-y-4">
-                    {[1, 2].map((n) => (
-                      <div key={n} className="h-20 bg-gray-200 rounded animate-pulse" />
-                    ))}
-                  </div>
-                ) : extendedProfile.testimonials?.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {extendedProfile.testimonials.map((testimonial, index) => (
-                      <div key={index} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="flex">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star 
-                                key={star}
-                                className={cn(
-                                  "w-3 h-3",
-                                  testimonial.rating >= star 
-                                    ? "text-yellow-400 fill-yellow-400" 
-                                    : "text-gray-300"
-                                )}
-                              />
-                            ))}
+                {/* Testimonials Section */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Client Testimonials</h3>
+                  {isLoadingTestimonials ? (
+                    <div className="space-y-4">
+                      {[1, 2].map((n) => (
+                        <div key={n} className="h-20 bg-gray-200 rounded animate-pulse" />
+                      ))}
+                    </div>
+                  ) : extendedProfile.testimonials?.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {extendedProfile.testimonials.map((testimonial, index) => (
+                        <div key={index} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star 
+                                  key={star}
+                                  className={cn(
+                                    "w-3 h-3",
+                                    testimonial.rating >= star 
+                                      ? "text-yellow-400 fill-yellow-400" 
+                                      : "text-gray-300"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm font-medium text-blue-600">
+                              {testimonial.client_name}
+                            </span>
                           </div>
-                          <span className="text-sm font-medium text-blue-600">
-                            {testimonial.client_name}
-                          </span>
+                          <p className="text-sm text-gray-600 italic">"{testimonial.comment}"</p>
                         </div>
-                        <p className="text-sm text-gray-600 italic">"{testimonial.comment}"</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 text-center">No testimonials yet</p>
-                )}
-              </div>
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center">No testimonials yet</p>
+                  )}
+                </div>
+              </>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
