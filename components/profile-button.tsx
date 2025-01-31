@@ -116,6 +116,7 @@ export function ProfileButton({ user, showNameOnMobile = true, className }: Prof
         sideOffset={8}
         alignOffset={0}
         forceMount
+        style={{ '--radix-dropdown-menu-content-transform-origin': 'var(--radix-popper-transform-origin)' } as React.CSSProperties}
       >
         {/* Mobile-only menu items */}
         <div className="block sm:hidden">

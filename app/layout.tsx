@@ -104,10 +104,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.className} ${playfair.variable}`}>
       <body 
-        className={`${GeistSans.className} bg-[#faf9f6]`}
+        className={`${GeistSans.className} bg-[#faf9f6] mobile-layout`}
         style={{
           '--primary-gradient': 'linear-gradient(to right, #2563eb, #7c3aed)',
-          '--primary-gradient-hover': 'linear-gradient(to right, #1d4ed8, #6d28d9)'
+          '--primary-gradient-hover': 'linear-gradient(to right, #1d4ed8, #6d28d9)',
         } as CustomCSSProperties}
       >
         <Toaster />

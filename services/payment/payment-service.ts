@@ -212,16 +212,16 @@ export async function createBookingAfterPayment(
     // Create notifications using simplified approach
     await createNotification({
       user_id: metadata.userId,
-      message: `Booking confirmed with ${metadata.firstName} ${metadata.lastName}. Payment successful.`,
+      streamer_id: parseInt(metadata.streamerId),
+      message: `Payment confirmed for your booking on ${format(new Date(metadata.startTime), 'dd MMMM HH:mm')}. Menunggu streamer menerima pesanan Anda.`,
       type: 'booking_payment',
       booking_id: newBooking.id,
-      streamer_id: parseInt(metadata.streamerId),
       is_read: false
     });
 
     await createNotification({
       streamer_id: parseInt(metadata.streamerId),
-      message: `New booking request from ${metadata.firstName} ${metadata.lastName}. Payment confirmed.`,
+      message: `New booking request from ${metadata.firstName} for ${format(new Date(metadata.startTime), 'dd MMMM HH:mm')}. Payment confirmed.`,
       type: 'booking_payment',
       booking_id: newBooking.id,
       is_read: false

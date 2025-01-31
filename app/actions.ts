@@ -898,14 +898,17 @@ export async function endStream(bookingId: number) {
     if (updateError) throw updateError;
 
     // Get streamer name safely
-    const streamerName = bookingData.streamers?.first_name || 'Streamer';
+    if (!bookingData.streamers?.first_name) {
+      console.error('Streamer data not found in booking:', bookingData);
+      throw new Error('Streamer data not found');
+    }
 
     // Create notification using the helper function with proper error handling
     await createStreamNotifications({
       client_id: bookingData.client_id,
       streamer_id: bookingData.streamer_id,
       booking_id: bookingId,
-      streamer_name: streamerName,
+      streamer_name: bookingData.streamers.first_name,
       start_time: format(new Date(bookingData.start_time), 'dd MMMM HH:mm'),
       platform: bookingData.platform,
       type: 'stream_ended'

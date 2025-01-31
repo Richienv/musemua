@@ -91,15 +91,22 @@ export async function createStreamNotifications({
   type: 'stream_started' | 'stream_ended';
 }) {
   try {
-    // Extract first name only
-    const firstName = streamer_name.split(' ')[0];
-    
+    // Validate required fields
+    if (!streamer_name) {
+      console.error('Missing streamer name in createStreamNotifications');
+      throw new Error('Streamer name is required');
+    }
+
+    // Create the notification message
+    const message = type === 'stream_started'
+      ? `${streamer_name} telah memulai live stream untuk booking Anda pada ${start_time} di platform ${platform}${stream_link ? `. Klik untuk bergabung.` : ''}`
+      : `${streamer_name} telah mengakhiri live stream untuk booking Anda.`;
+
+    // Create the notification
     return await createNotification({
       user_id: client_id,
       streamer_id,
-      message: type === 'stream_started'
-        ? `${firstName} telah memulai live stream untuk booking Anda pada ${start_time} di platform ${platform}${stream_link ? `. Bergabung disini: ${stream_link}` : ''}`
-        : `${firstName} telah mengakhiri live stream untuk booking Anda pada ${start_time} di platform ${platform}.`,
+      message,
       type,
       booking_id,
       is_read: false

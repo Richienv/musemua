@@ -29,6 +29,7 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    --app-height: 100vh;
   }
 
   .dark {
@@ -57,6 +58,18 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+}
+
+@supports (-webkit-touch-callout: none) {
+  :root {
+    --app-height: -webkit-fill-available;
+  }
+}
+
+.mobile-layout {
+  min-height: var(--app-height);
+  position: relative;
+  overflow-x: hidden;
 }
 
 @layer base {
@@ -345,8 +358,9 @@ a:not(.no-transition),
               opacity 0.1s ease-in-out;
 }
 
-/* Dialog positioning fix for mobile */
+/* Dialog and Popover positioning fixes */
 @media (max-width: 640px) {
+  /* Dialog positioning */
   [role="dialog"] {
     left: 47% !important;
     top: 45% !important;
@@ -354,18 +368,141 @@ a:not(.no-transition),
     transition: none !important;
   }
 
-  /* Popover positioning fix for mobile */
-  [data-radix-popper-content-wrapper] {
-    left: 53% !important;
-    top: 15% !important;
-    transform: translate(-50%, -40%) !important;
-    transition: none !important;
+  /* Notification popup mobile styles */
+  .notification-mobile-content[data-radix-popper-content-wrapper] {
+    position: fixed !important;
+    top: 64px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: 90% !important;
+    max-width: 400px !important;
+    margin: 0 auto !important;
+    z-index: 9999 !important;
+  }
+
+  /* Profile dropdown positioning */
+  .profile-dropdown[data-radix-popper-content-wrapper] {
+    position: fixed !important;
+    inset: auto !important;
+    top: 64px !important;
+    right: 16px !important;
+    left: auto !important;
+    transform: none !important;
+    width: auto !important;
+    min-width: 200px !important;
+  }
+
+  /* Select menu positioning - removed fixed positioning */
+  [data-radix-select-content] {
+    width: var(--radix-select-trigger-width);
+    max-height: var(--radix-select-content-available-height);
+    z-index: 100;
+  }
+
+  /* Mobile-specific styles */
+  .notifications-popup[data-radix-popper-content-wrapper] {
+    position: fixed !important;
+    top: 64px !important;
+    left: 16px !important;
+    right: 16px !important;
+    width: auto !important;
+    max-width: calc(100vw - 32px) !important;
+    transform: none !important;
+    margin: 0 !important;
+    z-index: 50 !important;
+  }
+
+  .notifications-popup {
+    max-height: calc(100vh - 80px) !important;
+    overflow-y: auto !important;
+  }
+
+  .notifications-popup > div {
+    max-height: none !important;
+  }
+
+  .notifications-popup [role="dialog"] {
+    max-height: calc(100vh - 80px) !important;
+    overflow-y: auto !important;
+  }
+
+  /* Mobile notification popup styles */
+  [data-radix-popper-content-wrapper].notification-popup {
+    position: fixed !important;
+    top: 16px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 32px) !important;
+    max-width: 400px !important;
+    margin: 0 auto !important;
+    z-index: 9999 !important;
+  }
+
+  .notification-popup {
+    max-height: 280px !important;
+    overflow-y: auto !important;
+  }
+
+  .notification-popup .max-h-\[calc\(100vh-200px\)\] {
+    max-height: 240px !important;
+  }
+
+  /* Add custom scrollbar for notifications */
+  .notification-popup::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .notification-popup::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .notification-popup::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
   }
 }
 
-/* Add this to disable animations globally for dialogs and popovers */
-[role="dialog"],
+/* Base styles for all popper content */
 [data-radix-popper-content-wrapper] {
   animation: none !important;
   transition: none !important;
+}
+
+/* Base notification styles */
+.notifications-popup {
+  width: 90vw !important;
+  max-width: 400px !important;
+  background: white !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.notification-popup {
+  z-index: 9999;
+  position: relative;
+  background-color: #faf9f6;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Mobile layout and viewport fixes */
+@media (max-width: 640px) {
+  [data-radix-popper-content-wrapper] {
+    position: fixed !important;
+    top: 64px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 90% !important;
+    max-width: 400px !important;
+    margin: 0 auto !important;
+  }
+
+  .notification-mobile-content[data-radix-popper-content-wrapper] {
+    height: auto !important;
+    max-height: calc(var(--app-height) - 80px) !important;
+    overflow-y: auto !important;
+    z-index: 9999 !important;
+  }
 }

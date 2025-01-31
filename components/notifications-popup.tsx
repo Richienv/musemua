@@ -147,15 +147,56 @@ export function NotificationsPopup() {
     }
   };
 
-  const handleMarkAllAsRead = async () => {
+  const handleNotificationSeen = async (id: string) => {
     try {
+      // First verify the notification exists and belongs to the user
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await markAllNotificationsAsRead(user.id);
+      if (!user) return;
+
+      const { data: notification, error: fetchError } = await supabase
+        .from('notifications')
+        .select('id, user_id')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !notification) {
+        console.error('Error fetching notification:', fetchError);
+        return;
+      }
+
+      // Use RPC call instead of direct update
+      const { error } = await supabase.rpc('mark_notification_as_read', {
+        notification_id: id,
+        user_identifier: user.id
+      });
+
+      if (error) {
+        console.error('Error marking notification as read:', error);
+      } else {
         await fetchNotifications();
       }
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error('Error in handleNotificationSeen:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Use RPC call instead of direct update
+      const { error } = await supabase.rpc('mark_all_notifications_as_read', {
+        user_identifier: user.id
+      });
+
+      if (error) {
+        console.error('Error marking all notifications as read:', error);
+      } else {
+        await fetchNotifications();
+      }
+    } catch (error) {
+      console.error('Error in handleMarkAllAsRead:', error);
     }
   };
 
@@ -313,21 +354,8 @@ export function NotificationsPopup() {
     };
   }, [fetchNotifications]);
 
-  const handleNotificationSeen = async (id: string) => {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error marking notification as read:', error);
-    } else {
-      await fetchNotifications();
-    }
-  };
-
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={setIsOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button 
           variant="ghost" 
@@ -347,26 +375,26 @@ export function NotificationsPopup() {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[calc(100vw-32px)] sm:w-96 p-0" 
+        className="notification-popup w-80 p-0 sm:w-96" 
         align="end" 
-        sideOffset={8}
+        sideOffset={4}
       >
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="bg-gray-100 px-4 py-3 flex justify-between items-center border-b border-gray-200">
-            <h3 className="text-lg font-semibold">Notifikasi</h3>
+            <h3 className="text-base font-semibold">Notifikasi</h3>
             {notifications.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleMarkAllAsRead}
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="text-xs text-gray-600 hover:text-gray-900 px-2 py-1"
               >
                 <CheckCheck className="w-4 h-4 mr-1" />
                 Tandai Semua Dibaca
               </Button>
             )}
           </div>
-          <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
+          <div className="overflow-y-auto notification-scroll">
             {notifications.length === 0 ? (
               <p className="text-center py-6 text-gray-500">Tidak ada notifikasi baru</p>
             ) : (
