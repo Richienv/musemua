@@ -376,55 +376,55 @@ export function NotificationsPopup() {
       </PopoverTrigger>
       <PopoverContent 
         className="notification-popup w-80 p-0 sm:w-96" 
-        align="end" 
+        align="center" 
         sideOffset={4}
       >
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gray-100 px-4 py-3 flex justify-between items-center border-b border-gray-200">
-            <h3 className="text-base font-semibold">Notifikasi</h3>
+          <div className="bg-gray-100 px-4 py-2.5 flex justify-between items-center border-b border-gray-200">
+            <h3 className="text-lg font-semibold">Notifikasi</h3>
             {notifications.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleMarkAllAsRead}
-                className="text-xs text-gray-600 hover:text-gray-900 px-2 py-1"
+                className="text-sm text-gray-600 hover:text-gray-900"
               >
                 <CheckCheck className="w-4 h-4 mr-1" />
                 Tandai Semua Dibaca
               </Button>
             )}
           </div>
-          <div className="overflow-y-auto notification-scroll">
+          <div className="notification-content overflow-y-auto">
             {notifications.length === 0 ? (
               <p className="text-center py-6 text-gray-500">Tidak ada notifikasi baru</p>
             ) : (
               groupNotifications(notifications).map((group) => (
                 <div key={group.title}>
-                  <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-600">
+                  <div className="bg-gray-50 px-4 py-1.5 text-sm font-medium text-gray-600">
                     {group.title}
                   </div>
                   {group.notifications.map((notification) => (
                     <div 
                       key={notification.id} 
-                      className={`p-4 border-b border-gray-100 transition-colors duration-150 hover:bg-gray-50 cursor-pointer
+                      className={`p-3 border-b border-gray-100 transition-colors duration-150 hover:bg-gray-50 cursor-pointer
                         ${!notification.is_read ? 'bg-blue-50' : ''}`}
                       onClick={() => handleNotificationSeen(notification.id)}
                     >
                       <div className="flex items-start space-x-3">
                         <span className="text-xl">{getNotificationIcon(notification.type)}</span>
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm text-gray-900">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm text-gray-900 truncate">
                             {getNotificationTitle(notification.type)}
                           </h4>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
                             {notification.message}
                           </p>
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-gray-400 mt-0.5">
                             {format(new Date(notification.created_at), 'dd MMM yyyy, HH:mm', { locale: id })}
                           </p>
                         </div>
                         {!notification.is_read && (
-                          <span className="w-2 h-2 bg-blue-500 rounded-full mt-2"></span>
+                          <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
                         )}
                       </div>
                     </div>

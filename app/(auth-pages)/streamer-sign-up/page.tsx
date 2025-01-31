@@ -91,6 +91,10 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Add state for password
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const updateFormData = (step: string, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -354,29 +358,31 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   const renderStepIndicator = () => {
     return (
-      <div className="flex items-center justify-center mb-6 px-4 max-w-full overflow-x-auto">
-        {[1, 2, 3, 4, 5, 6].map((step) => (
-          <div key={step} className="flex items-center">
-            <div
-              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-sm ${
-                step === currentStep
-                  ? 'bg-red-600 text-white'
-                  : step < currentStep
-                  ? 'bg-green-500 text-white'
-                  : 'bg-gray-200 text-gray-600'
-              }`}
-            >
-              {step < currentStep ? '✓' : step}
-            </div>
-            {step < 6 && (
+      <div className="flex items-center justify-between mb-10 px-2 max-w-full overflow-x-auto no-scrollbar">
+        <div className="flex items-center min-w-full">
+          {[1, 2, 3, 4, 5, 6].map((step) => (
+            <div key={step} className="flex items-center flex-1">
               <div
-                className={`w-6 sm:w-10 h-0.5 ${
-                  step < currentStep ? 'bg-green-500' : 'bg-gray-200'
+                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                  step === currentStep
+                    ? 'bg-blue-600 text-white'
+                    : step < currentStep
+                    ? 'bg-blue-50 text-blue-600 border-2 border-blue-200'
+                    : 'bg-gray-50 text-gray-400 border-2 border-gray-200'
                 }`}
-              />
-            )}
-          </div>
-        ))}
+              >
+                {step < currentStep ? '✓' : step}
+              </div>
+              {step < 6 && (
+                <div
+                  className={`h-0.5 flex-1 mx-1 sm:mx-2 transition-colors duration-200 ${
+                    step < currentStep ? 'bg-blue-200' : 'bg-gray-200'
+                  }`}
+                />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
@@ -389,73 +395,78 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   const renderBasicInfo = () => {
     return (
-      <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <Label htmlFor="first_name" className="text-gray-700">Nama Depan</Label>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="first_name" className="text-gray-700 font-medium">First Name</Label>
             <Input 
               name="first_name"
               value={formData.basicInfo.first_name}
               onChange={(e) => updateFormData('basicInfo', 'first_name', e.target.value)}
               placeholder="John" 
               required 
-              className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+              className="h-12 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500
+                transition-all duration-200 text-base rounded-xl"
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="last_name" className="text-gray-700">Nama Belakang</Label>
+          <div className="space-y-2">
+            <Label htmlFor="last_name" className="text-gray-700 font-medium">Last Name</Label>
             <Input 
               name="last_name"
               value={formData.basicInfo.last_name}
               onChange={(e) => updateFormData('basicInfo', 'last_name', e.target.value)}
               placeholder="Smith" 
               required 
-              className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+              className="h-12 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500
+                transition-all duration-200 text-base rounded-xl"
             />
           </div>
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="email" className="text-gray-700">Alamat Email</Label>
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
           <Input 
             name="email"
             type="email"
             value={formData.basicInfo.email}
             onChange={(e) => updateFormData('basicInfo', 'email', e.target.value)}
-            placeholder="nama@contoh.com" 
+            placeholder="you@example.com" 
             required 
-            className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+            className="h-12 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500
+              transition-all duration-200 text-base rounded-xl"
           />
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="city" className="text-gray-700">Kota</Label>
+        <div className="space-y-2">
+          <Label htmlFor="city" className="text-gray-700 font-medium">City</Label>
           <Input 
             name="city"
             type="text"
             value={formData.basicInfo.city}
             onChange={handleCityInput}
-            placeholder="Contoh: Jakarta" 
+            placeholder="e.g. Jakarta" 
             required 
-            className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+            className="h-12 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500
+              transition-all duration-200 text-base rounded-xl"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            Contoh: Jakarta, Bandung, Surabaya
+          <p className="text-sm text-gray-500 mt-2">
+            Examples: Jakarta, Bandung, Surabaya
           </p>
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="full_address" className="text-gray-700">Alamat Lengkap</Label>
+        <div className="space-y-2">
+          <Label htmlFor="full_address" className="text-gray-700 font-medium">Full Address</Label>
           <Textarea 
             name="full_address"
             value={formData.basicInfo.full_address}
             onChange={(e) => updateFormData('basicInfo', 'full_address', e.target.value)}
-            placeholder="Masukkan alamat lengkap Anda" 
+            placeholder="Enter your complete address" 
             required
-            className="min-h-[80px] bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
+            className="min-h-[100px] bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500
+              transition-all duration-200 text-base rounded-xl resize-none"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            Untuk kebutuhan pengiriman barang dari Brand
+          <p className="text-sm text-gray-500 mt-2">
+            Required for product delivery from brands
           </p>
         </div>
       </div>
@@ -464,33 +475,97 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   const renderSecurity = () => {
     return (
-      <div className="space-y-5">
-        <div className="space-y-1">
-          <Label htmlFor="password" className="text-gray-700">Kata Sandi</Label>
-          <Input
-            type="password"
-            name="password"
-            value={formData.security.password}
-            onChange={(e) => updateFormData('security', 'password', e.target.value)}
-            placeholder="Buat kata sandi"
-            minLength={6}
-            required
-            className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-          />
+      <div className="space-y-8">
+        <div className="space-y-2">
+          <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+          <div className="relative">
+            <Input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={formData.security.password}
+              onChange={(e) => updateFormData('security', 'password', e.target.value)}
+              placeholder="Create a secure password"
+              minLength={6}
+              required
+              className="h-12 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500
+                transition-all duration-200 text-base rounded-xl pr-12"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 
+                hover:text-gray-700 transition-colors"
+            >
+              {showPassword ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="confirm_password" className="text-gray-700">Konfirmasi Kata Sandi</Label>
-          <Input
-            type="password"
-            name="confirm_password"
-            value={formData.security.confirm_password}
-            onChange={(e) => updateFormData('security', 'confirm_password', e.target.value)}
-            placeholder="Konfirmasi kata sandi"
-            minLength={6}
-            required
-            className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
-          />
+        <div className="space-y-2">
+          <Label htmlFor="confirm_password" className="text-gray-700 font-medium">Confirm Password</Label>
+          <div className="relative">
+            <Input
+              type={showConfirmPassword ? "text" : "password"}
+              name="confirm_password"
+              value={formData.security.confirm_password}
+              onChange={(e) => updateFormData('security', 'confirm_password', e.target.value)}
+              placeholder="Confirm your password"
+              minLength={6}
+              required
+              className="h-12 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500
+                transition-all duration-200 text-base rounded-xl pr-12"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 
+                hover:text-gray-700 transition-colors"
+            >
+              {showConfirmPassword ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+          <h4 className="font-medium text-blue-800 mb-2">Password Requirements:</h4>
+          <ul className="space-y-1 text-sm text-blue-700">
+            <li className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+              Minimum 6 characters
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+              Mix of letters and numbers recommended
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+              Special characters add extra security
+            </li>
+          </ul>
         </div>
       </div>
     );
@@ -498,26 +573,14 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   const renderProfile = () => {
     return (
-      <div className="space-y-8">
+      <div className="space-y-10">
         {/* Profile Image Upload */}
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-gray-700">Foto Profil</Label>
-            <p className="text-xs text-gray-500 italic flex items-center gap-1.5">
-              <svg 
-                className="w-4 h-4 text-blue-500" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-                />
-              </svg>
-              Upload foto profil terbaik Anda
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-gray-700 font-medium">Profile Photo</Label>
+            <p className="text-sm text-gray-500 flex items-center gap-2">
+              <Info className="w-4 h-4 text-blue-500" />
+              Upload your best professional photo (4:5 ratio recommended)
             </p>
           </div>
 
@@ -526,58 +589,60 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             className="relative cursor-pointer group"
           >
             <div className={`
-              aspect-[4/3] rounded-xl overflow-hidden border-2 border-dashed
-              transition-all duration-200
+              w-full max-w-[240px] mx-auto overflow-hidden border-2 rounded-2xl
+              transition-all duration-300 relative
               ${imagePreview 
-                ? 'border-transparent' 
-                : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50/50'
+                ? 'border-transparent shadow-xl' 
+                : 'border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50/50'
               }
             `}>
-              {imagePreview ? (
-                <Image 
-                  src={imagePreview} 
-                  alt="Profile preview" 
-                  fill
-                  className="object-cover" 
-                />
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="p-3 rounded-full bg-blue-50 mb-2 group-hover:bg-blue-100 transition-colors">
-                    <svg 
-                      className="w-6 h-6 text-blue-600" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" 
-                      />
-                    </svg>
+              <div className="pb-[125%] relative"> {/* This creates the 4:5 ratio container */}
+                {imagePreview ? (
+                  <Image 
+                    src={imagePreview} 
+                    alt="Profile preview" 
+                    fill
+                    className="object-cover absolute inset-0" 
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="p-4 rounded-full bg-blue-50 mb-3 group-hover:bg-blue-100 transition-colors">
+                      <svg 
+                        className="w-8 h-8 text-blue-600" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round" 
+                          strokeWidth={1.5} 
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" 
+                        />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-medium text-gray-600 group-hover:text-blue-600 transition-colors">
+                      Upload Photo
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Click to choose a file
+                    </p>
                   </div>
-                  <p className="text-sm font-medium text-gray-600 group-hover:text-blue-600 transition-colors">
-                    Upload Foto
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Klik untuk memilih foto
-                  </p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {imagePreview && (
-              <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
-                <p className="text-white font-medium">Ganti Foto</p>
+              <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center">
+                <p className="text-white font-medium">Change Photo</p>
               </div>
             )}
           </div>
 
-          <Input 
+          <input
             id="image"
-            name="image" 
-            type="file" 
+            name="image"
+            type="file"
             accept="image/jpeg,image/png,image/webp"
             onChange={(e) => {
               handleImageChange(e);
@@ -594,26 +659,26 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         {/* Personal Information */}
         <div className="space-y-6">
           {/* Gender */}
-          <div className="space-y-1">
-            <Label htmlFor="gender" className="text-gray-700">Gender</Label>
+          <div className="space-y-2">
+            <Label htmlFor="gender" className="text-gray-700 font-medium">Gender</Label>
             <Select
               value={formData.profile.gender}
               onValueChange={(value) => updateFormData('profile', 'gender', value)}
             >
-              <SelectTrigger id="gender" className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base">
-                <SelectValue placeholder="Pilih gender" />
+              <SelectTrigger id="gender" className="h-12 bg-gray-50 border-gray-200 focus:ring-blue-500 focus:border-blue-500 rounded-xl">
+                <SelectValue placeholder="Select your gender" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="male">Laki-laki</SelectItem>
-                <SelectItem value="female">Perempuan</SelectItem>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
                 <SelectItem value="other">Prefer not to say</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Age */}
-          <div className="space-y-1">
-            <Label htmlFor="age" className="text-gray-700">Umur</Label>
+          <div className="space-y-2">
+            <Label htmlFor="age" className="text-gray-700 font-medium">Age</Label>
             <Input
               type="number"
               name="age"
@@ -621,53 +686,42 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
               onChange={(e) => updateFormData('profile', 'age', e.target.value)}
               min="18"
               max="100"
-              placeholder="Masukkan umur Anda"
-              className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+              placeholder="Enter your age"
+              className="h-12 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500
+                transition-all duration-200 text-base rounded-xl"
             />
           </div>
 
           {/* Experience */}
-          <div className="space-y-1">
-            <Label htmlFor="experience" className="text-gray-700">Pengalaman Live Streaming</Label>
+          <div className="space-y-2">
+            <Label htmlFor="experience" className="text-gray-700 font-medium">Live Streaming Experience</Label>
             <Select
               value={formData.profile.experience}
               onValueChange={(value) => updateFormData('profile', 'experience', value)}
             >
-              <SelectTrigger id="experience" className="h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base">
-                <SelectValue placeholder="Pilih pengalaman" />
+              <SelectTrigger id="experience" className="h-12 bg-gray-50 border-gray-200 focus:ring-blue-500 focus:border-blue-500 rounded-xl">
+                <SelectValue placeholder="Select your experience level" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="beginner">Pemula (kurang dari 1 tahun)</SelectItem>
-                <SelectItem value="intermediate">Menengah (1-3 tahun)</SelectItem>
-                <SelectItem value="advanced">Berpengalaman (lebih dari 3 tahun)</SelectItem>
-                <SelectItem value="expert">Expert (lebih dari 5 tahun)</SelectItem>
+                <SelectItem value="beginner">Beginner (less than 1 year)</SelectItem>
+                <SelectItem value="intermediate">Intermediate (1-3 years)</SelectItem>
+                <SelectItem value="advanced">Advanced (3+ years)</SelectItem>
+                <SelectItem value="expert">Expert (5+ years)</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {/* Platform */}
-        <div className="space-y-2">
-          <div className="space-y-1">
-            <Label className="text-gray-700">Platform</Label>
-            <p className="text-xs text-gray-500 italic flex items-center gap-1.5">
-              <svg 
-                className="w-4 h-4 text-blue-500" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" 
-                />
-              </svg>
-              Pilih satu atau lebih platform yang Anda gunakan secara aktif untuk live streaming
+        {/* Platform Selection */}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-gray-700 font-medium">Platforms</Label>
+            <p className="text-sm text-gray-500 flex items-center gap-2">
+              <Info className="w-4 h-4 text-blue-500" />
+              Select the platforms where you actively stream
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-3">
             {platforms.map((platform) => (
               <div
                 key={platform}
@@ -677,33 +731,26 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                     : [...formData.profile.platforms, platform];
                   updateFormData('profile', 'platforms', newPlatforms);
                 }}
-                className={`cursor-pointer p-3 rounded-lg border transition-all duration-200 
+                className={`cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 
                   ${formData.profile.platforms.includes(platform)
-                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-                    : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50/50'
+                    ? 'border-blue-500 bg-blue-50/50 text-blue-700 shadow-sm'
+                    : 'border-gray-200 hover:border-blue-500/50 hover:bg-blue-50/25'
                   }
                   group flex items-center justify-between`}
               >
                 <span className="text-sm font-medium">{platform}</span>
                 <div className={`
-                  transition-transform duration-200 transform
-                  ${formData.profile.platforms.includes(platform) 
-                    ? 'scale-100 opacity-100' 
-                    : 'scale-0 opacity-0 group-hover:scale-90 group-hover:opacity-50'}
+                  w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center
+                  ${formData.profile.platforms.includes(platform)
+                    ? 'border-blue-500 bg-blue-500'
+                    : 'border-gray-300 group-hover:border-blue-500/50'
+                  }
                 `}>
-                  <svg 
-                    className="w-5 h-5 text-blue-500" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M5 13l4 4L19 7" 
-                    />
-                  </svg>
+                  {formData.profile.platforms.includes(platform) && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
                 </div>
               </div>
             ))}
@@ -711,81 +758,83 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         </div>
 
         {/* Categories */}
-        <div className="space-y-2">
-          <div className="space-y-1">
-            <Label className="text-gray-700">Kategori</Label>
-            <p className="text-xs text-gray-500 italic flex items-center gap-1.5">
-              <svg 
-                className="w-4 h-4 text-blue-500" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-                />
-              </svg>
-              Pilih kategori yang sesuai dengan konten dan keahlian Anda (bisa lebih dari satu)
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {categories.map((category) => (
-              <div
-                key={category}
-                onClick={() => {
-                  const newCategories = formData.profile.categories.includes(category)
-                    ? formData.profile.categories.filter(c => c !== category)
-                    : [...formData.profile.categories, category];
-                  updateFormData('profile', 'categories', newCategories);
-                }}
-                className={`cursor-pointer p-3 rounded-lg border transition-all duration-200 
-                  ${formData.profile.categories.includes(category)
-                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-                    : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50/50'
-                  }
-                  group flex items-center justify-between`}
-              >
-                <span className="text-sm font-medium">{category}</span>
-                <div className={`
-                  transition-transform duration-200 transform
-                  ${formData.profile.categories.includes(category) 
-                    ? 'scale-100 opacity-100' 
-                    : 'scale-0 opacity-0 group-hover:scale-90 group-hover:opacity-50'}
-                `}>
-                  <svg 
-                    className="w-5 h-5 text-blue-500" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M5 13l4 4L19 7" 
-                    />
-                  </svg>
-                </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-gray-700 font-medium">Categories</Label>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500 flex items-center gap-2">
+                <Info className="w-4 h-4 text-blue-500" />
+                Select up to 3 categories that match your content
+              </p>
+              <div className="px-3 py-1 bg-gray-50 rounded-lg">
+                <span className="text-sm font-medium text-gray-700">
+                  {formData.profile.categories.length}/3
+                </span>
               </div>
-            ))}
+            </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            {categories.map((category) => {
+              const isSelected = formData.profile.categories.includes(category);
+              const isDisabled = !isSelected && formData.profile.categories.length >= 3;
+              
+              return (
+                <div
+                  key={category}
+                  onClick={() => {
+                    if (isDisabled) return;
+                    const newCategories = isSelected
+                      ? formData.profile.categories.filter(c => c !== category)
+                      : [...formData.profile.categories, category];
+                    updateFormData('profile', 'categories', newCategories);
+                  }}
+                  className={`cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 
+                    ${isSelected
+                      ? 'border-blue-500 bg-blue-50/50 text-blue-700 shadow-sm'
+                      : isDisabled
+                        ? 'border-gray-100 bg-gray-50/50 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-200 hover:border-blue-500/50 hover:bg-blue-50/25'
+                    }
+                    group flex items-center justify-between`}
+                >
+                  <span className="text-sm font-medium">{category}</span>
+                  <div className={`
+                    w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center
+                    ${isSelected
+                      ? 'border-blue-500 bg-blue-500'
+                      : isDisabled
+                        ? 'border-gray-200 bg-gray-50'
+                        : 'border-gray-300 group-hover:border-blue-500/50'
+                    }
+                  `}>
+                    {isSelected && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Tip: Choose your top 3 categories carefully as they will help brands find you for relevant collaborations
+          </p>
         </div>
 
         {/* Price */}
-        <div className="space-y-1">
-          <Label htmlFor="price" className="text-gray-700">Harga (per jam)</Label>
+        <div className="space-y-2">
+          <Label htmlFor="price" className="text-gray-700 font-medium">Price (per hour)</Label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">Rp.</span>
+            <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">Rp.</span>
             <Input
               name="price"
               type="text"
               inputMode="numeric"
               value={formData.profile.price}
               onChange={handlePriceChange}
-              className="pl-12 h-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base"
+              className="pl-14 h-12 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500
+                transition-all duration-200 text-base rounded-xl font-medium"
               placeholder="5.000"
               required
             />
@@ -793,15 +842,39 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         </div>
 
         {/* Bio */}
-        <div className="space-y-1">
-          <Label htmlFor="bio" className="text-gray-700">Bio Profile</Label>
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <Label htmlFor="bio" className="text-gray-700 font-medium">Bio</Label>
+            <p className="text-sm text-gray-500 flex items-center gap-2">
+              <Info className="w-4 h-4 text-blue-500" />
+              Tell us about your streaming style and expertise
+            </p>
+          </div>
           <Textarea 
             name="bio"
             value={formData.profile.bio}
             onChange={(e) => updateFormData('profile', 'bio', e.target.value)}
-            placeholder="Ceritakan tentang dirimu"
-            className="min-h-[100px] bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
+            placeholder="Tell us about yourself and your streaming experience"
+            className="min-h-[120px] bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500
+              transition-all duration-200 text-base rounded-xl resize-none"
           />
+          <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+            <p className="text-sm text-gray-600 font-medium mb-2">For your safety, please DO NOT include:</p>
+            <ul className="text-sm text-gray-500 space-y-1">
+              <li className="flex items-center gap-2">
+                <div className="w-1 h-1 rounded-full bg-gray-400" />
+                Personal contact information (phone, email, social media)
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-1 h-1 rounded-full bg-gray-400" />
+                Full name or complete address
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-1 h-1 rounded-full bg-gray-400" />
+                Links to external profiles or websites
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     );
@@ -810,98 +883,98 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
   const renderVideoIntro = () => {
     return (
       <div className="space-y-8">
-        {/* Header Section */}
-        <div className="text-center space-y-3 pb-4">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Video Perkenalan
-          </h2>
-          <p className="text-gray-600 max-w-md mx-auto">
-            Buat video perkenalan yang menarik untuk meningkatkan peluang Anda dipilih oleh brand
-          </p>
-        </div>
-
-        {/* Main Content */}
-        <div className="space-y-6">
-          {/* Title and Help Link */}
-          <div className="flex items-center justify-between pb-2">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-50 rounded-lg">
-                <Youtube className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-900">
-                  Upload Video YouTube
-                </h3>
-                <p className="text-sm text-gray-500">Format landscape (16:9) • Durasi: 2-3 menit</p>
-              </div>
-            </div>
-            <Link 
-              href="/tutorial/video-guide" 
-              target="_blank"
-              className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all"
-              title="Panduan Lengkap"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </Link>
-          </div>
-
-          {/* Instructions Card */}
-          <div className="bg-gradient-to-r from-blue-50 to-blue-50/50 border border-blue-100 
-            rounded-xl p-4 space-y-3">
-            <div className="flex items-center gap-2 text-blue-800 font-medium">
-              <Info className="w-4 h-4" />
-              <span>Langkah-langkah Upload</span>
-            </div>
-            <ol className="space-y-2 text-sm text-blue-700 list-decimal list-inside pl-1">
-              <li>Rekam video perkenalan dengan format landscape (16:9)</li>
-              <li>Upload video ke YouTube sebagai "Unlisted"</li>
-              <li>Klik tombol "SHARE" dan salin link video</li>
-              <li>Paste link video pada form dibawah ini</li>
-            </ol>
-          </div>
-
-          {/* Video Input and Preview */}
-          <div className="space-y-4 bg-white rounded-xl border border-gray-200 p-4">
+        {/* Video Input and Preview */}
+        <div className="space-y-6 bg-white rounded-xl border border-gray-200 p-6">
+          <div className="space-y-2">
+            <Label className="text-gray-700 font-medium">Video Link</Label>
+            <p className="text-sm text-gray-500 flex items-center gap-2">
+              <Info className="w-4 h-4 text-gray-400" />
+              Upload your video to YouTube as "Unlisted" and paste the link below
+            </p>
             <div className="relative">
               <Input
                 id="video_url"
                 name="video_url"
                 value={formData.profile.video_url}
                 onChange={(e) => updateFormData('profile', 'video_url', e.target.value)}
-                placeholder="Contoh: https://youtube.com/watch?v=..."
-                className="pl-10 h-12 border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+                placeholder="e.g. https://youtube.com/watch?v=..."
+                className="pl-12 h-12 border-gray-200 focus:border-gray-500 focus:ring-gray-500 rounded-xl
+                  transition-all duration-200"
               />
-              <Youtube className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Youtube className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             </div>
-            
-            {formData.profile.video_url && (
-              <div className="aspect-video rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${getYouTubeVideoId(formData.profile.video_url)}`}
-                  title="YouTube video preview"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </div>
-            )}
+          </div>
+          
+          {formData.profile.video_url && (
+            <div className="aspect-[9/16] max-w-[280px] mx-auto rounded-xl overflow-hidden border border-gray-200
+              shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] bg-gray-50">
+              <iframe
+                width="100%"
+                height="100%"
+                src={`https://www.youtube.com/embed/${getYouTubeVideoId(formData.profile.video_url)}`}
+                title="YouTube video preview"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+          )}
+        </div>
+
+        {/* Guidelines Section */}
+        <div className="space-y-4 p-6 bg-gray-50 border border-gray-200 rounded-xl">
+          <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
+            <div className="p-2 bg-white rounded-lg shadow-sm">
+              <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900">Video Guidelines</h3>
+              <p className="text-sm text-gray-500">Follow these specifications for best results</p>
+            </div>
           </div>
 
-          {/* Tips Section */}
-          <div className="flex items-start gap-3 p-4 bg-yellow-50/50 border border-yellow-100 rounded-xl">
-            <div className="p-2 bg-yellow-100 rounded-lg shrink-0">
-              <span className="text-xl">💡</span>
+          <div className="grid gap-4 text-sm">
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-gray-600 text-xs font-medium">1</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Format</p>
+                <p className="text-gray-600">Portrait/vertical video (9:16 ratio) like Instagram Reels</p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="font-medium text-yellow-800">Tips untuk Video yang Menarik:</p>
-              <ul className="text-sm text-yellow-700 space-y-1">
-                <li>• Gunakan pencahayaan yang baik</li>
-                <li>• Pastikan suara jernih dan jelas</li>
-                <li>• Tunjukkan kepribadian Anda</li>
-                <li>• Tampilkan contoh cara Anda mempromosikan produk</li>
-              </ul>
+
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-gray-600 text-xs font-medium">2</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Duration</p>
+                <p className="text-gray-600">2-3 minutes to effectively showcase your style</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-gray-600 text-xs font-medium">3</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Content</p>
+                <p className="text-gray-600">Include a brief introduction and demonstration of your streaming style</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-gray-600 text-xs font-medium">4</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Quality</p>
+                <p className="text-gray-600">Good lighting and clear audio are essential</p>
+              </div>
             </div>
           </div>
         </div>
@@ -911,43 +984,102 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   const renderGallery = () => {
     return (
-      <div className="space-y-8">
-        {/* Header Section */}
-        <div className="text-center space-y-3 pb-4">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Galeri Foto
-          </h2>
-          <p className="text-gray-600 max-w-md mx-auto">
-            Tambahkan foto-foto terbaik Anda untuk menarik perhatian brand
-          </p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+          <div>
+            <h3 className="font-medium text-gray-900">Upload Photos</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Add up to 5 high-quality photos
+            </p>
+          </div>
+          <div className="px-3 py-1 bg-gray-50 rounded-lg">
+            <span className="text-sm font-medium text-gray-700">{formData.profile.gallery.length}/5</span>
+          </div>
         </div>
 
-        {/* Gallery Upload Section */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between pb-2">
-            <div>
-              <h3 className="font-medium text-gray-900">Upload Foto</h3>
-              <p className="text-sm text-gray-500">
-                Maksimal 5 foto • Format: JPG, PNG • Maks. 5MB per foto
-              </p>
+        {/* Guidelines */}
+        <div className="p-4 bg-gray-50 rounded-xl space-y-3">
+          <div className="flex items-center gap-2 text-gray-700">
+            <Info className="w-4 h-4" />
+            <span className="text-sm font-medium">Photo Requirements</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-gray-400" />
+              Format: JPG, PNG
             </div>
-            <div className="text-sm text-gray-500">
-              {formData.profile.gallery.length}/5 foto
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-gray-400" />
+              Max size: 5MB
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-gray-400" />
+              High resolution
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-gray-400" />
+              Clear lighting
             </div>
           </div>
+        </div>
 
-          {/* Upload Area */}
-          {formData.profile.gallery.length < 5 && (
-            <div 
-              onClick={() => galleryInputRef.current?.click()}
-              className="cursor-pointer group"
-            >
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6
-                hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200">
-                <div className="flex flex-col items-center">
-                  <div className="p-3 rounded-full bg-blue-50 mb-3 group-hover:bg-blue-100 transition-colors">
+        {/* Upload Area */}
+        {formData.profile.gallery.length < 5 && (
+          <div 
+            onClick={() => galleryInputRef.current?.click()}
+            className="cursor-pointer group mt-6"
+          >
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-8
+              hover:border-gray-300 hover:bg-gray-50/50 transition-all duration-200">
+              <div className="flex flex-col items-center">
+                <div className="p-4 rounded-full bg-white border border-gray-200 mb-4 
+                  group-hover:border-gray-300 transition-colors">
+                  <svg 
+                    className="w-6 h-6 text-gray-600" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={1.5} 
+                      d="M12 4v16m8-8H4" 
+                    />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
+                  Upload Photos
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Click to browse
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Gallery Preview */}
+        {formData.profile.gallery.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6">
+            {formData.profile.gallery.map((item, index) => (
+              <div key={index} className="relative aspect-[4/5] group">
+                <Image
+                  src={item.preview}
+                  alt={`Gallery photo ${index + 1}`}
+                  fill
+                  className="object-cover rounded-xl"
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 
+                  transition-opacity rounded-xl flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={() => removeGalleryPhoto(index)}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg 
+                      transition-colors"
+                  >
                     <svg 
-                      className="w-6 h-6 text-blue-600" 
+                      className="w-5 h-5 text-white" 
                       fill="none" 
                       stroke="currentColor" 
                       viewBox="0 0 24 24"
@@ -955,86 +1087,26 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                       <path 
                         strokeLinecap="round" 
                         strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M12 4v16m8-8H4" 
+                        strokeWidth={1.5} 
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
                       />
                     </svg>
-                  </div>
-                  <p className="text-sm font-medium text-gray-600 group-hover:text-blue-600 transition-colors">
-                    Tambah Foto
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Klik untuk memilih foto
-                  </p>
+                  </button>
                 </div>
               </div>
-            </div>
-          )}
-
-          <input
-            type="file"
-            ref={galleryInputRef}
-            className="hidden"
-            accept="image/jpeg,image/png"
-            multiple
-            onChange={handleGalleryImageChange}
-          />
-
-          {/* Gallery Preview */}
-          {formData.profile.gallery.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {formData.profile.gallery.map((item, index) => (
-                <div key={index} className="relative aspect-square group">
-                  <Image
-                    src={item.preview}
-                    alt={`Gallery photo ${index + 1}`}
-                    fill
-                    className="object-cover rounded-lg"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 
-                    transition-opacity rounded-lg flex items-center justify-center">
-                    <button
-                      type="button"
-                      onClick={() => removeGalleryPhoto(index)}
-                      className="p-2 bg-white/10 hover:bg-white/20 rounded-full 
-                        transition-colors text-white"
-                    >
-                      <svg 
-                        className="w-5 h-5" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth={2} 
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Tips Section */}
-          <div className="flex items-start gap-3 p-4 bg-yellow-50/50 border border-yellow-100 rounded-xl">
-            <div className="p-2 bg-yellow-100 rounded-lg shrink-0">
-              <span className="text-xl">💡</span>
-            </div>
-            <div className="space-y-1">
-              <p className="font-medium text-yellow-800">Tips untuk Foto Galeri:</p>
-              <ul className="text-sm text-yellow-700 space-y-1">
-                <li>• Gunakan foto dengan kualitas tinggi</li>
-                <li>• Tunjukkan pengalaman live streaming Anda</li>
-                <li>• Tampilkan interaksi dengan penonton</li>
-                <li>• Pastikan pencahayaan yang baik</li>
-              </ul>
-            </div>
+            ))}
           </div>
-        </div>
+        )}
+
+        {/* Add the hidden file input for gallery */}
+        <input
+          type="file"
+          ref={galleryInputRef}
+          className="hidden"
+          accept="image/jpeg,image/png"
+          multiple
+          onChange={handleGalleryImageChange}
+        />
       </div>
     );
   };
@@ -1056,137 +1128,209 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
       location: formData.basicInfo.city,
       video_url: formData.profile.video_url,
       availableTimeSlots: [],
+      gender: formData.profile.gender,
+      age: parseInt(formData.profile.age),
+      experience: formData.profile.experience,
     };
 
     return (
       <div className="space-y-8">
-        {/* Congratulations Message */}
-        <div className="text-center space-y-3 mb-8">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Selamat! 🎉
-          </h2>
-          <p className="text-gray-600">
-            Anda selangkah lagi menjadi host di platform kami. 
-            Mari kita lihat bagaimana profil Anda akan tampil untuk client.
-          </p>
-        </div>
-
-        {/* Card Preview Container with 3D effect */}
-        <motion.div 
-          className="relative w-full max-w-md mx-auto perspective-1000"
-          initial={{ rotateX: 25, scale: 0.9 }}
-          animate={{ 
-            rotateX: 0, 
-            scale: 1,
-            transition: { duration: 0.6, ease: "easeOut" }
-          }}
-          whileHover={{ 
-            scale: 1.02,
-            rotateY: 5,
-            transition: { duration: 0.2 }
-          }}
-        >
-          {/* Glowing effect behind the card */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-xl rounded-3xl transform -translate-y-4"></div>
+        {/* Preview Card Section */}
+        <div className="bg-[#faf9f6] rounded-2xl p-6 border border-[#f0f0ef]">
+          <div className="text-sm font-medium text-gray-600 mb-4 flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            Client View
+          </div>
           
-          {/* Card container with enhanced styling */}
-          <div className="relative bg-white rounded-2xl shadow-2xl p-6 transform hover:translate-y-[-2px] transition-transform duration-300">
+          <div className="max-w-sm mx-auto">
             <StreamerCard streamer={previewStreamer} />
           </div>
-        </motion.div>
+        </div>
 
-        {/* Video Preview Section */}
-        {formData.profile.video_url && (
-          <div className="space-y-3">
-            <h4 className="font-semibold text-gray-900">Video Perkenalan</h4>
-            <div className="aspect-video rounded-xl overflow-hidden border border-gray-200">
-              <iframe
-                width="100%"
-                height="100%"
-                src={`https://www.youtube.com/embed/${getYouTubeVideoId(formData.profile.video_url)}`}
-                title="Introduction Video"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              ></iframe>
-            </div>
+        {/* Detailed Preview Section */}
+        <div className="space-y-8">
+          <div className="text-sm font-medium text-gray-600 flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Complete Profile Details
           </div>
-        )}
 
-        {/* Gallery Preview Section */}
-        {formData.profile.gallery.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="font-semibold text-gray-900">Galeri Foto</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {formData.profile.gallery.map((item, index) => (
-                <div key={index} className="relative aspect-square">
-                  <Image
-                    src={item.preview}
-                    alt={`Gallery photo ${index + 1}`}
-                    fill
-                    className="object-cover rounded-lg"
-                  />
+          <div className="grid gap-6">
+            {/* Basic Information */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 space-y-4">
+              <h3 className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">
+                Basic Information
+              </h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Full Name</span>
+                  <p className="font-medium text-gray-900 mt-0.5">
+                    {formData.basicInfo.first_name} {formData.basicInfo.last_name}
+                  </p>
                 </div>
-              ))}
+                <div>
+                  <span className="text-gray-500">Location</span>
+                  <p className="font-medium text-gray-900 mt-0.5">{formData.basicInfo.city}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Email</span>
+                  <p className="font-medium text-gray-900 mt-0.5">{formData.basicInfo.email}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Gender</span>
+                  <p className="font-medium text-gray-900 mt-0.5">{formData.profile.gender || 'Not specified'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Age</span>
+                  <p className="font-medium text-gray-900 mt-0.5">{formData.profile.age || 'Not specified'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Experience</span>
+                  <p className="font-medium text-gray-900 mt-0.5">{formData.profile.experience || 'Not specified'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Streaming Details */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 space-y-4">
+              <h3 className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">
+                Streaming Details
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <span className="text-sm text-gray-500">Platforms</span>
+                  <div className="flex flex-wrap gap-2 mt-1.5">
+                    {formData.profile.platforms.map((platform) => (
+                      <span key={platform} 
+                        className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
+                        {platform}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Categories</span>
+                  <div className="flex flex-wrap gap-2 mt-1.5">
+                    {formData.profile.categories.map((category) => (
+                      <span key={category} 
+                        className="px-2.5 py-1 bg-gray-50 text-gray-700 rounded-lg text-sm font-medium">
+                        {category}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Price per Hour</span>
+                  <p className="text-lg font-semibold text-gray-900 mt-1">
+                    Rp. {formData.profile.price}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Media Content */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 space-y-4">
+              <h3 className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">
+                Media Content
+              </h3>
+              <div className="space-y-6">
+                {/* Profile Photo */}
+                <div>
+                  <span className="text-sm text-gray-500">Profile Photo</span>
+                  <div className="mt-2 relative w-24 overflow-hidden rounded-lg border border-gray-200">
+                    <div className="pb-[125%] relative"> {/* This creates the 4:5 ratio container */}
+                      <Image
+                        src={imagePreview || '/images/default-avatar.png'}
+                        alt="Profile preview"
+                        fill
+                        className="object-cover absolute inset-0"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Video Preview */}
+                {formData.profile.video_url && (
+                  <div>
+                    <span className="text-sm text-gray-500">Introduction Video</span>
+                    <div className="mt-2 aspect-[9/16] max-w-[200px] rounded-lg overflow-hidden border border-gray-200">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src={`https://www.youtube.com/embed/${getYouTubeVideoId(formData.profile.video_url)}`}
+                        title="Introduction Video"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                  </div>
+                )}
+
+                {/* Gallery */}
+                {formData.profile.gallery.length > 0 && (
+                  <div>
+                    <span className="text-sm text-gray-500">Gallery Photos</span>
+                    <div className="mt-2 grid grid-cols-4 gap-2">
+                      {formData.profile.gallery.map((item, index) => (
+                        <div key={index} className="relative aspect-[4/5] rounded-lg overflow-hidden border border-gray-200">
+                          <Image
+                            src={item.preview}
+                            alt={`Gallery photo ${index + 1}`}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Additional Information Section */}
-        <div className="mt-12 space-y-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-            <h4 className="font-semibold text-blue-700 mb-3">Informasi Tambahan</h4>
-            <div className="text-sm text-blue-600 space-y-2">
-              <p>Platform: {formData.profile.platforms.join(', ')}</p>
-              <p>Kategori: {formData.profile.categories.join(', ')}</p>
-              <p>Alamat: {formData.basicInfo.full_address}</p>
-              <p>Jumlah Foto Galeri: {formData.profile.gallery.length}</p>
-            </div>
-          </div>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-            <h4 className="font-semibold text-yellow-700 flex items-center gap-2 mb-3">
-              <Info className="w-4 h-4" />
-              Catatan Penting
-            </h4>
-            <ul className="text-sm text-yellow-600 space-y-2 list-disc list-inside">
-              <li>Rating Anda akan dimulai dari 0 dan akan meningkat seiring dengan ulasan yang Anda terima</li>
-              <li>Jadwal ketersediaan dapat diatur setelah pendaftaran</li>
-              <li>Foto tambahan dapat ditambahkan ke galeri nanti</li>
-            </ul>
-          </div>
-
-          {/* Terms and Conditions Checkbox */}
-          <div className="flex items-start space-x-2 mt-6">
+        {/* Terms and Conditions */}
+        <div className="bg-white rounded-xl p-6 border border-gray-200">
+          <div className="flex items-start space-x-3">
             <Checkbox
               id="terms"
               checked={acceptedTerms}
               onCheckedChange={(checked: boolean) => setAcceptedTerms(checked)}
               className="mt-1"
             />
-            <div className="grid gap-1.5 leading-none">
+            <div className="space-y-1">
               <label
                 htmlFor="terms"
-                className="text-sm text-gray-600 leading-relaxed cursor-pointer"
+                className="text-sm text-gray-600 leading-relaxed"
               >
-                Saya menyetujui{" "}
+                I agree to the{" "}
                 <Link 
                   href="/terms" 
                   className="text-blue-600 hover:text-blue-700 font-medium underline"
                   target="_blank"
                 >
-                  persyaratan menggunakan aplikasi
+                  Terms of Service
                 </Link>
-                {" "}dan{" "}
+                {" "}and{" "}
                 <Link 
                   href="/privacy-notice" 
                   className="text-blue-600 hover:text-blue-700 font-medium underline"
                   target="_blank"
                 >
-                  privacy agreement
+                  Privacy Policy
                 </Link>
-                {" "}untuk menggunakan aplikasi ini
               </label>
+              <p className="text-xs text-gray-500">
+                By creating an account, you agree to our terms and conditions
+              </p>
             </div>
           </div>
         </div>
@@ -1204,73 +1348,92 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
     }));
   };
 
+  // Add this CSS at the top of your file or in your global CSS
+  const noScrollbarStyles = `
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Hide scrollbar for IE, Edge and Firefox */
+    .no-scrollbar {
+      -ms-overflow-x: hidden;
+      scrollbar-width: none;
+    }
+  `;
+
   return (
-    <div className="w-full max-w-[480px] min-h-screen py-8">
-      <div className="overflow-hidden rounded-xl bg-white/95 backdrop-blur-sm shadow-2xl">
-        <div className="px-6 py-8 sm:px-8 overflow-y-auto">
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold bg-gradient-to-r from-red-600 to-red-400 bg-clip-text text-transparent">
-              Daftar sebagai Host
-            </h1>
-            <p className="mt-2 text-gray-600">
-              Sudah punya akun?{" "}
-              <Link href="/sign-in?type=streamer" className="text-red-600 hover:text-red-700 font-medium">
-                Masuk disini
-              </Link>
-            </p>
-          </div>
-
-          {renderStepIndicator()}
-
-          <form className="space-y-6">
-            {currentStep === 1 && renderBasicInfo()}
-            {currentStep === 2 && renderSecurity()}
-            {currentStep === 3 && renderProfile()}
-            {currentStep === 4 && renderVideoIntro()}
-            {currentStep === 5 && renderGallery()}
-            {currentStep === 6 && renderPreview()}
-
-            {error && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              {currentStep > 1 && (
-                <Button
-                  type="button"
-                  onClick={handlePrevious}
-                  className="flex-1 h-11 bg-gray-100 hover:bg-gray-200 text-gray-700"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Previous
-                </Button>
-              )}
-              
-              <Button
-                type="button"
-                onClick={currentStep === 6 ? handleSignUp : handleNext}
-                disabled={currentStep === 6 && !acceptedTerms}
-                className={`flex-1 h-11 bg-gradient-to-r from-red-600 to-red-500 
-                  ${currentStep === 6 && !acceptedTerms 
-                    ? 'opacity-50 cursor-not-allowed' 
-                    : 'hover:from-red-700 hover:to-red-600'
-                  } text-white`}
-              >
-                {currentStep === 6 ? (
-                  isSigningUp ? "Membuat Akun..." : "Buat Akun"
-                ) : (
-                  <>
-                    Lanjut
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </>
-                )}
-              </Button>
+    <div className="w-full min-h-screen py-8 px-4 sm:py-12 sm:px-6">
+      <style>{noScrollbarStyles}</style>
+      <div className="w-full max-w-[580px] mx-auto">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_0_50px_0_rgba(0,0,0,0.1)] backdrop-blur-lg">
+          <div className="px-5 py-8 sm:px-10 sm:py-12 overflow-y-auto">
+            <div className="mb-8 sm:mb-12">
+              <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight">
+                Become a Host
+              </h1>
+              <p className="mt-2 sm:mt-3 text-gray-500">
+                Already have an account?{" "}
+                <Link href="/sign-in?type=streamer" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                  Sign in here
+                </Link>
+              </p>
             </div>
 
-            <FormMessage message={searchParams} />
-          </form>
+            {renderStepIndicator()}
+
+            <form className="space-y-8 sm:space-y-10">
+              {currentStep === 1 && renderBasicInfo()}
+              {currentStep === 2 && renderSecurity()}
+              {currentStep === 3 && renderProfile()}
+              {currentStep === 4 && renderVideoIntro()}
+              {currentStep === 5 && renderGallery()}
+              {currentStep === 6 && renderPreview()}
+
+              {error && (
+                <div className="p-3 sm:p-4 rounded-xl bg-red-50 border border-red-100">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 sm:gap-4 pt-4">
+                {currentStep > 1 && (
+                  <Button
+                    type="button"
+                    onClick={handlePrevious}
+                    className="flex-1 h-11 sm:h-12 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 
+                      transition-all duration-200 hover:shadow-md text-sm sm:text-base"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Previous
+                  </Button>
+                )}
+                
+                <Button
+                  type="button"
+                  onClick={currentStep === 6 ? handleSignUp : handleNext}
+                  disabled={currentStep === 6 && !acceptedTerms}
+                  className={`flex-1 h-11 sm:h-12 bg-gradient-to-r from-blue-600 to-blue-700
+                    hover:from-blue-700 hover:to-blue-800 transition-all duration-200
+                    ${currentStep === 6 && !acceptedTerms 
+                      ? 'opacity-50 cursor-not-allowed' 
+                      : 'hover:shadow-lg hover:shadow-blue-100'
+                    } text-white font-medium tracking-wide text-sm sm:text-base`}
+                >
+                  {currentStep === 6 ? (
+                    isSigningUp ? "Creating Account..." : "Create Account"
+                  ) : (
+                    <>
+                      Continue
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <FormMessage message={searchParams} />
+            </form>
+          </div>
         </div>
       </div>
     </div>

@@ -369,16 +369,29 @@ a:not(.no-transition),
   }
 
   /* Notification popup mobile styles */
-  .notification-mobile-content[data-radix-popper-content-wrapper] {
+  .notification-popup[data-radix-popper-content-wrapper],
+  .profile-dropdown[data-radix-popper-content-wrapper] {
     position: fixed !important;
-    top: 64px !important;
+    top: 56px !important;
     left: 50% !important;
-    right: auto !important;
     transform: translateX(-50%) !important;
     width: 90% !important;
     max-width: 400px !important;
     margin: 0 auto !important;
     z-index: 9999 !important;
+  }
+
+  /* Select menu specific positioning */
+  [data-radix-select-content][data-radix-popper-content-wrapper] {
+    position: absolute !important;
+    top: 100% !important; /* Position below the trigger */
+    left: 0 !important;
+    right: auto !important;
+    transform: none !important;
+    width: var(--radix-select-trigger-width) !important;
+    max-width: calc(100vw - 24px) !important;
+    margin-top: 4px !important;
+    z-index: 50 !important;
   }
 
   /* Profile dropdown positioning */
@@ -391,13 +404,6 @@ a:not(.no-transition),
     transform: none !important;
     width: auto !important;
     min-width: 200px !important;
-  }
-
-  /* Select menu positioning - removed fixed positioning */
-  [data-radix-select-content] {
-    width: var(--radix-select-trigger-width);
-    max-height: var(--radix-select-content-available-height);
-    z-index: 100;
   }
 
   /* Mobile-specific styles */
@@ -426,41 +432,6 @@ a:not(.no-transition),
     max-height: calc(100vh - 80px) !important;
     overflow-y: auto !important;
   }
-
-  /* Mobile notification popup styles */
-  [data-radix-popper-content-wrapper].notification-popup {
-    position: fixed !important;
-    top: 16px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    width: calc(100vw - 32px) !important;
-    max-width: 400px !important;
-    margin: 0 auto !important;
-    z-index: 9999 !important;
-  }
-
-  .notification-popup {
-    max-height: 280px !important;
-    overflow-y: auto !important;
-  }
-
-  .notification-popup .max-h-\[calc\(100vh-200px\)\] {
-    max-height: 240px !important;
-  }
-
-  /* Add custom scrollbar for notifications */
-  .notification-popup::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  .notification-popup::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .notification-popup::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-  }
 }
 
 /* Base styles for all popper content */
@@ -483,25 +454,24 @@ a:not(.no-transition),
   position: relative;
   background-color: #faf9f6;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  border-radius: 12px;
-  overflow: hidden;
 }
 
 /* Mobile layout and viewport fixes */
 @media (max-width: 640px) {
-  [data-radix-popper-content-wrapper] {
+  /* Remove this conflicting block */
+  /* [data-radix-popper-content-wrapper] {
     position: fixed !important;
-    top: 64px !important;
-    left: 50% !important;
+    top: 56px !important;
+    left: 92% !important;
     transform: translateX(-50%) !important;
     width: 90% !important;
     max-width: 400px !important;
     margin: 0 auto !important;
-  }
+  } */
 
   .notification-mobile-content[data-radix-popper-content-wrapper] {
     height: auto !important;
-    max-height: calc(var(--app-height) - 80px) !important;
+    max-height: min(400px, calc(100vh - 120px)) !important;
     overflow-y: auto !important;
     z-index: 9999 !important;
   }
