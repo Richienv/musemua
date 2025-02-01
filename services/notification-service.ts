@@ -16,7 +16,8 @@ export type NotificationType =
   | 'reschedule_request'
   | 'reschedule_accepted'
   | 'reschedule_rejected'
-  | 'item_received';
+  | 'item_received'
+  | 'new_message';
 
 interface NotificationPayload {
   user_id?: string;

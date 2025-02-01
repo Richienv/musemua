@@ -109,6 +109,8 @@ export function NotificationsPopup() {
         return '⚠️';
       case 'confirmation':
         return '✓';
+      case 'new_message':
+        return '💬';
       default:
         return 'ℹ️';
     }
@@ -136,6 +138,8 @@ export function NotificationsPopup() {
         return 'Reschedule Diterima';
       case 'reschedule_rejected':
         return 'Reschedule Ditolak';
+      case 'new_message':
+        return 'Pesan Baru';
       case 'info':
         return 'Informasi';
       case 'warning':
@@ -262,7 +266,7 @@ export function NotificationsPopup() {
         if (streamerData) {
           // Use proper OR condition for streamer notifications
           notificationsQuery = notificationsQuery
-            .or(`streamer_id.eq.${streamerData.id}`);
+            .or(`streamer_id.eq.${streamerData.id},user_id.eq.${user.id}`);
         }
       } else {
         // Client notifications

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, Send, AlertTriangle, XCircle, MapPin, Copy, FileText } from "lucide-react";
+import { ChevronLeft, Send, AlertTriangle, XCircle, MapPin, Copy, FileText, Check, CheckCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from 'next/image';
 import { createClient } from "@/utils/supabase/client";
@@ -12,6 +12,7 @@ import { formatMessageTime, formatMessageDate, formatLastMessageTime } from '@/u
 import { toast } from "sonner";
 import { Toaster } from 'sonner';
 import { AddressButton } from "@/components/ui/address-button";
+import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 interface Message {
   id: string;
@@ -316,12 +317,48 @@ export default function MessagesPage() {
     }
   };
 
+  const markMessagesAsRead = async (conversationId: string) => {
+    if (!currentUser?.id) {
+      console.error('Cannot mark messages as read: currentUser is not defined');
+      return;
+    }
+
+    const supabase = createClient();
+    try {
+      console.log('Marking messages as read for conversation:', conversationId);
+      
+      // Update all unread messages in this conversation
+      const { data, error } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('conversation_id', conversationId)
+        .eq('is_read', false)
+        .select();
+
+      if (error) {
+        console.error('Error marking messages as read:', error);
+        throw error;
+      }
+
+      // Refresh messages to update UI
+      const messagesData = await getMessages(conversationId);
+      setMessages(messagesData || []);
+
+      console.log('Messages marked as read:', data);
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+      toast.error("Gagal menandai pesan sebagai telah dibaca");
+    }
+  };
+
   const handleConversationSelect = async (conversation: Conversation) => {
     setSelectedConversation(conversation);
     setIsMobileChat(true);
     try {
       const messagesData = await getMessages(conversation.id);
       setMessages(messagesData || []);
+      // Mark messages as read when conversation is selected
+      await markMessagesAsRead(conversation.id);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -334,28 +371,12 @@ export default function MessagesPage() {
       const messageDate = formatMessageDate(message.created_at);
       let showDateSeparator = false;
       
-      // Check if we need to show a date separator
       if (messageDate !== currentDate) {
         currentDate = messageDate;
         showDateSeparator = true;
       }
 
-      // Check if the current message contains shipping keywords
-      const containsShippingKeywords = (text: string): boolean => {
-        const shippingKeywords = [
-          /kirim\s*barang/i,
-          /pengiriman/i,
-          /ngirim/i,
-          /kirimkan/i,
-          /kirimin/i,
-          /kirim\s*produk/i,
-          /kirim\s*product/i,
-          /kirim\s*paket/i
-        ];
-        return shippingKeywords.some(pattern => pattern.test(text));
-      };
-
-      const showShippingNotification = containsShippingKeywords(message.content);
+      const isCurrentUser = message.sender_id === currentUser?.id;
 
       return (
         <div key={message.id}>
@@ -367,28 +388,82 @@ export default function MessagesPage() {
             </div>
           )}
           <div 
-            className={`flex ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'} mb-3`}
+            className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-3`}
           >
             <div 
-              className={`rounded-lg p-3 max-w-[70%] ${
-                message.sender_id === currentUser?.id 
+              className={`rounded-lg p-3 max-w-[70%] relative ${
+                isCurrentUser 
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-800'
               }`}
             >
               <p className="text-sm">{message.content}</p>
-              <p className={`text-xs mt-1 ${
-                message.sender_id === currentUser?.id ? 'text-blue-100' : 'text-gray-500'
-              }`}>
-                {formatMessageTime(message.created_at)}
-              </p>
+              <div className="flex items-center justify-end gap-1">
+                <p className={`text-xs ${
+                  isCurrentUser ? 'text-blue-100' : 'text-gray-500'
+                }`}>
+                  {formatMessageTime(message.created_at)}
+                </p>
+                {isCurrentUser && (
+                  <span className={`ml-1 ${
+                    message.is_read ? 'text-blue-100' : 'text-blue-200'
+                  }`}>
+                    {message.is_read ? (
+                      <CheckCheck className="h-3 w-3" />
+                    ) : (
+                      <Check className="h-3 w-3" />
+                    )}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          {showShippingNotification && <InlineNotification />}
         </div>
       );
     });
   };
+
+  // Update the real-time subscription
+  useEffect(() => {
+    if (!selectedConversation) return;
+
+    const supabase = createClient();
+    let channel: RealtimeChannel;
+
+    const setupSubscription = () => {
+      channel = supabase
+        .channel(`messages:${selectedConversation.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `conversation_id=eq.${selectedConversation.id}`
+          },
+          async (payload: RealtimePostgresChangesPayload<Message>) => {
+            // Refresh messages when there are changes
+            const messagesData = await getMessages(selectedConversation.id);
+            setMessages(messagesData || []);
+
+            // If the message is from the other user, mark it as read
+            const newMessage = payload.new as Message;
+            if (newMessage && newMessage.sender_id !== currentUser?.id) {
+              await markMessagesAsRead(selectedConversation.id);
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    setupSubscription();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [selectedConversation, currentUser]);
 
   const renderConversationList = () => (
     conversations.map((conversation) => (

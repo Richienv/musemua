@@ -7,7 +7,8 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, MessageSquare, Search } from "lucide-react";
+import { Bell, MessageSquare, Search, MessageCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const NotificationsPopup = dynamic(() => import('@/components/notifications-popup').then(mod => mod.NotificationsPopup), { ssr: false });
 const ProfileButton = dynamic(() => import('@/components/profile-button').then(mod => mod.ProfileButton), { ssr: false });
@@ -34,10 +35,11 @@ export function Navbar({ onFilterChange }: NavbarProps) {
   const [userType, setUserType] = useState<'streamer' | 'client' | null>(null);
   const pathname = usePathname();
   const router = useRouter();
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const supabase = createClient();
 
   useEffect(() => {
     const fetchUserData = async () => {
-      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
 
@@ -101,6 +103,90 @@ export function Navbar({ onFilterChange }: NavbarProps) {
     fetchUserData();
   }, []);
 
+  useEffect(() => {
+    const fetchUnreadMessages = async () => {
+      if (!user) return;
+
+      // Get user type first
+      const { data: userData } = await supabase
+        .from('users')
+        .select('user_type')
+        .eq('id', user.id)
+        .single();
+
+      if (!userData) return;
+
+      if (userData.user_type === 'streamer') {
+        // Get streamer_id first
+        const { data: streamerData } = await supabase
+          .from('streamers')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (streamerData) {
+          // Get conversations where streamer is participant
+          const { data: conversations } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('streamer_id', streamerData.id);
+
+          if (conversations) {
+            // Get unread messages count for all conversations
+            const { data: unreadMessages } = await supabase
+              .from('messages')
+              .select('id')
+              .eq('is_read', false)
+              .neq('sender_id', user.id)
+              .in('conversation_id', conversations.map(c => c.id));
+
+            setUnreadMessages(unreadMessages?.length || 0);
+          }
+        }
+      } else {
+        // For clients, get their conversations
+        const { data: conversations } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('client_id', user.id);
+
+        if (conversations) {
+          // Get unread messages count for all conversations
+          const { data: unreadMessages } = await supabase
+            .from('messages')
+            .select('id')
+            .eq('is_read', false)
+            .neq('sender_id', user.id)
+            .in('conversation_id', conversations.map(c => c.id));
+
+          setUnreadMessages(unreadMessages?.length || 0);
+        }
+      }
+    };
+
+    fetchUnreadMessages();
+
+    // Subscribe to new messages
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          fetchUnreadMessages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const isStreamerDashboard = pathname === '/streamer-dashboard';
 
   return (
@@ -153,12 +239,20 @@ export function Navbar({ onFilterChange }: NavbarProps) {
             <div className="flex items-center gap-2 sm:gap-5">
               {userData && (
                 <>
-                  <button 
-                    onClick={() => router.push('/messages')} 
-                    className="relative hidden sm:flex shrink-0 items-center justify-center hover:opacity-70 transition-opacity"
-                  >
-                    <MessageSquare className="h-6 w-6 text-gray-700" strokeWidth={1.5} />
-                  </button>
+                  <Link href="/messages">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="relative w-12 sm:w-14 h-12 sm:h-14 hover:bg-gray-100 transition-colors"
+                    >
+                      <MessageCircle className="h-6 sm:h-7 w-6 sm:w-7" />
+                      {unreadMessages > 0 && (
+                        <span className="absolute top-2 right-2 sm:right-3 min-w-[20px] h-5 px-1 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
+                          {unreadMessages}
+                        </span>
+                      )}
+                    </Button>
+                  </Link>
                   <div className="block scale-90 sm:scale-100">
                     <NotificationsPopup />
                   </div>

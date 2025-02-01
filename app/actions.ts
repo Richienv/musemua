@@ -128,10 +128,10 @@ export async function signUpAction(formData: FormData): Promise<SignUpResponse> 
       };
     }
 
-    // Return success response
+    // Return success response with direct redirect to protected page
     return {
       success: true,
-      redirectTo: '/client-onboarding'
+      redirectTo: '/protected'
     };
     
   } catch (error) {

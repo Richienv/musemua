@@ -147,7 +147,7 @@ export default function ProtectedPage() {
 
         // Valid client user - proceed with data fetching
         setUser(user);
-        await fetchStreamers(); // Move streamer fetching to separate function
+        await fetchStreamers();
 
       } catch (error) {
         console.error('Error in validateUserAccess:', error);

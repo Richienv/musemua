@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/client";
+import { createNotification } from "@/services/notification-service";
 
 export interface Message {
   id: string;
@@ -136,6 +137,31 @@ export async function sendMessage(message: {
   const supabase = createClient();
   
   try {
+    // 1. Get conversation details to know recipient
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select(`
+        *,
+        client:users!conversations_client_id_fkey (id, first_name, last_name),
+        streamer:streamers (id, user_id, first_name, last_name)
+      `)
+      .eq('id', message.conversation_id)
+      .single();
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    // 2. Determine recipient and sender details
+    const recipient_id = conversation.client_id === message.sender_id 
+      ? conversation.streamer.user_id 
+      : conversation.client_id;
+
+    const sender = conversation.client_id === message.sender_id
+      ? conversation.client
+      : conversation.streamer;
+
+    // 3. Send message
     const { data, error } = await supabase
       .from('messages')
       .insert([
@@ -150,6 +176,15 @@ export async function sendMessage(message: {
       .single();
 
     if (error) throw error;
+
+    // 4. Create notification for the recipient
+    await createNotification({
+      user_id: recipient_id,
+      message: `Kamu dapat pesan baru dari ${sender.first_name} ${sender.last_name}`,
+      type: 'new_message',
+      is_read: false
+    });
+
     return data;
   } catch (error) {
     console.error('Error sending message:', error);
