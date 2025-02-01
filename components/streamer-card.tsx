@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
-import { Star, StarHalf, MapPin, ChevronLeft, ChevronRight, User, Calendar, Clock, Monitor, DollarSign, X, Mail } from "lucide-react";
+import { Star, StarHalf, MapPin, ChevronLeft, ChevronRight, User, Calendar, Clock, Monitor, DollarSign, X, Mail, Sun, Sunset, Moon } from "lucide-react";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { createClient } from "@/utils/supabase/client";
-import { format, addDays, startOfWeek, addWeeks, isSameDay, endOfWeek, isAfter, isBefore, startOfDay, subWeeks, addHours, parseISO, differenceInHours } from 'date-fns';
+import { format, addDays, startOfWeek, addWeeks, isSameDay, endOfWeek, isAfter, isBefore, startOfDay, subWeeks, addHours, parseISO, differenceInHours, parse } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { createOrGetConversation } from '@/services/message-service';
@@ -1105,187 +1105,287 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
       </div>
 
       <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-3 sm:p-6 animate-none">
-          <DialogHeader>
-            <div className="flex items-center space-x-3 mb-4">
+        <DialogContent className="max-w-[680px] p-0 overflow-hidden rounded-2xl bg-white max-h-[85vh] flex flex-col fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] z-[9999]">
+          {/* Hero Section with Streamer Info - Fixed height */}
+          <div className="relative h-48 flex-shrink-0">
+            {/* Background Image with Gradient */}
+            <div className="absolute inset-0">
               <Image
                 src={streamer.image_url}
-                alt={`${streamer.first_name} ${streamer.last_name}`}
-                width={48}
-                height={48}
-                className="rounded-full object-cover"
+                alt={formatName(streamer.first_name, streamer.last_name)}
+                fill
+                className="object-cover"
               />
-              <div>
-                <DialogTitle className="text-lg sm:text-2xl font-semibold mb-0.5">
-                  {formatName(streamer.first_name, streamer.last_name)}
-                </DialogTitle>
-                <DialogDescription className="text-sm sm:text-base">
-
-                </DialogDescription>
-              </div>
+              <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/80" />
             </div>
-          </DialogHeader>
 
-          <BookingCalendar 
-            selectedDate={selectedDate}
-            onDateSelect={(dateStr) => setSelectedDate(new Date(dateStr))}
-            onTimeSelect={(time) => {
-              if (selectedDate) {
-                const [hours, minutes] = time.split(':').map(Number);
-                const newDate = new Date(selectedDate);
-                newDate.setHours(hours, minutes, 0, 0);
-                setSelectedDate(newDate);
-              }
-            }}
-          />
+            {/* Close Button */}
+            <DialogClose className="absolute top-4 right-4 p-2 rounded-full bg-white/10 backdrop-blur-md hover:bg-white/20 transition-colors">
+              <X className="h-4 w-4 text-white" />
+            </DialogClose>
 
-          <div className="h-px bg-gray-200" />
-
-          {activeSchedule ? (
-            <div className="space-y-3 sm:space-y-4">
-              {(['Morning', 'Afternoon', 'Evening', 'Night'] as const).map((timeOfDay) => {
-                const slots = getTimeSlots(timeOfDay);
-                const availableSlots = slots.filter(hour => 
-                  Array.isArray(timeOptions) && 
-                  timeOptions.some(option => isTimeOption(option) && option === hour)
-                );
-                
-                // Only show the section if there are available slots
-                if (availableSlots.length === 0) return null;
-
-                return (
-                  <div key={timeOfDay}>
-                    <h4 className="text-xs sm:text-sm font-semibold mb-2">{timeOfDay}</h4>
-                    <div className="grid grid-cols-6 gap-1 sm:gap-2">
-                      {slots.map((hour) => {
-                        const isAvailable = Array.isArray(timeOptions) && 
-                          timeOptions.some(option => isTimeOption(option) && option === hour);
-
-                        return (
-                          <Button
-                            key={hour}
-                            variant={isHourSelected(hour) ? "default" : "outline"}
-                            className={cn(
-                              "text-[10px] sm:text-sm p-1 sm:p-2 h-auto",
-                              isHourSelected(hour) 
-                                ? 'bg-gradient-to-r from-[#1e40af] to-[#6b21a8] text-white hover:from-[#1e3a8a] hover:to-[#581c87]' 
-                                : 'hover:bg-blue-50',
-                              !isAvailable && 'opacity-50 cursor-not-allowed'
-                            )}
-                            onClick={() => handleHourSelection(hour)}
-                            disabled={isHourDisabled(hour) || !isAvailable}
-                          >
-                            {hour}
-                          </Button>
-                        );
-                      })}
+            {/* Streamer Info */}
+            <div className="absolute bottom-0 w-full p-6">
+              <div className="flex items-end gap-4">
+                <div className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-white/20 backdrop-blur-sm">
+                  <Image
+                    src={streamer.image_url}
+                    alt={formatName(streamer.first_name, streamer.last_name)}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div className="flex-1 mb-1">
+                  <h2 className="text-xl font-semibold text-white mb-1">
+                    {formatName(streamer.first_name, streamer.last_name)}
+                  </h2>
+                  <div className="flex items-center gap-3 text-white/80">
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-sm">{streamer.rating.toFixed(1)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4" />
+                      <span className="text-sm">{streamer.location}</span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <div className="text-sm text-gray-500 mb-2">
-                This streamer hasn't set their availability yet.
+                </div>
               </div>
-              <div className="text-xs text-gray-400">
-                Please check back later or contact the streamer directly.
-              </div>
-            </div>
-          )}
-
-          {selectedHours.length > 0 && (
-            <div className="text-xs sm:text-sm font-medium">
-              Selected time: {getSelectedTimeRange()}
-            </div>
-          )}
-          {selectedHours.length === 1 && (
-            <p className="text-xs text-red-500">Minimum booking is 1 hour.</p>
-          )}
-
-          <div className="h-px bg-gray-200 my-4" />
-
-          {/* Grid container for both selects */}
-          <div className="space-y-4">
-            {/* Shipping Select */}
-            <div className="grid grid-cols-4 items-center gap-2 sm:gap-4">
-              <Label htmlFor="shipping-needed" className="text-right text-xs sm:text-sm">
-                Perlu Pengiriman
-              </Label>
-              <Select
-                value={needsShipping}
-                onValueChange={(value) => setNeedsShipping(value as ShippingOption)}
-              >
-                <SelectTrigger id="shipping-needed" className="col-span-3 h-8 sm:h-10 text-xs sm:text-sm">
-                  <SelectValue placeholder="Pilih opsi pengiriman" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="yes">Ya</SelectItem>
-                  <SelectItem value="no">Tidak</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Shipping information message */}
-            {needsShipping === 'yes' && (
-              <div className="col-span-4 text-sm bg-blue-50 border border-blue-200 rounded-md p-3">
-                <p className="text-blue-800">
-                  {clientLocation.toLowerCase() === streamer.location.toLowerCase()
-                    ? "Karena lokasi Anda sama dengan streamer, Anda hanya dapat memilih jadwal minimal H+1 untuk memberikan waktu pengiriman produk."
-                    : "Karena lokasi Anda berbeda dengan streamer, Anda hanya dapat memilih jadwal minimal H+3 untuk memberikan waktu pengiriman produk."
-                  }
-                </p>
-                <p className="text-blue-600 mt-2 text-xs">
-                  Lokasi Anda: {clientLocation || 'Belum diatur'}
-                  <br />
-                  Lokasi Streamer: {streamer.location}
-                </p>
-              </div>
-            )}
-
-            {/* Platform Select */}
-            <div className="grid grid-cols-4 items-center gap-2 sm:gap-4">
-              <Label htmlFor="booking-platform" className="text-right text-xs sm:text-sm">
-                Platform
-              </Label>
-              <Select onValueChange={setPlatform} value={platform}>
-                <SelectTrigger id="booking-platform" className="col-span-3 h-8 sm:h-10 text-xs sm:text-sm">
-                  <SelectValue placeholder="Select platform" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Shopee">Shopee</SelectItem>
-                  <SelectItem value="TikTok">TikTok</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
-          {/* Add the customer support text */}
-          <div className="mt-4 text-center">
-            <p className="text-xs sm:text-sm">
-              <span className="text-gray-600">Ada pertanyaan? Hubungi CS kami: </span>
-              <a 
-                href="https://wa.me/6282154902561" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-blue-600 underline hover:text-blue-800"
-                onClick={(e) => e.stopPropagation()}
-              >
-                klik disini
-              </a>
-            </p>
+          {/* Booking Content - Make this section scrollable */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6 space-y-6">
+              {/* Date Selection */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Select Date</h3>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePreviousWeek}
+                      disabled={isBefore(startOfWeek(currentWeekStart), startOfWeek(new Date()))}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNextWeek}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Calendar Grid */}
+                <div className="grid grid-cols-7 gap-2">
+                  {weekDays.map((date) => {
+                    const isSelected = selectedDate && isSameDay(date, selectedDate);
+                    const isDisabled = isDayOff(date);
+
+                    return (
+                      <button
+                        key={date.toISOString()}
+                        onClick={() => !isDisabled && setSelectedDate(date)}
+                        disabled={isDisabled}
+                        className={cn(
+                          "flex flex-col items-center p-3 rounded-xl transition-all",
+                          isSelected
+                            ? "bg-blue-600 text-white shadow-lg ring-2 ring-blue-200"
+                            : "hover:bg-blue-50",
+                          isDisabled && "opacity-50 cursor-not-allowed bg-gray-50"
+                        )}
+                      >
+                        <span className="text-xs font-medium mb-1">
+                          {format(date, 'EEE')}
+                        </span>
+                        <span className="text-lg font-semibold">
+                          {format(date, 'd')}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Time Selection with Clear Button */}
+              {activeSchedule ? (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">Select Time</h3>
+                    {selectedHours.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedHours([])}
+                        className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 transition-colors"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Clear Selection
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Time Selection */}
+                  {(['Morning', 'Afternoon', 'Evening', 'Night'] as const).map((timeOfDay) => {
+                    const slots = getTimeSlots(timeOfDay);
+                    // Simplified slot filtering logic
+                    const availableSlots = slots.filter(hour => {
+                      if (!selectedDate) return false;
+                      const hourNum = parseInt(hour);
+                      return isSlotAvailable(selectedDate, hourNum);
+                    });
+
+                    if (availableSlots.length === 0) return null;
+
+                    return (
+                      <div key={timeOfDay} className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          {timeOfDay === 'Morning' && <Sun className="h-4 w-4 text-amber-500" />}
+                          {timeOfDay === 'Afternoon' && <Sun className="h-4 w-4 text-orange-500" />}
+                          {timeOfDay === 'Evening' && <Sunset className="h-4 w-4 text-indigo-500" />}
+                          {timeOfDay === 'Night' && <Moon className="h-4 w-4 text-blue-500" />}
+                          <h4 className="text-sm font-medium text-gray-700">{timeOfDay}</h4>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          {availableSlots.map((hour) => {
+                            const isSelected = selectedHours.includes(hour);
+                            const isEndpoint = hour === selectedHours[0] || hour === selectedHours[selectedHours.length - 1];
+                            const isMiddle = isSelected && !isEndpoint;
+                            const disabled = isMiddle || isHourDisabled(hour);
+
+                            return (
+                              <button
+                                key={hour}
+                                onClick={() => !disabled && handleHourSelection(hour)}
+                                disabled={disabled}
+                                className={cn(
+                                  "relative h-12 rounded-xl border transition-all duration-200",
+                                  isSelected
+                                    ? "bg-blue-50 border-blue-200 shadow-sm"
+                                    : "border-gray-200 hover:border-blue-300",
+                                  isMiddle && "cursor-not-allowed opacity-50",
+                                  !isSelected && !disabled && "hover:bg-blue-50",
+                                  disabled && "cursor-not-allowed opacity-50"
+                                )}
+                              >
+                                <time className="text-sm font-medium">
+                                  {format(parse(hour, 'HH:mm', new Date()), 'h:mm a')}
+                                </time>
+                                {isEndpoint && (
+                                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-blue-100 rounded-full">
+                                    <span className="text-[10px] font-medium text-blue-700">
+                                      {hour === selectedHours[0] ? 'Start' : 'End'}
+                                    </span>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Selected Time Summary */}
+                  {selectedHours.length > 0 && (
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-medium text-blue-900">Selected Time Range</h4>
+                          <p className="text-lg font-semibold text-blue-700">
+                            {format(parse(selectedHours[0], 'HH:mm', new Date()), 'h:mm a')} - 
+                            {format(parse(selectedHours[selectedHours.length - 1], 'HH:mm', new Date()), 'h:mm a')}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-blue-900">Duration</p>
+                          <p className="text-lg font-semibold text-blue-700">
+                            {selectedHours.length - 1} hours
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <div className="text-sm text-gray-500 mb-2">
+                    This streamer hasn't set their availability yet.
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Please check back later or contact the streamer directly.
+                  </div>
+                </div>
+              )}
+
+              {/* Platform & Shipping Options */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="shipping-needed" className="text-right text-sm">
+                    Need Shipping?
+                  </Label>
+                  <Select
+                    value={needsShipping}
+                    onValueChange={(value) => setNeedsShipping(value as ShippingOption)}
+                  >
+                    <SelectTrigger id="shipping-needed" className="col-span-3">
+                      <SelectValue placeholder="Select shipping option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="yes">Yes</SelectItem>
+                      <SelectItem value="no">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {needsShipping === 'yes' && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                    <p className="text-sm text-blue-800">
+                      {clientLocation.toLowerCase() === streamer.location.toLowerCase()
+                        ? "Since you're in the same city as the streamer, you can only book sessions starting from tomorrow to allow time for product delivery."
+                        : "Since you're in a different city, you can only book sessions starting from 3 days later to allow time for product delivery."
+                      }
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="booking-platform" className="text-right text-sm">
+                    Platform
+                  </Label>
+                  <Select onValueChange={setPlatform} value={platform}>
+                    <SelectTrigger id="booking-platform" className="col-span-3">
+                      <SelectValue placeholder="Select platform" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Shopee">Shopee</SelectItem>
+                      <SelectItem value="TikTok">TikTok</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <DialogFooter className="mt-4">
-            <Button 
-              onClick={handleBooking} 
-              className="w-full h-10 sm:h-12 text-xs sm:text-sm bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87] text-white"
-              disabled={selectedHours.length < 2}
+          {/* Footer with Proceed Button - Fixed at bottom */}
+          <div className="p-6 border-t border-gray-100 bg-white flex-shrink-0">
+            <Button
+              onClick={handleBooking}
+              disabled={!isMinimumBookingMet || !platform}
+              className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium"
             >
-              Proceed to Booking Details
+              {!isMinimumBookingMet
+                ? 'Select at least 2 hours'
+                : 'Proceed to Booking Details'
+              }
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1296,7 +1396,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           onOpenChange={setIsProfileModalOpen}
         >
           <DialogContent 
-            className="max-w-2xl w-full h-[85vh] overflow-y-auto z-[100] fixed inset-0 top-[55%] left-[50%] translate-x-[-50%] translate-y-[-50%] p-6"
+            className="max-w-2xl w-full h-[85vh] overflow-y-auto z-[9999] fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] p-6"
           >
             <DialogHeader className="bg-white pb-4">
               <DialogTitle>Streamer Profile</DialogTitle>
@@ -1417,20 +1517,19 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                   </p>
                 </div>
 
-                {/* Video Section */}
+                {/* Featured Content */}
                 {extendedProfile.video_url && (
-                  <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Featured Content</h3>
-                    <div className="w-full aspect-video">
-                      <iframe
-                        width="100%"
-                        height="100%"
-                        src={`https://www.youtube.com/embed/${getYouTubeVideoId(extendedProfile.video_url) || ''}`}
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        className="rounded-lg shadow-sm"
-                      />
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Featured Content</h3>
+                    <div className="relative w-full max-w-[360px] mx-auto">
+                      <div className="relative pb-[177.78%]">  {/* 9:16 aspect ratio */}
+                        <iframe
+                          src={`https://www.youtube.com/embed/${getYouTubeVideoId(extendedProfile.video_url) || ''}`}
+                          className="absolute inset-0 w-full h-full rounded-xl"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

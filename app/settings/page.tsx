@@ -985,9 +985,135 @@ function SettingsContent() {
                 </>
               )}
 
+              {type !== 'streamer' && (
+                <>
+                  {/* Client Profile Card */}
+                  <Card className="border border-gray-200 shadow-sm mb-8">
+                    <Collapsible defaultOpen>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="bg-white hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                              <User className="h-5 w-5 text-gray-600" />
+                              Informasi Pribadi
+                            </CardTitle>
+                            <ChevronDown className="h-5 w-5 text-gray-500 transition-transform duration-200 ui-expanded:rotate-180" />
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="p-6">
+                          <div className="grid gap-6">
+                            <div className="grid sm:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="firstName">Nama Depan</Label>
+                                <Input
+                                  id="firstName"
+                                  value={firstName}
+                                  onChange={(e) => setFirstName(e.target.value)}
+                                  placeholder="Masukkan nama depan"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="lastName">Nama Belakang</Label>
+                                <Input
+                                  id="lastName"
+                                  value={lastName}
+                                  onChange={(e) => setLastName(e.target.value)}
+                                  placeholder="Masukkan nama belakang"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="location">Lokasi</Label>
+                              <Input
+                                id="location"
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
+                                placeholder="Masukkan kota Anda"
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
+
+                  {/* Brand Information Card */}
+                  <Card className="border border-gray-200 shadow-sm mb-8">
+                    <Collapsible defaultOpen>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="bg-white hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                              <FileText className="h-5 w-5 text-gray-600" />
+                              Informasi Brand
+                            </CardTitle>
+                            <ChevronDown className="h-5 w-5 text-gray-500 transition-transform duration-200 ui-expanded:rotate-180" />
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="p-6">
+                          <div className="space-y-6">
+                            <div className="space-y-2">
+                              <Label htmlFor="brandName">Nama Brand</Label>
+                              <Input
+                                id="brandName"
+                                value={brandName}
+                                onChange={(e) => setBrandName(e.target.value)}
+                                placeholder="Masukkan nama brand Anda"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="brandDescription">Deskripsi Brand</Label>
+                              <Textarea
+                                id="brandDescription"
+                                value={bio}
+                                onChange={(e) => setBio(e.target.value)}
+                                placeholder="Ceritakan tentang brand Anda..."
+                                className="min-h-[120px]"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="brandGuidelines">Brand Guidelines</Label>
+                              <div className="space-y-3">
+                                <Input
+                                  type="file"
+                                  id="brandGuidelines"
+                                  onChange={handleBrandGuidelineChange}
+                                  accept=".pdf,.doc,.docx"
+                                />
+                                {brandGuidelineUrl && (
+                                  <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+                                    <FileText className="h-4 w-4 text-blue-600" />
+                                    <span className="text-sm text-blue-600">
+                                      {brandGuidelineUrl.split('/').pop()}
+                                    </span>
+                                  </div>
+                                )}
+                                {brandGuidelineError && (
+                                  <p className="text-sm text-red-500 flex items-center gap-1">
+                                    <AlertCircle className="h-4 w-4" />
+                                    {brandGuidelineError}
+                                  </p>
+                                )}
+                                <p className="text-sm text-gray-500">
+                                  Upload file PDF atau DOC/DOCX (max. 5MB)
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
+                </>
+              )}
+
               <Button 
                 type="submit" 
-                className="w-full h-14 text-white text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-[#E23744] to-[#E23744]/90 hover:from-[#E23744]/90 hover:to-[#E23744]"
+                className="w-full h-14 text-white text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-[#2563eb] to-[#2563eb]/90 hover:from-[#2563eb]/90 hover:to-[#2563eb]"
                 disabled={isLoading}
               >
                 {isLoading ? (
