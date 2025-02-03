@@ -358,121 +358,145 @@ a:not(.no-transition),
               opacity 0.1s ease-in-out;
 }
 
-/* Dialog and Popover positioning fixes */
+/* Notification Popup Styles */
+.notification-popup {
+  z-index: 50;
+  background-color: white;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  touch-action: pan-y pinch-zoom;
+  -webkit-overflow-scrolling: touch;
+}
+
 @media (max-width: 640px) {
-  /* Dialog positioning */
-  [role="dialog"] {
-    left: 47% !important;
-    top: 45% !important;
-    transform: translate(-50%, -40%) !important;
-    transition: none !important;
-  }
-
-  /* Notification popup mobile styles */
-  .notification-popup[data-radix-popper-content-wrapper],
-  .profile-dropdown[data-radix-popper-content-wrapper] {
+  .notification-popup {
+    margin-left: 1rem !important;
+    margin-right: 1rem !important;
+    width: calc(100% - 2rem) !important;
+    max-width: none !important;
     position: fixed !important;
-    top: 56px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    width: 90% !important;
-    max-width: 400px !important;
-    margin: 0 auto !important;
-    z-index: 9999 !important;
-  }
-
-  /* Select menu specific positioning */
-  [data-radix-select-content][data-radix-popper-content-wrapper] {
-    position: absolute !important;
-    top: 100% !important; /* Position below the trigger */
+    top: 5rem !important;
     left: 0 !important;
-    right: auto !important;
-    transform: none !important;
-    width: var(--radix-select-trigger-width) !important;
-    max-width: calc(100vw - 24px) !important;
-    margin-top: 4px !important;
-    z-index: 50 !important;
+    right: 0 !important;
+    max-height: calc(100vh - 120px) !important;
+    touch-action: pan-y pinch-zoom !important;
   }
 
-  /* Profile dropdown positioning */
-  .profile-dropdown[data-radix-popper-content-wrapper] {
+  [data-radix-popper-content-wrapper] {
     position: fixed !important;
-    inset: auto !important;
-    top: 64px !important;
-    right: 16px !important;
-    left: auto !important;
-    transform: none !important;
-    width: auto !important;
-    min-width: 200px !important;
-  }
-
-  /* Mobile-specific styles */
-  .notifications-popup[data-radix-popper-content-wrapper] {
-    position: fixed !important;
-    top: 64px !important;
-    left: 16px !important;
-    right: 16px !important;
-    width: auto !important;
-    max-width: calc(100vw - 32px) !important;
+    top: 5rem !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
     transform: none !important;
     margin: 0 !important;
-    z-index: 50 !important;
-  }
-
-  .notifications-popup {
-    max-height: calc(100vh - 80px) !important;
-    overflow-y: auto !important;
-  }
-
-  .notifications-popup > div {
-    max-height: none !important;
-  }
-
-  .notifications-popup [role="dialog"] {
-    max-height: calc(100vh - 80px) !important;
-    overflow-y: auto !important;
-  }
-}
-
-/* Base styles for all popper content */
-[data-radix-popper-content-wrapper] {
-  animation: none !important;
-  transition: none !important;
-}
-
-/* Base notification styles */
-.notifications-popup {
-  width: 90vw !important;
-  max-width: 400px !important;
-  background: white !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-}
-
-.notification-popup {
-  z-index: 9999;
-  position: relative;
-  background-color: #faf9f6;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
-
-/* Mobile layout and viewport fixes */
-@media (max-width: 640px) {
-  /* Remove this conflicting block */
-  /* [data-radix-popper-content-wrapper] {
-    position: fixed !important;
-    top: 56px !important;
-    left: 92% !important;
-    transform: translateX(-50%) !important;
-    width: 90% !important;
-    max-width: 400px !important;
-    margin: 0 auto !important;
-  } */
-
-  .notification-mobile-content[data-radix-popper-content-wrapper] {
     height: auto !important;
-    max-height: min(400px, calc(100vh - 120px)) !important;
-    overflow-y: auto !important;
-    z-index: 9999 !important;
+    max-height: calc(100vh - 120px) !important;
+    touch-action: pan-y pinch-zoom !important;
+  }
+
+  /* Improve touch scrolling */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
+    scroll-behavior: smooth !important;
+  }
+
+  /* Better touch feedback */
+  .active\:bg-gray-50:active {
+    background-color: rgba(249, 250, 251, 0.8) !important;
   }
 }
+
+/* Safe area padding for mobile */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* Ensure content is scrollable */
+.notification-content {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+/* Remove hover effects on mobile */
+@media (hover: none) {
+  .hover\:bg-gray-50:hover {
+    background-color: transparent;
+  }
+}
+
+/* Add touch feedback */
+.cursor-pointer {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-auto {
+  touch-action: auto !important;
+}
+
+/* Notification item hover states */
+.notification-item {
+  transition: background-color 0.15s ease;
+}
+
+.notification-item:active {
+  background-color: rgba(243, 244, 246, 0.8);
+}
+
+/* Unread indicator */
+.unread-indicator {
+  background-color: #3b82f6;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Add smooth transitions */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+/* Add backdrop for mobile */
+.notification-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 40;
+  animation: fadeIn 200ms ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Mobile slide up animation */
+.slide-up-enter {
+  transform: translateY(100%);
+}
+
+.slide-up-enter-active {
+  transform: translateY(0);
+  transition: transform 200ms ease-out;
+}
+
+.slide-up-exit {
+  transform: translateY(0);
+}
+
+.slide-up-exit-active {
+  transform: translateY(100%);
+  transition: transform 200ms ease-in;
+}
+

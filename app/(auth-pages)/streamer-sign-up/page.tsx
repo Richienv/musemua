@@ -175,22 +175,11 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         break;
 
       case 4: // Video
-        if (!formData.profile.video_url) {
-          setError('Please add your introduction video URL');
-          return false;
-        }
-        const videoId = getYouTubeVideoId(formData.profile.video_url);
-        if (!videoId) {
-          setError('Please enter a valid YouTube video URL');
-          return false;
-        }
+        // Remove video validation - making it optional
         break;
 
       case 5: // Gallery
-        if (formData.profile.gallery.length === 0) {
-          setError('Please add at least one photo to your gallery');
-          return false;
-        }
+        // Remove gallery validation - making it optional
         break;
     }
     
@@ -886,7 +875,11 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         {/* Video Input and Preview */}
         <div className="space-y-6 bg-white rounded-xl border border-gray-200 p-6">
           <div className="space-y-2">
-            <Label className="text-gray-700 font-medium">Video Link</Label>
+            <Label className="text-gray-700 font-medium">Video Link (Optional)</Label>
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="w-4 h-4 text-blue-500" />
+              <p className="text-sm text-gray-500">You can add or edit your introduction video later in settings</p>
+            </div>
             <p className="text-sm text-gray-500 flex items-center gap-2">
               <Info className="w-4 h-4 text-gray-400" />
               Upload your video to YouTube as "Unlisted" and paste the link below
@@ -987,9 +980,9 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
       <div className="space-y-6">
         <div className="flex items-center justify-between border-b border-gray-100 pb-4">
           <div>
-            <h3 className="font-medium text-gray-900">Upload Photos</h3>
+            <h3 className="font-medium text-gray-900">Portfolio Gallery (Optional)</h3>
             <p className="text-sm text-gray-500 mt-1">
-              Add up to 5 high-quality photos
+              Showcase your best content to attract more clients
             </p>
           </div>
           <div className="px-3 py-1 bg-gray-50 rounded-lg">
@@ -997,7 +990,37 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
           </div>
         </div>
 
-        {/* Guidelines */}
+        {/* Enhanced Guidelines */}
+        <div className="p-4 bg-blue-50 rounded-xl space-y-3">
+          <div className="flex items-center gap-2 text-blue-700">
+            <Info className="w-4 h-4" />
+            <span className="text-sm font-medium">Why Add a Portfolio?</span>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm text-blue-600">
+              Increase your chances of getting hired by showcasing:
+            </p>
+            <ul className="grid gap-2 text-sm text-blue-600">
+              <li className="flex items-start gap-2">
+                <div className="w-1 h-1 rounded-full bg-blue-400 mt-2" />
+                Screenshots from your previous successful livestreams
+              </li>
+              <li className="flex items-start gap-2">
+                <div className="w-1 h-1 rounded-full bg-blue-400 mt-2" />
+                Results and achievements from past collaborations
+              </li>
+              <li className="flex items-start gap-2">
+                <div className="w-1 h-1 rounded-full bg-blue-400 mt-2" />
+                Product presentation examples or campaign highlights
+              </li>
+            </ul>
+            <p className="text-xs text-blue-600 mt-2">
+              You can always add or update your portfolio later in settings
+            </p>
+          </div>
+        </div>
+
+        {/* Technical Requirements */}
         <div className="p-4 bg-gray-50 rounded-xl space-y-3">
           <div className="flex items-center gap-2 text-gray-700">
             <Info className="w-4 h-4" />
@@ -1018,7 +1041,7 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             </div>
             <div className="flex items-center gap-2">
               <div className="w-1 h-1 rounded-full bg-gray-400" />
-              Clear lighting
+              Clear, professional content
             </div>
           </div>
         </div>
@@ -1030,12 +1053,12 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             className="cursor-pointer group mt-6"
           >
             <div className="border-2 border-dashed border-gray-200 rounded-xl p-8
-              hover:border-gray-300 hover:bg-gray-50/50 transition-all duration-200">
+              hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200">
               <div className="flex flex-col items-center">
                 <div className="p-4 rounded-full bg-white border border-gray-200 mb-4 
-                  group-hover:border-gray-300 transition-colors">
+                  group-hover:border-blue-300 group-hover:bg-blue-50 transition-colors">
                   <svg 
-                    className="w-6 h-6 text-gray-600" 
+                    className="w-6 h-6 text-gray-600 group-hover:text-blue-600" 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -1048,11 +1071,11 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
                     />
                   </svg>
                 </div>
-                <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
-                  Upload Photos
+                <p className="text-sm font-medium text-gray-700 group-hover:text-blue-700 transition-colors">
+                  Add Portfolio Photos
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Click to browse
+                  Click to browse (optional)
                 </p>
               </div>
             </div>

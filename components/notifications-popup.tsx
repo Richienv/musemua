@@ -54,13 +54,19 @@ export function NotificationsPopup() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [userType, setUserType] = useState<'streamer' | 'client' | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const supabase = createClient();
 
   const groupNotifications = (notifications: Notification[]): NotificationGroup[] => {
     const groups: NotificationGroup[] = [];
     const now = new Date();
 
-    notifications.forEach(notification => {
+    // Limit notifications on mobile
+    const notificationsToProcess = isMobile 
+      ? notifications.slice(0, 5) 
+      : notifications;
+
+    notificationsToProcess.forEach(notification => {
       const date = new Date(notification.created_at);
       let group: NotificationGroup;
 
@@ -358,6 +364,17 @@ export function NotificationsPopup() {
     };
   }, [fetchNotifications]);
 
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640); // 640px is the sm breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen} modal={true}>
       <PopoverTrigger asChild>
@@ -379,62 +396,90 @@ export function NotificationsPopup() {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="notification-popup w-80 p-0 sm:w-96" 
-        align="center" 
-        sideOffset={4}
+        className={`notification-popup bg-white shadow-lg rounded-lg overflow-hidden touch-auto
+          ${isMobile ? 'fixed inset-x-0 mx-4 top-20' : 'w-96'}`}
+        align={isMobile ? "center" : "end"}
+        sideOffset={isMobile ? 0 : 4}
       >
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gray-100 px-4 py-2.5 flex justify-between items-center border-b border-gray-200">
-            <h3 className="text-lg font-semibold">Notifikasi</h3>
+        <div className="flex flex-col h-full">
+          <div className="bg-gray-100 px-4 py-3 flex justify-between items-center border-b border-gray-200 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold">Notifikasi</h3>
+              {unreadCount > 0 && (
+                <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-sm font-medium">
+                  {unreadCount} Baru
+                </span>
+              )}
+            </div>
             {notifications.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleMarkAllAsRead}
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="text-sm text-gray-600"
               >
-                <CheckCheck className="w-4 h-4 mr-1" />
-                Tandai Semua Dibaca
+                <CheckCheck className="w-4 h-4 mr-1.5" />
+                <span className="hidden sm:inline">Tandai Semua</span>
+                <span className="sm:hidden">Tandai</span>
               </Button>
             )}
           </div>
-          <div className="notification-content overflow-y-auto">
+
+          <div 
+            className="overflow-y-auto overscroll-contain touch-auto flex-1"
+            style={{ 
+              maxHeight: isMobile ? 'calc(100vh - 180px)' : '500px',
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
             {notifications.length === 0 ? (
-              <p className="text-center py-6 text-gray-500">Tidak ada notifikasi baru</p>
+              <div className="flex flex-col items-center justify-center py-8 px-4">
+                <Bell className="w-12 h-12 text-gray-300 mb-3" />
+                <p className="text-gray-500 text-center">Tidak ada notifikasi baru</p>
+              </div>
             ) : (
-              groupNotifications(notifications).map((group) => (
-                <div key={group.title}>
-                  <div className="bg-gray-50 px-4 py-1.5 text-sm font-medium text-gray-600">
-                    {group.title}
-                  </div>
-                  {group.notifications.map((notification) => (
-                    <div 
-                      key={notification.id} 
-                      className={`p-3 border-b border-gray-100 transition-colors duration-150 hover:bg-gray-50 cursor-pointer
-                        ${!notification.is_read ? 'bg-blue-50' : ''}`}
-                      onClick={() => handleNotificationSeen(notification.id)}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <span className="text-xl">{getNotificationIcon(notification.type)}</span>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm text-gray-900 truncate">
-                            {getNotificationTitle(notification.type)}
-                          </h4>
-                          <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {format(new Date(notification.created_at), 'dd MMM yyyy, HH:mm', { locale: id })}
-                          </p>
-                        </div>
-                        {!notification.is_read && (
-                          <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                        )}
-                      </div>
+              <div className="pb-safe">
+                {groupNotifications(notifications).map((group) => (
+                  <div key={group.title} className="mb-2">
+                    <div className="bg-gray-50/80 px-4 py-2 text-sm font-medium text-gray-600 sticky top-0">
+                      {group.title}
                     </div>
-                  ))}
-                </div>
-              ))
+                    {group.notifications.map((notification) => (
+                      <div 
+                        key={notification.id} 
+                        className={`px-4 py-3 border-b border-gray-100 active:bg-gray-50 transition-colors cursor-pointer
+                          ${!notification.is_read ? 'bg-blue-50/60' : ''}`}
+                        onClick={() => handleNotificationSeen(notification.id)}
+                      >
+                        <div className="flex gap-3">
+                          <span className="text-xl flex-shrink-0 w-8 h-8 flex items-center justify-center">
+                            {getNotificationIcon(notification.type)}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="font-medium text-sm text-gray-900 truncate">
+                                {getNotificationTitle(notification.type)}
+                              </h4>
+                              <time className="text-xs text-gray-500 whitespace-nowrap">
+                                {format(new Date(notification.created_at), 'HH:mm', { locale: id })}
+                              </time>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {format(new Date(notification.created_at), 'dd MMM yyyy', { locale: id })}
+                            </p>
+                          </div>
+                          {!notification.is_read && (
+                            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
