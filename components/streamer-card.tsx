@@ -1105,7 +1105,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
       </div>
 
       <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
-        <DialogContent className="max-w-[680px] p-0 overflow-hidden rounded-2xl bg-white max-h-[85vh] flex flex-col fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] z-[9999]">
+        <DialogContent className="max-w-[680px] p-0 overflow-hidden rounded-2xl bg-white max-h-[85vh] flex flex-col fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] z-[9999] booking-dialog-mobile">
           {/* Hero Section with Streamer Info - Fixed height */}
           <div className="relative h-48 flex-shrink-0">
             {/* Background Image with Gradient */}
@@ -1156,12 +1156,147 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
           {/* Booking Content - Make this section scrollable */}
           <div className="flex-1 overflow-y-auto">
-            <div className="p-6 space-y-6">
-              {/* Date Selection */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Select Date</h3>
-                  <div className="flex items-center gap-2">
+            <div className="p-4 space-y-4">
+              {/* Step 1: Basic Requirements */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
+                    <span className="text-white font-semibold text-sm">1</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Basic Requirements</h3>
+                    <p className="text-xs text-gray-500">Set up your booking preferences</p>
+                  </div>
+                </div>
+                
+                {/* Shipping Option */}
+                <div className="ml-8 space-y-3">
+                  <div className="space-y-2">
+                    <Label 
+                      htmlFor="shipping-needed" 
+                      className={cn(
+                        "text-sm font-medium",
+                        needsShipping ? "text-blue-700" : "text-gray-900"
+                      )}
+                    >
+                      Do you need to ship products?
+                    </Label>
+                    <p className="text-xs text-gray-500">
+                      For physical product reviews and unboxing
+                    </p>
+                    <Select
+                      value={needsShipping}
+                      onValueChange={(value) => setNeedsShipping(value as ShippingOption)}
+                    >
+                      <SelectTrigger 
+                        id="shipping-needed" 
+                        className={cn(
+                          "w-full bg-white border-gray-200 h-11",
+                          needsShipping && "border-blue-200 ring-1 ring-blue-100"
+                        )}
+                      >
+                        <SelectValue placeholder="Select shipping requirement" />
+                      </SelectTrigger>
+                      <SelectContent 
+                        position="popper" 
+                        side="bottom" 
+                        align="start" 
+                        sideOffset={8}
+                        className="z-[9999]"
+                      >
+                        <SelectItem value="yes" className="py-2.5">
+                          <div>
+                            <div className="font-medium">Yes, I'll ship products</div>
+                            <div className="text-xs text-gray-500">For product reviews and unboxing content</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="no" className="py-2.5">
+                          <div>
+                            <div className="font-medium">No shipping needed</div>
+                            <div className="text-xs text-gray-500">For digital products or services only</div>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {needsShipping === 'yes' && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                      <p className="text-sm text-blue-800">
+                        {clientLocation.toLowerCase() === streamer.location.toLowerCase()
+                          ? "Since you're in the same city, booking starts from tomorrow to allow time for delivery."
+                          : "Since you're in a different city, booking starts from 3 days later for delivery time."
+                        }
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Platform Selection */}
+                  <div className="space-y-2">
+                    <Label 
+                      htmlFor="booking-platform" 
+                      className={cn(
+                        "text-sm font-medium",
+                        platform ? "text-blue-700" : "text-gray-900"
+                      )}
+                    >
+                      Where do you want to stream?
+                    </Label>
+                    <p className="text-xs text-gray-500">
+                      Choose your preferred streaming platform
+                    </p>
+                    <Select 
+                      onValueChange={setPlatform} 
+                      value={platform}
+                    >
+                      <SelectTrigger 
+                        id="booking-platform" 
+                        className={cn(
+                          "w-full bg-white border-gray-200 h-11",
+                          platform && "border-blue-200 ring-1 ring-blue-100"
+                        )}
+                      >
+                        <SelectValue placeholder="Choose streaming platform" />
+                      </SelectTrigger>
+                      <SelectContent 
+                        position="popper" 
+                        side="bottom" 
+                        align="start" 
+                        sideOffset={8}
+                        className="z-[9999]"
+                      >
+                        <SelectItem value="Shopee" className="py-2.5">
+                          <div>
+                            <div className="font-medium">Shopee Live</div>
+                            <div className="text-xs text-gray-500">Ideal for product sales with direct purchase links</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="TikTok" className="py-2.5">
+                          <div>
+                            <div className="font-medium">TikTok Live</div>
+                            <div className="text-xs text-gray-500">Perfect for reaching a broader audience</div>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Select Date */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
+                    <span className="text-white font-semibold text-sm">2</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Select Date</h3>
+                    <p className="text-xs text-gray-500">Choose your preferred streaming date</p>
+                  </div>
+                </div>
+
+                <div className="ml-8 space-y-3">
+                  <div className="flex items-center justify-end gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -1180,194 +1315,194 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
 
-                {/* Calendar Grid */}
-                <div className="grid grid-cols-7 gap-2">
-                  {weekDays.map((date) => {
-                    const isSelected = selectedDate && isSameDay(date, selectedDate);
-                    const isDisabled = isDayOff(date);
+                  {/* Calendar Grid */}
+                  <div className="grid grid-cols-7 gap-2">
+                    {weekDays.map((date) => {
+                      const isSelected = selectedDate && isSameDay(date, selectedDate);
+                      const isDisabled = isDayOff(date);
 
-                    return (
-                      <button
-                        key={date.toISOString()}
-                        onClick={() => !isDisabled && setSelectedDate(date)}
-                        disabled={isDisabled}
-                        className={cn(
-                          "flex flex-col items-center p-3 rounded-xl transition-all",
-                          isSelected
-                            ? "bg-blue-600 text-white shadow-lg ring-2 ring-blue-200"
-                            : "hover:bg-blue-50",
-                          isDisabled && "opacity-50 cursor-not-allowed bg-gray-50"
-                        )}
-                      >
-                        <span className="text-xs font-medium mb-1">
-                          {format(date, 'EEE')}
-                        </span>
-                        <span className="text-lg font-semibold">
-                          {format(date, 'd')}
-                        </span>
-                      </button>
-                    );
-                  })}
+                      return (
+                        <button
+                          key={date.toISOString()}
+                          onClick={() => !isDisabled && setSelectedDate(date)}
+                          disabled={isDisabled}
+                          className={cn(
+                            "flex flex-col items-center p-3 rounded-xl transition-all",
+                            isSelected
+                              ? "bg-blue-600 text-white shadow-lg ring-2 ring-blue-200"
+                              : "hover:bg-blue-50",
+                            isDisabled && "opacity-50 cursor-not-allowed bg-gray-50"
+                          )}
+                        >
+                          <span className="text-xs font-medium mb-1">
+                            {format(date, 'EEE')}
+                          </span>
+                          <span className="text-lg font-semibold">
+                            {format(date, 'd')}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
-              {/* Time Selection with Clear Button */}
-              {activeSchedule ? (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900">Select Time</h3>
-                    {selectedHours.length > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedHours([])}
-                        className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 transition-colors"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Clear Selection
-                      </Button>
-                    )}
+              {/* Step 3: Select Time */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
+                    <span className="text-white font-semibold text-sm">3</span>
                   </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Select Time</h3>
+                    <p className="text-xs text-gray-500">Choose your preferred time slots (minimum 2 hours)</p>
+                  </div>
+                </div>
 
-                  {/* Time Selection */}
-                  {(['Morning', 'Afternoon', 'Evening', 'Night'] as const).map((timeOfDay) => {
-                    const slots = getTimeSlots(timeOfDay);
-                    // Simplified slot filtering logic
-                    const availableSlots = slots.filter(hour => {
-                      if (!selectedDate) return false;
-                      const hourNum = parseInt(hour);
-                      return isSlotAvailable(selectedDate, hourNum);
-                    });
-
-                    if (availableSlots.length === 0) return null;
-
-                    return (
-                      <div key={timeOfDay} className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          {timeOfDay === 'Morning' && <Sun className="h-4 w-4 text-amber-500" />}
-                          {timeOfDay === 'Afternoon' && <Sun className="h-4 w-4 text-orange-500" />}
-                          {timeOfDay === 'Evening' && <Sunset className="h-4 w-4 text-indigo-500" />}
-                          {timeOfDay === 'Night' && <Moon className="h-4 w-4 text-blue-500" />}
-                          <h4 className="text-sm font-medium text-gray-700">{timeOfDay}</h4>
-                        </div>
-                        <div className="grid grid-cols-4 gap-2">
-                          {availableSlots.map((hour) => {
-                            const isSelected = selectedHours.includes(hour);
-                            const isEndpoint = hour === selectedHours[0] || hour === selectedHours[selectedHours.length - 1];
-                            const isMiddle = isSelected && !isEndpoint;
-                            const disabled = isMiddle || isHourDisabled(hour);
-
-                            return (
-                              <button
-                                key={hour}
-                                onClick={() => !disabled && handleHourSelection(hour)}
-                                disabled={disabled}
-                                className={cn(
-                                  "relative h-12 rounded-xl border transition-all duration-200",
-                                  isSelected
-                                    ? "bg-blue-50 border-blue-200 shadow-sm"
-                                    : "border-gray-200 hover:border-blue-300",
-                                  isMiddle && "cursor-not-allowed opacity-50",
-                                  !isSelected && !disabled && "hover:bg-blue-50",
-                                  disabled && "cursor-not-allowed opacity-50"
-                                )}
-                              >
-                                <time className="text-sm font-medium">
-                                  {format(parse(hour, 'HH:mm', new Date()), 'h:mm a')}
-                                </time>
-                                {isEndpoint && (
-                                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-blue-100 rounded-full">
-                                    <span className="text-[10px] font-medium text-blue-700">
-                                      {hour === selectedHours[0] ? 'Start' : 'End'}
-                                    </span>
-                                  </div>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
+                <div className="ml-8">
+                  {activeSchedule ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-end">
+                        {selectedHours.length > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedHours([])}
+                            className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 transition-colors"
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Clear Selection
+                          </Button>
+                        )}
                       </div>
-                    );
-                  })}
 
-                  {/* Selected Time Summary */}
-                  {selectedHours.length > 0 && (
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-medium text-blue-900">Selected Time Range</h4>
-                          <p className="text-lg font-semibold text-blue-700">
-                            {format(parse(selectedHours[0], 'HH:mm', new Date()), 'h:mm a')} - 
-                            {format(parse(selectedHours[selectedHours.length - 1], 'HH:mm', new Date()), 'h:mm a')}
+                      {/* Time Selection */}
+                      {(['Morning', 'Afternoon', 'Evening', 'Night'] as const).map((timeOfDay) => {
+                        const slots = getTimeSlots(timeOfDay);
+                        const availableSlots = slots.filter(hour => {
+                          if (!selectedDate) return false;
+                          const hourNum = parseInt(hour);
+                          return isSlotAvailable(selectedDate, hourNum);
+                        });
+
+                        if (availableSlots.length === 0) return null;
+
+                        return (
+                          <div key={timeOfDay} className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              {timeOfDay === 'Morning' && <Sun className="h-4 w-4 text-amber-500" />}
+                              {timeOfDay === 'Afternoon' && <Sun className="h-4 w-4 text-orange-500" />}
+                              {timeOfDay === 'Evening' && <Sunset className="h-4 w-4 text-indigo-500" />}
+                              {timeOfDay === 'Night' && <Moon className="h-4 w-4 text-blue-500" />}
+                              <h4 className="text-sm font-medium text-gray-700">{timeOfDay}</h4>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              {availableSlots.map((hour) => {
+                                const isSelected = selectedHours.includes(hour);
+                                const isEndpoint = hour === selectedHours[0] || hour === selectedHours[selectedHours.length - 1];
+                                const isMiddle = isSelected && !isEndpoint;
+                                const disabled = isMiddle || isHourDisabled(hour);
+
+                                return (
+                                  <button
+                                    key={hour}
+                                    onClick={() => !disabled && handleHourSelection(hour)}
+                                    disabled={disabled}
+                                    className={cn(
+                                      "relative h-12 rounded-xl border transition-all duration-200",
+                                      isSelected
+                                        ? "bg-blue-50 border-blue-200 shadow-sm"
+                                        : "border-gray-200 hover:border-blue-300",
+                                      isMiddle && "cursor-not-allowed opacity-50",
+                                      !isSelected && !disabled && "hover:bg-blue-50",
+                                      disabled && "cursor-not-allowed opacity-50"
+                                    )}
+                                  >
+                                    <time className="text-sm font-medium">
+                                      {format(parse(hour, 'HH:mm', new Date()), 'h:mm a')}
+                                    </time>
+                                    {isEndpoint && (
+                                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-blue-100 rounded-full">
+                                        <span className="text-[10px] font-medium text-blue-700">
+                                          {hour === selectedHours[0] ? 'Start' : 'End'}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Show "No Available Time" message if no slots are available for the selected date */}
+                      {selectedDate && !(['Morning', 'Afternoon', 'Evening', 'Night'] as const).some(timeOfDay => {
+                        const slots = getTimeSlots(timeOfDay);
+                        return slots.some(hour => isSlotAvailable(selectedDate, parseInt(hour)));
+                      }) && (
+                        <div className="text-center py-4 px-3">
+                          <div className="max-w-[140px] mx-auto mb-3">
+                            <Image
+                              src="/images/no-streamer-found.png"
+                              alt="No time slots available"
+                              width={140}
+                              height={140}
+                              className="w-full h-auto"
+                            />
+                          </div>
+                          <h4 className="text-sm font-medium text-gray-900 mb-1">
+                            No Available Time Slots
+                          </h4>
+                          <p className="text-xs text-gray-500 mb-2">
+                            This streamer doesn't have any available slots for the selected date. 
+                            Try selecting a different date to find available time slots.
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-blue-900">Duration</p>
-                          <p className="text-lg font-semibold text-blue-700">
-                            {selectedHours.length - 1} hours
-                          </p>
+                      )}
+
+                      {/* Selected Time Summary */}
+                      {selectedHours.length > 0 && (
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <h4 className="text-sm font-medium text-blue-900">Selected Time Range</h4>
+                              <p className="text-lg font-semibold text-blue-700">
+                                {format(parse(selectedHours[0], 'HH:mm', new Date()), 'h:mm a')} - 
+                                {format(parse(selectedHours[selectedHours.length - 1], 'HH:mm', new Date()), 'h:mm a')}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-medium text-blue-900">Duration</p>
+                              <p className="text-lg font-semibold text-blue-700">
+                                {selectedHours.length - 1} hours
+                              </p>
+                            </div>
+                          </div>
                         </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 px-3">
+                      <div className="max-w-[140px] mx-auto mb-3">
+                        <Image
+                          src="/images/no-streamer-found.png"
+                          alt="No schedule available"
+                          width={140}
+                          height={140}
+                          className="w-full h-auto"
+                        />
                       </div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">
+                        No Schedule Available
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        This streamer hasn't set their availability yet.
+                        Please check back later or try contacting them directly.
+                      </p>
                     </div>
                   )}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <div className="text-sm text-gray-500 mb-2">
-                    This streamer hasn't set their availability yet.
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    Please check back later or contact the streamer directly.
-                  </div>
-                </div>
-              )}
-
-              {/* Platform & Shipping Options */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="shipping-needed" className="text-right text-sm">
-                    Need Shipping?
-                  </Label>
-                  <Select
-                    value={needsShipping}
-                    onValueChange={(value) => setNeedsShipping(value as ShippingOption)}
-                  >
-                    <SelectTrigger id="shipping-needed" className="col-span-3">
-                      <SelectValue placeholder="Select shipping option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="yes">Yes</SelectItem>
-                      <SelectItem value="no">No</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {needsShipping === 'yes' && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                    <p className="text-sm text-blue-800">
-                      {clientLocation.toLowerCase() === streamer.location.toLowerCase()
-                        ? "Since you're in the same city as the streamer, you can only book sessions starting from tomorrow to allow time for product delivery."
-                        : "Since you're in a different city, you can only book sessions starting from 3 days later to allow time for product delivery."
-                      }
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="booking-platform" className="text-right text-sm">
-                    Platform
-                  </Label>
-                  <Select onValueChange={setPlatform} value={platform}>
-                    <SelectTrigger id="booking-platform" className="col-span-3">
-                      <SelectValue placeholder="Select platform" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Shopee">Shopee</SelectItem>
-                      <SelectItem value="TikTok">TikTok</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             </div>
@@ -1380,7 +1515,9 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
               disabled={!isMinimumBookingMet || !platform}
               className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium"
             >
-              {!isMinimumBookingMet
+              {!platform
+                ? 'Please select a platform'
+                : !isMinimumBookingMet
                 ? 'Select at least 2 hours'
                 : 'Proceed to Booking Details'
               }
@@ -1396,7 +1533,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           onOpenChange={setIsProfileModalOpen}
         >
           <DialogContent 
-            className="max-w-2xl w-full h-[85vh] overflow-y-auto z-[9999] fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] p-6"
+            className="max-w-2xl w-full h-[85vh] overflow-y-auto z-[9999] fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] p-6 dialog-content-mobile"
           >
             <DialogHeader className="bg-white pb-4">
               <DialogTitle>Streamer Profile</DialogTitle>
@@ -1519,7 +1656,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
                 {/* Featured Content */}
                 {extendedProfile.video_url && (
-                  <div className="space-y-4">
+                  <div className="space-y-4 mb-8">
                     <h3 className="text-lg font-semibold text-gray-900">Featured Content</h3>
                     <div className="relative w-full max-w-[360px] mx-auto">
                       <div className="relative pb-[177.78%]">  {/* 9:16 aspect ratio */}
@@ -1535,7 +1672,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                 )}
 
                 {/* Gallery Section */}
-                <div className="mb-6">
+                <div className="mb-8">
                   <h3 className="text-sm font-semibold text-gray-900 mb-3">Gallery</h3>
                   {isLoadingGallery ? (
                     <div className="grid grid-cols-4 gap-2">

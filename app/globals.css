@@ -400,6 +400,24 @@ a:not(.no-transition),
     overscroll-behavior-y: contain;
     scroll-behavior: smooth;
   }
+
+  /* Add dialog content mobile positioning */
+  .dialog-content-mobile {
+    width: calc(100% - 32px) !important;
+    left: 46% !important;
+  }
+
+  /* Add booking dialog mobile positioning */
+  .booking-dialog-mobile {
+    width: calc(100% - 32px) !important;
+    left: 50% !important;
+    margin: 0 !important;
+  }
+
+  /* Existing notification popup rule */
+  .notification-popup {
+    margin-left: -8px !important;
+  }
 }
 
 /* Add touch feedback */
