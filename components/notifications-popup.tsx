@@ -12,6 +12,7 @@ import { createClient } from "@/utils/supabase/client";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { type NotificationType, markAllNotificationsAsRead, markNotificationAsRead } from '@/services/notification-service';
+import { useRouter } from 'next/navigation';
 
 // Add these utility functions
 const roundToNearestHour = (date: Date): Date => {
@@ -55,6 +56,7 @@ export function NotificationsPopup() {
   const [isOpen, setIsOpen] = useState(false);
   const [userType, setUserType] = useState<'streamer' | 'client' | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const router = useRouter();
   const supabase = createClient();
 
   const groupNotifications = (notifications: Notification[]): NotificationGroup[] => {
@@ -383,8 +385,12 @@ export function NotificationsPopup() {
           size="icon" 
           className="relative w-12 sm:w-14 h-12 sm:h-14 hover:bg-gray-100 transition-colors" 
           onClick={() => {
-            setIsOpen(true);
-            fetchNotifications();
+            if (isMobile) {
+              router.push('/notifications');
+            } else {
+              setIsOpen(true);
+              fetchNotifications();
+            }
           }}
         >
           <Bell className="h-6 sm:h-7 w-6 sm:w-7" />
@@ -395,95 +401,96 @@ export function NotificationsPopup() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent 
-        className={`notification-popup bg-white shadow-lg rounded-lg overflow-hidden touch-auto
-          ${isMobile ? 'fixed inset-x-0 mx-4 top-20' : 'w-96'}`}
-        align={isMobile ? "center" : "end"}
-        sideOffset={isMobile ? 0 : 4}
-      >
-        <div className="flex flex-col h-full">
-          <div className="bg-gray-100 px-4 py-3 flex justify-between items-center border-b border-gray-200 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold">Notifikasi</h3>
-              {unreadCount > 0 && (
-                <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-sm font-medium">
-                  {unreadCount} Baru
-                </span>
+      {!isMobile && (
+        <PopoverContent 
+          className="notification-popup w-96 p-0 rounded-lg shadow-lg"
+          align="end"
+          sideOffset={4}
+        >
+          <div className="flex flex-col h-full">
+            <div className="bg-gray-100 px-4 py-3 flex justify-between items-center border-b border-gray-200 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold">Notifikasi</h3>
+                {unreadCount > 0 && (
+                  <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-sm font-medium">
+                    {unreadCount} Baru
+                  </span>
+                )}
+              </div>
+              {notifications.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleMarkAllAsRead}
+                  className="text-sm text-gray-600"
+                >
+                  <CheckCheck className="w-4 h-4 mr-1.5" />
+                  <span className="hidden sm:inline">Tandai Semua</span>
+                  <span className="sm:hidden">Tandai</span>
+                </Button>
               )}
             </div>
-            {notifications.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleMarkAllAsRead}
-                className="text-sm text-gray-600"
-              >
-                <CheckCheck className="w-4 h-4 mr-1.5" />
-                <span className="hidden sm:inline">Tandai Semua</span>
-                <span className="sm:hidden">Tandai</span>
-              </Button>
-            )}
-          </div>
 
-          <div 
-            className="overflow-y-auto overscroll-contain touch-auto flex-1"
-            style={{ 
-              maxHeight: isMobile ? 'calc(100vh - 180px)' : '500px',
-              WebkitOverflowScrolling: 'touch'
-            }}
-          >
-            {notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 px-4">
-                <Bell className="w-12 h-12 text-gray-300 mb-3" />
-                <p className="text-gray-500 text-center">Tidak ada notifikasi baru</p>
-              </div>
-            ) : (
-              <div className="pb-safe">
-                {groupNotifications(notifications).map((group) => (
-                  <div key={group.title} className="mb-2">
-                    <div className="bg-gray-50/80 px-4 py-2 text-sm font-medium text-gray-600 sticky top-0">
-                      {group.title}
-                    </div>
-                    {group.notifications.map((notification) => (
-                      <div 
-                        key={notification.id} 
-                        className={`px-4 py-3 border-b border-gray-100 active:bg-gray-50 transition-colors cursor-pointer
-                          ${!notification.is_read ? 'bg-blue-50/60' : ''}`}
-                        onClick={() => handleNotificationSeen(notification.id)}
-                      >
-                        <div className="flex gap-3">
-                          <span className="text-xl flex-shrink-0 w-8 h-8 flex items-center justify-center">
-                            {getNotificationIcon(notification.type)}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <h4 className="font-medium text-sm text-gray-900 truncate">
-                                {getNotificationTitle(notification.type)}
-                              </h4>
-                              <time className="text-xs text-gray-500 whitespace-nowrap">
-                                {format(new Date(notification.created_at), 'HH:mm', { locale: id })}
-                              </time>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
-                              {notification.message}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              {format(new Date(notification.created_at), 'dd MMM yyyy', { locale: id })}
-                            </p>
-                          </div>
-                          {!notification.is_read && (
-                            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                          )}
-                        </div>
+            <div 
+              className="overflow-y-auto overscroll-contain touch-auto flex-1"
+              style={{ 
+                maxHeight: isMobile ? 'calc(100vh - 180px)' : '500px',
+                WebkitOverflowScrolling: 'touch'
+              }}
+            >
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 px-4">
+                  <Bell className="w-12 h-12 text-gray-300 mb-3" />
+                  <p className="text-gray-500 text-center">Tidak ada notifikasi baru</p>
+                </div>
+              ) : (
+                <div className="pb-safe">
+                  {groupNotifications(notifications).map((group) => (
+                    <div key={group.title} className="mb-2">
+                      <div className="bg-gray-50/80 px-4 py-2 text-sm font-medium text-gray-600 sticky top-0">
+                        {group.title}
                       </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
+                      {group.notifications.map((notification) => (
+                        <div 
+                          key={notification.id} 
+                          className={`px-4 py-3 border-b border-gray-100 active:bg-gray-50 transition-colors cursor-pointer
+                            ${!notification.is_read ? 'bg-blue-50/60' : ''}`}
+                          onClick={() => handleNotificationSeen(notification.id)}
+                        >
+                          <div className="flex gap-3">
+                            <span className="text-xl flex-shrink-0 w-8 h-8 flex items-center justify-center">
+                              {getNotificationIcon(notification.type)}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <h4 className="font-medium text-sm text-gray-900 truncate">
+                                  {getNotificationTitle(notification.type)}
+                                </h4>
+                                <time className="text-xs text-gray-500 whitespace-nowrap">
+                                  {format(new Date(notification.created_at), 'HH:mm', { locale: id })}
+                                </time>
+                              </div>
+                              <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {format(new Date(notification.created_at), 'dd MMM yyyy', { locale: id })}
+                              </p>
+                            </div>
+                            {!notification.is_read && (
+                              <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </PopoverContent>
+        </PopoverContent>
+      )}
     </Popover>
   );
 }

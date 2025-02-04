@@ -363,80 +363,11 @@ a:not(.no-transition),
   z-index: 50;
   background-color: white;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  touch-action: pan-y pinch-zoom;
-  -webkit-overflow-scrolling: touch;
-}
-
-@media (max-width: 640px) {
-  .notification-popup {
-    margin-left: 1rem !important;
-    margin-right: 1rem !important;
-    width: calc(100% - 2rem) !important;
-    max-width: none !important;
-    position: fixed !important;
-    top: 5rem !important;
-    left: 0 !important;
-    right: 0 !important;
-    max-height: calc(100vh - 120px) !important;
-    touch-action: pan-y pinch-zoom !important;
-  }
-
-  [data-radix-popper-content-wrapper] {
-    position: fixed !important;
-    top: 5rem !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    transform: none !important;
-    margin: 0 !important;
-    height: auto !important;
-    max-height: calc(100vh - 120px) !important;
-    touch-action: pan-y pinch-zoom !important;
-  }
-
-  /* Improve touch scrolling */
-  .overflow-y-auto {
-    -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior-y: contain !important;
-    touch-action: pan-y !important;
-    scroll-behavior: smooth !important;
-  }
-
-  /* Better touch feedback */
-  .active\:bg-gray-50:active {
-    background-color: rgba(249, 250, 251, 0.8) !important;
-  }
 }
 
 /* Safe area padding for mobile */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 20px);
-}
-
-/* Ensure content is scrollable */
-.notification-content {
-  height: 100%;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-  touch-action: pan-y;
-}
-
-/* Remove hover effects on mobile */
-@media (hover: none) {
-  .hover\:bg-gray-50:hover {
-    background-color: transparent;
-  }
-}
-
-/* Add touch feedback */
-.cursor-pointer {
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.touch-auto {
-  touch-action: auto !important;
 }
 
 /* Notification item hover states */
@@ -454,6 +385,31 @@ a:not(.no-transition),
   width: 8px;
   height: 8px;
   border-radius: 50%;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 640px) {
+  /* Better touch feedback */
+  .active\:bg-gray-50:active {
+    background-color: rgba(249, 250, 251, 0.8);
+  }
+
+  /* Improve touch scrolling */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
+  }
+}
+
+/* Add touch feedback */
+.cursor-pointer {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-auto {
+  touch-action: auto !important;
 }
 
 /* Add smooth transitions */
