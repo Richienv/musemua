@@ -20,7 +20,7 @@ export const metadata = {
   description: "Platform live selling terbaik dari TROLIVE yang menghubungkan UMKM dengan live streamer profesional untuk Shopee dan TikTok Live. Tingkatkan penjualan online Anda dengan host live streaming berpengalaman.",
   keywords: "salda, trolive, live selling, live streaming, shopee live, tiktok live, host live streaming, jasa live streaming, live commerce indonesia, live seller, live shopping, penyedia jasa live streaming, livestreaming marketplace, umkm digital, platform live selling terbaik, jasa live selling terpercaya, host tiktok shop, host shopee live",
   alternates: {
-    canonical: process.env.NEXT_PUBLIC_SITE_URL || "https://salda.id",
+    canonical: "https://salda.id",
   },
   icons: {
     icon: [
@@ -76,14 +76,19 @@ export const metadata = {
     site: '@salda_id',
   },
   verification: {
-    google: 'notranslate',
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    other: {
+      'google-site-verification': [process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION],
+    },
   },
   robots: {
     index: true,
     follow: true,
+    nocache: true,
     googleBot: {
       index: true,
       follow: true,
+      noimageindex: false,
       'max-video-preview': -1,
       'max-image-preview': 'large',
       'max-snippet': -1,
