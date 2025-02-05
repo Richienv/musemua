@@ -276,13 +276,25 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // Validate file
+    const validationError = validateFile(file, 'image');
+    if (validationError) {
+      setError(validationError);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
     }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+      setError(null); // Clear any previous errors
+    };
+    reader.readAsDataURL(file);
+    updateFormData('profile', 'image', file);
   };
 
   const handleGalleryImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -567,10 +579,32 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
         <div className="space-y-4">
           <div className="space-y-2">
             <Label className="text-gray-700 font-medium">Profile Photo</Label>
-            <p className="text-sm text-gray-500 flex items-center gap-2">
-              <Info className="w-4 h-4 text-blue-500" />
-              Upload your best professional photo (4:5 ratio recommended)
-            </p>
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-500 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500">
+                  Upload your best professional photo (4:5 ratio recommended)
+                </p>
+                <ul className="space-y-1">
+                  <li className="text-xs text-gray-500 flex items-center gap-1.5">
+                    <div className="w-1 h-1 rounded-full bg-gray-400" />
+                    Formats: JPG, PNG, or WebP
+                  </li>
+                  <li className="text-xs text-gray-500 flex items-center gap-1.5">
+                    <div className="w-1 h-1 rounded-full bg-gray-400" />
+                    Maximum size: 5MB
+                  </li>
+                  <li className="text-xs text-gray-500 flex items-center gap-1.5">
+                    <div className="w-1 h-1 rounded-full bg-gray-400" />
+                    Clear face visibility recommended
+                  </li>
+                  <li className="text-xs text-gray-500 flex items-center gap-1.5">
+                    <div className="w-1 h-1 rounded-full bg-gray-400" />
+                    Professional attire preferred
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           <div 
@@ -635,9 +669,6 @@ export default function StreamerSignUp({ searchParams }: { searchParams: Message
             accept="image/jpeg,image/png,image/webp"
             onChange={(e) => {
               handleImageChange(e);
-              if (e.target.files?.[0]) {
-                updateFormData('profile', 'image', e.target.files[0]);
-              }
             }}
             ref={fileInputRef}
             className="hidden"
