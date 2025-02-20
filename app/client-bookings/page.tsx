@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from "@/utils/supabase/client";
 import { format, differenceInHours, isBefore, startOfDay, isSameDay } from 'date-fns';
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X, XCircle, CheckCircle, Check, Radio, FileText, MapPin, Copy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X, XCircle, CheckCircle, Check, Radio, FileText, MapPin, Copy, Calendar } from 'lucide-react';
 import Image from 'next/image';
 import RatingModal from '@/components/rating-modal';
 import { useRouter } from 'next/navigation';
@@ -29,6 +29,7 @@ interface Booking {
   price: number;
   special_request: string | null;
   timezone?: string;
+  payment_group_id: string;
   streamer: {
     id: number;
     first_name: string;
@@ -70,11 +71,14 @@ interface BookingRecord {
   status: string;
 }
 
-function adjustToIndonesiaTime(dateString: string) {
+function formatBookingTime(dateString: string, timezone: string = 'UTC') {
   const date = new Date(dateString);
-  // Subtract 8 hours to adjust for Indonesia timezone
-  date.setHours(date.getHours() - 8);
-  return date;
+  return format(date, 'HH:mm');
+}
+
+function formatBookingDate(dateString: string, formatStr: string = 'EEEE, MMMM d, yyyy') {
+  const date = new Date(dateString);
+  return format(date, formatStr);
 }
 
 const getStatusInfo = (status: string) => {
@@ -561,14 +565,37 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
   const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [relatedBookings, setRelatedBookings] = useState<Booking[]>([]);
+  const [showRelatedBookings, setShowRelatedBookings] = useState(false);
+
+  // Fetch related bookings on mount
+  useEffect(() => {
+    const fetchRelatedBookings = async () => {
+      if (!booking.payment_group_id) return;
+
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('payment_group_id', booking.payment_group_id)
+        .neq('id', booking.id)
+        .order('start_time', { ascending: true });
+
+      if (!error && data) {
+        setRelatedBookings(data);
+      }
+    };
+
+    fetchRelatedBookings();
+  }, [booking.payment_group_id, booking.id]);
 
   // Add debug logging
   useEffect(() => {
     console.log('Booking times:', {
       start: booking.start_time,
       end: booking.end_time,
-      convertedStart: format(adjustToIndonesiaTime(booking.start_time), 'HH:mm'),
-      convertedEnd: format(adjustToIndonesiaTime(booking.end_time), 'HH:mm'),
+      convertedStart: formatBookingTime(booking.start_time, booking.timezone),
+      convertedEnd: formatBookingTime(booking.end_time, booking.timezone),
       timezone: booking.timezone
     });
   }, [booking]);
@@ -601,6 +628,19 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
 
   // Parse the rating to ensure it's a number
   const rating = parseFloat(booking.streamer.rating as unknown as string);
+
+  // Group bookings by date
+  const bookingsByDate = useMemo(() => {
+    const allBookings = [booking, ...relatedBookings];
+    return allBookings.reduce((acc, b) => {
+      const date = format(new Date(b.start_time), 'yyyy-MM-dd');
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(b);
+      return acc;
+    }, {} as Record<string, Booking[]>);
+  }, [booking, relatedBookings]);
 
   const handleReschedule = async (startTime: Date, endTime: Date) => {
     try {
@@ -701,8 +741,8 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
 
   // Update price display logic
   const displayPrice = booking.voucher_usage?.[0]?.final_price ?? booking.price;
-  const discountAmount = booking.voucher_usage?.[0]?.discount_applied;
-  const hasDiscount = discountAmount && discountAmount > 0;
+  const discountAmount = booking.voucher_usage?.[0]?.discount_applied ?? 0;
+  const hasDiscount = discountAmount > 0;
 
   const DeliveryInfoCard = () => {
     return (
@@ -794,14 +834,23 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   return (
     <div className="border rounded-lg shadow-sm p-4 pb-4 mb-4 text-sm hover:shadow-md transition-shadow relative">
       <div className="flex justify-between items-center mb-3 pb-3 border-b">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(booking.status)} flex items-center`}>
             {getStatusIcon(booking.status)}
             {booking.status}
           </span>
+          {relatedBookings.length > 0 && (
+            <button
+              onClick={() => setShowRelatedBookings(!showRelatedBookings)}
+              className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
+            >
+              <Calendar className="h-4 w-4" />
+              {showRelatedBookings ? 'Hide' : 'Show'} {relatedBookings.length} related {relatedBookings.length === 1 ? 'booking' : 'bookings'}
+            </button>
+          )}
         </div>
         <span className="text-gray-500 text-sm">
-          {format(adjustToIndonesiaTime(booking.created_at), 'MMM d, yyyy HH:mm')}
+          {formatBookingDate(booking.created_at)}
         </span>
       </div>
       
@@ -816,12 +865,24 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
         <div className="flex-grow">
           <h3 className="font-medium text-base mb-2">{`${booking.streamer.first_name} ${booking.streamer.last_name}`}</h3>
           <p className="text-gray-600 mb-2">Livestreaming services on {booking.platform}</p>
-          <div className="flex items-center mb-2">
-            <Clock className="w-4 h-4 mr-2 text-gray-400" />
-            <span className="text-base">
-              {`${format(adjustToIndonesiaTime(booking.start_time), 'HH:mm')} - ${format(adjustToIndonesiaTime(booking.end_time), 'HH:mm')}`}
-            </span>
-          </div>
+          
+          {/* Display time blocks grouped by date */}
+          {Object.entries(bookingsByDate).map(([date, bookings]) => (
+            <div key={date} className="mb-2">
+              <div className="text-sm text-gray-500 mb-1">
+                {formatBookingDate(date)}
+              </div>
+              {bookings.map((b: Booking) => (
+                <div key={b.id} className="flex items-center mb-1">
+                  <Clock className="w-4 h-4 mr-2 text-gray-400" />
+                  <span className="text-base">
+                    {formatBookingTime(b.start_time, b.timezone)} - {formatBookingTime(b.end_time, b.timezone)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+          
           <div className="flex items-center">
             <Star className="w-4 h-4 mr-2 text-yellow-400" />
             <span className="text-base">Rating: {isNaN(rating) ? 'N/A' : rating.toFixed(1)}</span>
@@ -829,6 +890,40 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
         </div>
       </div>
       
+      {/* Related bookings section */}
+      {showRelatedBookings && relatedBookings.length > 0 && (
+        <div className="mt-4 space-y-3">
+          <h4 className="font-medium text-gray-900">Related Bookings</h4>
+          {relatedBookings.map((relatedBooking) => (
+            <div key={relatedBooking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden">
+                  <Image
+                    src={booking.streamer.image_url || '/default-avatar.png'}
+                    alt={`${booking.streamer.first_name} ${booking.streamer.last_name}`}
+                    width={40}
+                    height={40}
+                    className="object-cover"
+                  />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">
+                    {formatBookingDate(relatedBooking.start_time)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {formatBookingTime(relatedBooking.start_time, relatedBooking.timezone)} - {formatBookingTime(relatedBooking.end_time, relatedBooking.timezone)}
+                  </p>
+                </div>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(relatedBooking.status)}`}>
+                {getStatusIcon(relatedBooking.status)}
+                {relatedBooking.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3 text-sm">
           <DollarSign className="h-4 w-4 text-gray-400" />
@@ -840,9 +935,11 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
                 </span>
                 <span className="font-medium text-green-600">
                   Rp {displayPrice.toLocaleString()}
-                  <span className="text-xs ml-2">
-                    (Saved Rp {discountAmount.toLocaleString()})
-                  </span>
+                  {hasDiscount && (
+                    <span className="text-xs ml-2">
+                      (Saved Rp {discountAmount.toLocaleString()})
+                    </span>
+                  )}
                 </span>
               </>
             ) : (
@@ -943,7 +1040,7 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   );
 }
 
-export default function ClientBookings() {
+export default function ClientBookings(): JSX.Element {
   const router = useRouter();
   const [clientName, setClientName] = useState('');
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -1326,10 +1423,10 @@ export default function ClientBookings() {
                     <div>
                       <p className="text-sm text-gray-600">Schedule</p>
                       <p className="font-medium">
-                        {format(adjustToIndonesiaTime(booking.start_time), 'EEEE, MMM d')}
+                        {formatBookingDate(booking.start_time)}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {`${format(adjustToIndonesiaTime(booking.start_time), 'HH:mm')} - ${format(adjustToIndonesiaTime(booking.end_time), 'HH:mm')}`}
+                        {formatBookingTime(booking.start_time, booking.timezone)} - {formatBookingTime(booking.end_time, booking.timezone)}
                       </p>
                     </div>
                   </div>

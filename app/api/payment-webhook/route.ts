@@ -13,21 +13,20 @@ export async function POST(request: Request) {
       throw new Error('Invalid payment notification payload');
     }
 
-    // Get the booking ID from the order ID
-    const bookingId = payload.order_id.split('-')[1];
-    if (!bookingId) {
+    // Get the payment group ID from the order ID
+    const paymentGroupId = payload.order_id.split('-')[1];
+    if (!paymentGroupId) {
       throw new Error('Invalid order ID format');
     }
 
-    // Fetch the booking data
-    const { data: bookingData, error: bookingError } = await supabase
+    // Fetch all bookings under this payment group
+    const { data: bookings, error: bookingError } = await supabase
       .from('bookings')
       .select('*, streamers(first_name, last_name)')
-      .eq('id', bookingId)
-      .single();
+      .eq('payment_group_id', paymentGroupId);
 
     if (bookingError) throw bookingError;
-    if (!bookingData) throw new Error('Booking not found');
+    if (!bookings || bookings.length === 0) throw new Error('No bookings found for this payment group');
 
     // Update payment status
     const { error: updateError } = await supabase
@@ -37,30 +36,32 @@ export async function POST(request: Request) {
         midtrans_response: payload,
         updated_at: new Date().toISOString()
       })
-      .eq('booking_id', bookingId);
+      .eq('id', paymentGroupId);
 
     if (updateError) throw updateError;
 
-    // If payment is successful, create notifications
+    // If payment is successful, create notifications for each booking
     if (payload.transaction_status === 'settlement') {
-      // Notification for client
-      await createNotification({
-        user_id: bookingData.client_id,
-        streamer_id: bookingData.streamer_id,
-        message: `Payment confirmed for your booking with ${bookingData.streamers.first_name} on ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')}.`,
-        type: 'booking_payment',
-        booking_id: parseInt(bookingId),
-        is_read: false
-      });
+      for (const booking of bookings) {
+        // Notification for client
+        await createNotification({
+          user_id: booking.client_id,
+          streamer_id: booking.streamer_id,
+          message: `Payment confirmed for your booking with ${booking.streamers.first_name} on ${format(new Date(booking.start_time), 'dd MMMM HH:mm')}.`,
+          type: 'booking_payment',
+          booking_id: booking.id,
+          is_read: false
+        });
 
-      // Notification for streamer
-      await createNotification({
-        streamer_id: bookingData.streamer_id,
-        message: `New booking payment received from ${bookingData.client_first_name} for ${format(new Date(bookingData.start_time), 'dd MMMM HH:mm')}.`,
-        type: 'booking_payment',
-        booking_id: parseInt(bookingId),
-        is_read: false
-      });
+        // Notification for streamer
+        await createNotification({
+          streamer_id: booking.streamer_id,
+          message: `New booking payment received from ${booking.client_first_name} for ${format(new Date(booking.start_time), 'dd MMMM HH:mm')}.`,
+          type: 'booking_payment',
+          booking_id: booking.id,
+          is_read: false
+        });
+      }
     }
 
     return NextResponse.json({ success: true });

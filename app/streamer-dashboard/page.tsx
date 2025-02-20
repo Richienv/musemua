@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { signOutAction, acceptBooking, rejectBooking, startStream, endStream, acceptItems, requestReschedule } from "@/app/actions";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { format, isToday, isThisWeek, isThisMonth, parseISO, differenceInHours, addHours, parse } from 'date-fns';
-import { Calendar, Clock, Monitor, DollarSign, MessageSquare, Link as LinkIcon, AlertTriangle, MapPin, Users, XCircle, Video, Settings, Loader2, Info, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, Monitor, DollarSign, MessageSquare, Link as LinkIcon, AlertTriangle, MapPin, Users, XCircle, Video, Settings, Loader2, Info, ExternalLink, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import {
   Dialog,
@@ -31,6 +31,7 @@ import Image from 'next/image';
 import { BookingCalendar, type BookingCalendarProps } from "@/components/booking-calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { createNotification, createStreamNotifications, createItemReceivedNotification, type NotificationType } from "@/services/notification-service";
+import { cn } from "@/lib/utils";
 
 interface UserData {
   user_type: string;
@@ -63,6 +64,7 @@ interface Booking {
     last_name: string;
     image_url: string;
   };
+  payment_group_id?: string;
 }
 
 // Add these utility functions at the top of the file
@@ -76,6 +78,10 @@ const roundToNearestHour = (date: Date): Date => {
 
 const calculateDuration = (start: Date, end: Date): number => {
   return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+};
+
+const calculateBasePrice = (finalPrice: number): number => {
+  return Math.round(finalPrice / 1.443); // Convert final price back to base price
 };
 
 // Add this function at the top level of the file
@@ -455,32 +461,151 @@ function StatusFlow({ status, itemsReceived }: { status: string; itemsReceived: 
   );
 }
 
+interface RelatedBooking {
+  id: number;
+  start_time: string;
+  end_time: string;
+  timezone?: string;
+}
+
+interface PaymentGroupModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  booking: Booking;
+  relatedBookings: Booking[];
+}
+
+function PaymentGroupModal({ isOpen, onClose, booking, relatedBookings }: PaymentGroupModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl w-full max-w-lg mx-4 overflow-hidden shadow-xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Grup Booking
+            </h2>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <XCircle className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="px-6 py-6 space-y-6">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <Users className="h-4 w-4 text-blue-600" />
+              </div>
+              <h4 className="text-base font-medium text-gray-900">
+                Booking dari {booking.client_first_name} {booking.client_last_name}
+              </h4>
+            </div>
+
+            <div className="space-y-4">
+              {[booking, ...relatedBookings]
+                .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+                .map((b, index) => (
+                <div key={b.id} className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-900">
+                      Sesi {index + 1}
+                    </span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(b.status)}`}>
+                      {b.status}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar className="h-4 w-4" />
+                      <span>{formatBookingDate(b.start_time)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Clock className="h-4 w-4" />
+                      <span>
+                        {formatBookingTime(b.start_time, b.timezone)} - {formatBookingTime(b.end_time, b.timezone)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: ScheduleCardProps) {
   const [isStartLiveModalOpen, setIsStartLiveModalOpen] = useState(false);
   const [isLiveStreamModalOpen, setIsLiveStreamModalOpen] = useState(false);
   const [isItemAcceptanceModalOpen, setIsItemAcceptanceModalOpen] = useState(false);
-  const [streamLink, setStreamLink] = useState(booking.stream_link || '');
-  const [isStarting, setIsStarting] = useState(false);
   const [hasAcceptedItems, setHasAcceptedItems] = useState(booking.items_received || false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [isPaymentGroupModalOpen, setIsPaymentGroupModalOpen] = useState(false);
+  const [relatedBookings, setRelatedBookings] = useState<Booking[]>([]);
+  const [streamLink, setStreamLink] = useState(booking.stream_link || '');
+  const [isStarting, setIsStarting] = useState(false);
 
-  const handleStartLive = async () => {
+  // Fetch related bookings when component mounts
+  useEffect(() => {
+    if (booking.payment_group_id) {
+      fetchRelatedBookings();
+    }
+  }, [booking]);
+
+  // Fetch related bookings
+  const fetchRelatedBookings = async () => {
+    const supabase = createClient();
+    
+    try {
+      const { data: relatedBookings, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('payment_group_id', booking.payment_group_id)
+        .neq('id', booking.id)
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+      if (relatedBookings) {
+        setRelatedBookings(relatedBookings);
+      }
+    } catch (error) {
+      console.error('Error fetching related bookings:', error);
+    }
+  };
+
+  const handleStartLive = async (newStreamLink: string) => {
     setIsStarting(true);
     try {
-      if (!streamLink) {
+      if (!newStreamLink) {
         throw new Error('Stream link is required');
       }
 
-      const result = await startStream(booking.id, streamLink);
+      const result = await startStream(booking.id, newStreamLink);
       
       if (!result.success) {
         throw new Error(result.error);
       }
 
       // Update local state
+      setStreamLink(newStreamLink);
       setBookings(prev => prev.map(b => 
         b.id === booking.id 
-          ? { ...b, status: 'live', stream_link: streamLink }
+          ? { ...b, status: 'live', stream_link: newStreamLink }
           : b
       ));
 
@@ -505,8 +630,8 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
     try {
       const result = await acceptItems(booking.id);
       
-      if (result.error) {
-        throw new Error(result.error);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to accept items');
       }
 
       // Update local state
@@ -521,7 +646,10 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
       toast.success('Konfirmasi penerimaan barang berhasil');
     } catch (error) {
       console.error('Error confirming item acceptance:', error);
-      toast.error('Gagal mengkonfirmasi penerimaan barang: ' + (error instanceof Error ? error.message : String(error)));
+      toast.error(error instanceof Error ? error.message : 'Gagal mengkonfirmasi penerimaan barang');
+      
+      // Reset loading state if needed
+      setIsItemAcceptanceModalOpen(false);
     }
   };
 
@@ -565,306 +693,140 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
     }
   };
 
-  // Add this utility function at the top of the file
-  const calculateBasePrice = (finalPrice: number): number => {
-    return Math.round(finalPrice / 1.443); // Convert final price back to base price
-  };
-
   return (
-    <div className="bg-white rounded-xl border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden relative">
-      {/* Live Indicator Tag */}
-      {booking.status === 'live' && (
-        <div className="absolute -right-8 top-4 bg-red-600 text-white px-8 py-1 transform rotate-45 z-10 shadow-lg">
-          <span className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-            LIVE
-          </span>
-        </div>
-      )}
-
-      {/* Stream Time Indicator */}
-      {new Date(booking.start_time).getTime() - new Date().getTime() < 1000 * 60 * 30 && !booking.status.includes('completed') && (
-        <div className="absolute left-0 top-0 w-full bg-yellow-50 text-yellow-800 px-4 py-2 text-sm border-b border-yellow-100">
-          <div className="flex items-center justify-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            {new Date(booking.start_time).getTime() > new Date().getTime() 
-              ? "Stream akan dimulai dalam 30 menit"
-              : "Stream seharusnya sudah dimulai"}
-          </div>
-        </div>
-      )}
-
-      <div className="relative">
-        {/* Existing dotted borders and cutouts */}
-        <div className="absolute top-0 left-4 right-4 h-px border-t-2 border-dashed border-gray-200"></div>
-        
-        {/* Left circle cutout */}
-        <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#faf9f6] rounded-full border border-gray-100"></div>
-        
-        {/* Right circle cutout */}
-        <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#faf9f6] rounded-full border border-gray-100"></div>
-
-        <div className="p-4">
-          <div className={`${new Date(booking.start_time).getTime() - new Date().getTime() < 1000 * 60 * 30 && !booking.status.includes('completed') ? 'pt-4' : ''}`}>
-            {/* Status Flow */}
-            <div className="mt-2 mb-4">
-              <StatusFlow 
-                status={booking.status} 
-                itemsReceived={booking.items_received || false} 
+    <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden">
+            {booking.client?.image_url ? (
+              <Image
+                src={booking.client.image_url}
+                alt={`${booking.client_first_name} ${booking.client_last_name}`}
+                width={48}
+                height={48}
+                className="w-full h-full object-cover"
               />
-            </div>
-
-            {/* Header - Client Name and Route */}
-            <div className="mb-4">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                {booking.client_first_name} {booking.client_last_name}
-              </h3>
-              <div className="flex items-center gap-2">
-                <Monitor className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-500">{booking.platform}</span>
-              </div>
-            </div>
-
-            {/* Time Section */}
-            <div className="flex items-center justify-between mb-4 px-2">
-              {/* Start Time */}
-              <div className="text-left flex-1">
-                <div className="text-xs text-gray-500 mb-1">Start</div>
-                <div className="text-lg font-bold text-gray-900">
-                  {format(adjustToIndonesiaTime(booking.start_time), 'HH:mm')}
-                </div>
-              </div>
-
-              {/* Duration Line with Logo */}
-              <div className="flex-1 flex flex-col items-center px-2">
-                <Image
-                  src="/images/salda-icon.png"
-                  alt="Salda"
-                  width={80}
-                  height={30}
-                  className="mb-1"
-                />
-                <div className="w-full flex items-center gap-2">
-                  <div className="h-px bg-gray-200 flex-1"></div>
-                  <div className="bg-gray-50 rounded-lg px-2 py-1 text-xs font-medium text-gray-600">
-                    {differenceInHours(new Date(booking.end_time), new Date(booking.start_time))}h
-                  </div>
-                  <div className="h-px bg-gray-200 flex-1"></div>
-                </div>
-              </div>
-
-              {/* End Time */}
-              <div className="text-right flex-1">
-                <div className="text-xs text-gray-500 mb-1">End</div>
-                <div className="text-lg font-bold text-gray-900">
-                  {format(adjustToIndonesiaTime(booking.end_time), 'HH:mm')}
-                </div>
-              </div>
-            </div>
-
-            {/* Price and Date Section */}
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Date</div>
-                <div className="text-sm font-medium">
-                  {format(adjustToIndonesiaTime(booking.start_time), 'MMMM d, yyyy')}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Price</div>
-                <div className="text-lg font-bold text-blue-600">
-                  Rp {calculateBasePrice(booking.price).toLocaleString('id-ID')}
-                </div>
-              </div>
-            </div>
-
-            {/* Special Request Section */}
-            {booking.special_request && (
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <MessageSquare className="h-3 w-3 text-blue-500" />
-                  <span className="text-xs font-medium text-gray-700">Special Request</span>
-                </div>
-                <p className="text-xs text-gray-600">{booking.special_request}</p>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-600">
+                {booking.client_first_name?.[0]?.toUpperCase()}
               </div>
             )}
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900">
+              {booking.client_first_name} {booking.client_last_name}
+            </h3>
+            <p className="text-sm text-gray-500">
+              {booking.platform} Livestreaming
+            </p>
+          </div>
+        </div>
+        <div className={`px-3 py-1.5 rounded-lg text-sm font-medium ${getStatusColor(booking.status)}`}>
+          {booking.status}
+        </div>
+      </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-dashed border-gray-200">
-              {booking.status === 'live' ? (
-                <button
-                  onClick={() => setIsLiveStreamModalOpen(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors text-xs"
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                  View Live Stream
-                </button>
-              ) : booking.status === 'accepted' && (
-                !hasAcceptedItems ? (
-                  <button
-                    onClick={() => setIsItemAcceptanceModalOpen(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
-                  >
-                    Barang Diterima
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIsRescheduleModalOpen(true)}
-                      className="text-xs text-gray-500 hover:text-blue-600 transition-colors"
-                    >
-                      reschedule
-                    </button>
-                    <button
-                      onClick={() => setIsStartLiveModalOpen(true)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-xs"
-                    >
-                      <Video className="h-3 w-3" />
-                      Start Live
-                    </button>
-                  </div>
-                )
-              )}
+      {/* Single Time Block Display */}
+      <div className="bg-gray-50 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm text-gray-500 mb-1">
+              {formatBookingDate(booking.start_time)}
             </div>
+            <div className="font-medium">
+              {formatBookingTime(booking.start_time, booking.timezone)} - {formatBookingTime(booking.end_time, booking.timezone)}
+            </div>
+          </div>
+          <div className="text-sm text-gray-500">
+            {differenceInHours(new Date(booking.end_time), new Date(booking.start_time))}h
           </div>
         </div>
       </div>
 
-      {/* Start Live Modal */}
-      <div 
-        className={`fixed inset-0 bg-black/50 z-50 flex items-center justify-center ${isStartLiveModalOpen ? '' : 'hidden'}`}
-        onClick={() => setIsStartLiveModalOpen(false)}
-      >
-        <div 
-          className="bg-white rounded-xl w-full max-w-lg mx-4 overflow-hidden shadow-xl"
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-100">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">
+      {/* Payment Group Indicator */}
+      {booking.payment_group_id && relatedBookings.length > 0 && (
+        <div className="mb-6">
+          <button
+            onClick={() => setIsPaymentGroupModalOpen(true)}
+            className="w-full flex items-center justify-between px-4 py-2 bg-blue-50 rounded-lg text-sm text-blue-600 hover:bg-blue-100 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span>Bagian dari grup booking ({relatedBookings.length + 1} sesi)</span>
+            </div>
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Price and Platform Section */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <div className="text-sm text-gray-500 mb-1">Platform</div>
+          <div className="font-medium text-gray-900">{booking.platform}</div>
+        </div>
+        <div>
+          <div className="text-sm text-gray-500 mb-1">Price</div>
+          <div className="text-lg font-bold text-blue-600">
+            Rp {calculateBasePrice(booking.price).toLocaleString('id-ID')}
+          </div>
+        </div>
+      </div>
+
+      {/* Special Request Section */}
+      {booking.special_request && (
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <MessageSquare className="h-4 w-4 text-blue-500" />
+            <span className="text-sm font-medium text-gray-700">Special Request</span>
+          </div>
+          <p className="text-sm text-gray-600">{booking.special_request}</p>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex items-center justify-end gap-2 pt-4 border-t border-dashed border-gray-200">
+        {booking.status === 'live' ? (
+          <button
+            onClick={() => setIsLiveStreamModalOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+            View Live Stream
+          </button>
+        ) : booking.status === 'accepted' && (
+          !hasAcceptedItems ? (
+            <button
+              onClick={() => setIsItemAcceptanceModalOpen(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            >
+              Confirm Items Received
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsRescheduleModalOpen(true)}
+                className="text-sm text-gray-500 hover:text-blue-600 transition-colors"
+              >
+                Reschedule
+              </button>
+              <button
+                onClick={() => setIsStartLiveModalOpen(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
+              >
                 Start Live Stream
-              </h2>
-              <button 
-                onClick={() => setIsStartLiveModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                disabled={isStarting}
-              >
-                <XCircle className="h-6 w-6" />
               </button>
             </div>
-          </div>
-
-          {/* Content */}
-          <div className="px-6 py-6 space-y-6">
-            {/* Stream Link Input */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                  <LinkIcon className="h-4 w-4 text-blue-600" />
-                </div>
-                <div>
-                  <label htmlFor="stream-link" className="block text-sm font-medium text-gray-900">
-                    Stream Link<span className="text-blue-600">*</span>
-                  </label>
-                  <p className="text-sm text-gray-500">Masukkan link stream Anda untuk memulai sesi live streaming</p>
-                </div>
-              </div>
-              <input
-                id="stream-link"
-                type="text"
-                placeholder="https://..."
-                value={streamLink}
-                onChange={(e) => setStreamLink(e.target.value)}
-                className="w-full px-3 py-2 text-sm text-gray-900 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              />
-            </div>
-
-            {/* Guidelines */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                  <Info className="h-4 w-4 text-blue-600" />
-                </div>
-                <h4 className="text-base font-medium text-gray-900">
-                  Checklist Sebelum Live
-                </h4>
-              </div>
-              <ul className="space-y-3 pl-11">
-                <li className="flex items-center gap-2 text-gray-600">
-                  <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
-                  <span className="text-sm">Pastikan koneksi internet stabil</span>
-                </li>
-                <li className="flex items-center gap-2 text-gray-600">
-                  <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
-                  <span className="text-sm">Periksa kembali barang yang akan di-review</span>
-                </li>
-                <li className="flex items-center gap-2 text-gray-600">
-                  <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
-                  <span className="text-sm">Siapkan script atau poin-poin pembahasan</span>
-                </li>
-                <li className="flex items-center gap-2 text-gray-600">
-                  <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
-                  <span className="text-sm">Test audio dan pencahayaan</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Important Notice */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <div className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <AlertTriangle className="h-3.5 w-3.5 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 mb-1">Penting:</p>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    Pastikan Anda telah melakukan pengecekan terhadap semua peralatan streaming sebelum memulai sesi live.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
-            <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={() => setIsStartLiveModalOpen(false)}
-                disabled={isStarting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleStartLive}
-                disabled={isStarting || !streamLink.trim()}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {isStarting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Starting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Video className="h-4 w-4" />
-                    <span>Start Stream</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+          )
+        )}
       </div>
 
-      {/* Keep other existing modals */}
-      <LiveStreamModal
-        isOpen={isLiveStreamModalOpen}
-        onClose={() => setIsLiveStreamModalOpen(false)}
-        booking={booking}
-        streamLink={streamLink}
-        onEndStream={handleEndStream}
+      {/* Modals */}
+      <StartLiveModal
+        isOpen={isStartLiveModalOpen}
+        onClose={() => setIsStartLiveModalOpen(false)}
+        onConfirm={handleStartLive}
+        isStarting={isStarting}
       />
 
       <ItemAcceptanceModal
@@ -879,6 +841,23 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
         onConfirm={handleReschedule}
         booking={booking}
       />
+
+      <PaymentGroupModal
+        isOpen={isPaymentGroupModalOpen}
+        onClose={() => setIsPaymentGroupModalOpen(false)}
+        booking={booking}
+        relatedBookings={relatedBookings}
+      />
+
+      {isLiveStreamModalOpen && (
+        <LiveStreamModal
+          isOpen={isLiveStreamModalOpen}
+          onClose={() => setIsLiveStreamModalOpen(false)}
+          booking={booking}
+          streamLink={streamLink}
+          onEndStream={handleEndStream}
+        />
+      )}
     </div>
   );
 }
@@ -1054,15 +1033,38 @@ interface BookingCardProps {
 // Update the BookingCard component
 function BookingCard({ booking, onAccept, onReject }: BookingCardProps) {
   const [isRejectionModalOpen, setIsRejectionModalOpen] = useState(false);
+  const [isPaymentGroupModalOpen, setIsPaymentGroupModalOpen] = useState(false);
+  const [relatedBookings, setRelatedBookings] = useState<Booking[]>([]);
+
+  useEffect(() => {
+    if (booking.payment_group_id) {
+      fetchRelatedBookings();
+    }
+  }, [booking]);
+
+  const fetchRelatedBookings = async () => {
+    const supabase = createClient();
+    
+    try {
+      const { data: relatedBookings, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('payment_group_id', booking.payment_group_id)
+        .neq('id', booking.id)
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+      if (relatedBookings) {
+        setRelatedBookings(relatedBookings);
+      }
+    } catch (error) {
+      console.error('Error fetching related bookings:', error);
+    }
+  };
 
   const handleReject = async (reason: string) => {
     await onReject(booking.id, reason);
     setIsRejectionModalOpen(false);
-  };
-
-  // Add this utility function at the top of the file
-  const calculateBasePrice = (finalPrice: number): number => {
-    return Math.round(finalPrice / 1.443); // Convert final price back to base price
   };
 
   return (
@@ -1077,44 +1079,55 @@ function BookingCard({ booking, onAccept, onReject }: BookingCardProps) {
         {/* Right circle cutout */}
         <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#faf9f6] rounded-full border border-gray-100"></div>
 
-        <div className="p-6">
-          {/* Header - Client Name and Route */}
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
-              {booking.client_first_name} {booking.client_last_name}
-            </h3>
+        <div className="p-4 sm:p-6">
+          {/* Header - Client Name, Route, and Group Indicator */}
+          <div className="mb-4 sm:mb-6">
+            <div className="flex items-start justify-between mb-2">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+                {booking.client_first_name} {booking.client_last_name}
+              </h3>
+              {booking.payment_group_id && (
+                <button
+                  onClick={() => setIsPaymentGroupModalOpen(true)}
+                  className="flex items-center gap-1 px-2 py-1 text-xs sm:text-sm bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors"
+                >
+                  <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span>Group ({relatedBookings.length + 1} sessions)</span>
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-2">
-              <Monitor className="h-4 w-4 text-gray-400" />
-              <span className="text-sm text-gray-500">{booking.platform}</span>
+              <Monitor className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+              <span className="text-xs sm:text-sm text-gray-500">{booking.platform}</span>
             </div>
           </div>
 
           {/* Time Section - Similar to Flight Times */}
-          <div className="flex items-center justify-between mb-8">
-            {/* Departure Time */}
+          <div className="flex items-center justify-between mb-6">
+            {/* Start Time */}
             <div className="text-center">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium text-gray-500">Start</span>
+              <div className="flex items-center gap-1 sm:gap-2 mb-1">
+                <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
+                <span className="text-xs sm:text-sm font-medium text-gray-500">Start</span>
               </div>
-              <div className="text-xl font-bold text-gray-900">
-                {format(adjustToIndonesiaTime(booking.start_time), 'HH:mm')}
+              <div className="text-base sm:text-lg font-bold text-gray-900">
+                {formatBookingTime(booking.start_time, booking.timezone)}
               </div>
             </div>
 
             {/* Duration Line with Logo */}
-            <div className="flex-1 flex flex-col items-center px-4">
+            <div className="flex-1 flex flex-col items-center px-2 sm:px-4">
               <div className="w-full flex flex-col items-center gap-1">
                 <Image
                   src="/images/salda-icon.png"
                   alt="Salda"
-                  width={80}
-                  height={30}
-                  className="mb-1"
+                  width={60}
+                  height={24}
+                  className="mb-1 sm:w-[80px] sm:h-[30px]"
                 />
                 <div className="w-full flex items-center gap-2">
                   <div className="h-px bg-gray-300 flex-1"></div>
-                  <div className="bg-blue-50 rounded-lg px-3 py-1 text-sm font-medium text-blue-700">
+                  <div className="bg-blue-50 rounded-lg px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium text-blue-700">
                     {differenceInHours(new Date(booking.end_time), new Date(booking.start_time))}h
                   </div>
                   <div className="h-px bg-gray-300 flex-1"></div>
@@ -1122,29 +1135,29 @@ function BookingCard({ booking, onAccept, onReject }: BookingCardProps) {
               </div>
             </div>
 
-            {/* Arrival Time */}
+            {/* End Time */}
             <div className="text-center">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium text-gray-500">End</span>
+              <div className="flex items-center gap-1 sm:gap-2 mb-1">
+                <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
+                <span className="text-xs sm:text-sm font-medium text-gray-500">End</span>
               </div>
-              <div className="text-xl font-bold text-gray-900">
-                {format(adjustToIndonesiaTime(booking.end_time), 'HH:mm')}
+              <div className="text-base sm:text-lg font-bold text-gray-900">
+                {formatBookingTime(booking.end_time, booking.timezone)}
               </div>
             </div>
           </div>
 
           {/* Price and Date Section */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-4 sm:mb-6">
             <div>
-              <div className="text-sm text-gray-500 mb-1">Date</div>
-              <div className="font-medium">
-                {format(adjustToIndonesiaTime(booking.start_time), 'MMMM d, yyyy')}
+              <div className="text-xs sm:text-sm text-gray-500 mb-1">Date</div>
+              <div className="text-sm sm:text-base font-medium">
+                {formatBookingDate(booking.start_time)}
               </div>
             </div>
             <div>
-              <div className="text-sm text-gray-500 mb-1">Price</div>
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-xs sm:text-sm text-gray-500 mb-1">Price</div>
+              <div className="text-base sm:text-xl font-bold text-blue-600">
                 Rp {calculateBasePrice(booking.price).toLocaleString('id-ID')}
               </div>
             </div>
@@ -1152,27 +1165,27 @@ function BookingCard({ booking, onAccept, onReject }: BookingCardProps) {
 
           {/* Special Request Section */}
           {booking.special_request && (
-            <div className="mb-6 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <MessageSquare className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium text-gray-700">Special Request</span>
+            <div className="mb-4 sm:mb-6 p-2 sm:p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
+                <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
+                <span className="text-xs sm:text-sm font-medium text-gray-700">Special Request</span>
               </div>
-              <p className="text-sm text-gray-600">{booking.special_request}</p>
+              <p className="text-xs sm:text-sm text-gray-600">{booking.special_request}</p>
             </div>
           )}
 
           {/* Action Buttons */}
           {booking.status === 'pending' && (
-            <div className="flex items-center justify-between pt-6 border-t border-dashed border-gray-200">
+            <div className="flex items-center justify-between pt-4 sm:pt-6 border-t border-dashed border-gray-200">
               <button
                 onClick={() => setIsRejectionModalOpen(true)}
-                className="text-sm text-red-600 hover:text-red-700 transition-colors font-medium"
+                className="text-xs sm:text-sm text-red-600 hover:text-red-700 transition-colors font-medium"
               >
                 Reject
               </button>
               <button
                 onClick={() => onAccept(booking.id)}
-                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
+                className="px-4 sm:px-8 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-xl transition-colors"
               >
                 Accept Session
               </button>
@@ -1185,6 +1198,18 @@ function BookingCard({ booking, onAccept, onReject }: BookingCardProps) {
         isOpen={isRejectionModalOpen}
         onClose={() => setIsRejectionModalOpen(false)}
         onConfirm={handleReject}
+      />
+
+      <PaymentGroupBookingModal
+        isOpen={isPaymentGroupModalOpen}
+        onClose={() => setIsPaymentGroupModalOpen(false)}
+        booking={booking}
+        relatedBookings={relatedBookings}
+        onAccept={onAccept}
+        onReject={(id, reason) => {
+          setIsPaymentGroupModalOpen(false);
+          setIsRejectionModalOpen(true);
+        }}
       />
     </div>
   );
@@ -1620,6 +1645,340 @@ function IDCard({ userId, streamerId, firstName, stats, joinDate, rating, galler
               value={stats.cancelledBookings.toString()}
               trend={stats.trends.cancellations}
             />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Time formatting utilities
+function formatBookingTime(dateString: string, timezone: string = 'UTC') {
+  try {
+    // Parse the UTC date string
+    const date = new Date(dateString);
+    
+    // Format the time in the specified timezone
+    const options: Intl.DateTimeFormatOptions = {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: timezone
+    };
+
+    return new Intl.DateTimeFormat('en-US', options).format(date);
+  } catch (error) {
+    console.error('Error formatting booking time:', error);
+    return dateString;
+  }
+}
+
+function formatBookingDate(dateString: string, formatStr: string = 'EEEE, MMMM d, yyyy') {
+  const date = new Date(dateString);
+  return format(date, formatStr);
+}
+
+// Update the groupBookingsByTimeBlocks function to maintain the array structure
+function groupBookingsByTimeBlocks(bookings: RelatedBooking[]) {
+  // Sort bookings by start time
+  const sortedBookings = [...bookings].sort((a, b) => 
+    new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+  );
+
+  // Group non-contiguous time blocks
+  const timeBlocks: RelatedBooking[][] = [];
+  let currentBlock: RelatedBooking[] = [];
+
+  sortedBookings.forEach((booking, index) => {
+    const adjustedBooking = {
+      ...booking,
+      start_time: new Date(new Date(booking.start_time).setHours(new Date(booking.start_time).getHours() + 8)).toISOString(),
+      end_time: new Date(new Date(booking.end_time).setHours(new Date(booking.end_time).getHours() + 8)).toISOString()
+    };
+
+    if (index === 0) {
+      currentBlock.push(adjustedBooking);
+    } else {
+      const prevBooking = sortedBookings[index - 1];
+      const prevEndTime = new Date(prevBooking.end_time);
+      const currentStartTime = new Date(booking.start_time);
+
+      // Check if current booking starts right after previous booking ends
+      if (prevEndTime.getTime() === currentStartTime.getTime()) {
+        currentBlock.push(adjustedBooking);
+      } else {
+        // Start a new block
+        if (currentBlock.length > 0) {
+          timeBlocks.push([...currentBlock]);
+        }
+        currentBlock = [adjustedBooking];
+      }
+    }
+  });
+
+  // Add the last block
+  if (currentBlock.length > 0) {
+    timeBlocks.push(currentBlock);
+  }
+
+  return timeBlocks;
+}
+
+function StartLiveModal({ 
+  isOpen, 
+  onClose,
+  onConfirm,
+  isStarting
+}: { 
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (streamLink: string) => void;
+  isStarting: boolean;
+}) {
+  const [streamLink, setStreamLink] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = () => {
+    if (!streamLink.trim()) {
+      setError('Stream link is required');
+      return;
+    }
+
+    // Basic URL validation
+    try {
+      new URL(streamLink);
+      onConfirm(streamLink);
+    } catch {
+      setError('Please enter a valid URL');
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl w-full max-w-lg mx-4 overflow-hidden shadow-xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Start Live Stream
+            </h2>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              disabled={isStarting}
+            >
+              <XCircle className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="px-6 py-6 space-y-6">
+          {/* Guidelines */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <Info className="h-4 w-4 text-blue-600" />
+              </div>
+              <h4 className="text-base font-medium text-gray-900">
+                Stream Setup Guide
+              </h4>
+            </div>
+            <ul className="space-y-3 pl-11">
+              <li className="flex items-center gap-2 text-gray-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                <span className="text-sm">Pastikan sudah menyiapkan platform streaming</span>
+              </li>
+              <li className="flex items-center gap-2 text-gray-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                <span className="text-sm">Salin dan tempel link stream dari platform Anda</span>
+              </li>
+              <li className="flex items-center gap-2 text-gray-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                <span className="text-sm">Periksa kembali link sebelum memulai stream</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Stream Link Input */}
+          <div className="space-y-3">
+            <Label htmlFor="stream-link" className="text-sm font-medium text-gray-700">
+              Stream Link<span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="stream-link"
+              type="url"
+              placeholder="https://your-streaming-platform.com/your-stream"
+              value={streamLink}
+              onChange={(e) => {
+                setStreamLink(e.target.value);
+                setError('');
+              }}
+              className={cn(
+                "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-offset-0",
+                error ? "border-red-300 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"
+              )}
+              disabled={isStarting}
+            />
+            {error && (
+              <p className="text-sm text-red-600">{error}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={onClose}
+              disabled={isStarting}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 transition-colors"
+            >
+              Batal
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isStarting || !streamLink.trim()}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isStarting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Memulai Stream...</span>
+                </>
+              ) : (
+                'Mulai Stream'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface PaymentGroupBookingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  booking: Booking;
+  relatedBookings: Booking[];
+  onAccept: (id: number) => void;
+  onReject: (id: number, reason: string) => void;
+}
+
+function PaymentGroupBookingModal({ isOpen, onClose, booking, relatedBookings, onAccept, onReject }: PaymentGroupBookingModalProps) {
+  if (!isOpen) return null;
+
+  const allBookings = [booking, ...relatedBookings].sort(
+    (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+  );
+
+  const totalPrice = allBookings.reduce((sum, b) => sum + calculateBasePrice(b.price), 0);
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl w-full max-w-2xl overflow-hidden shadow-xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base sm:text-xl font-semibold text-gray-900">
+                Grup Booking
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                {booking.client_first_name} {booking.client_last_name}
+              </p>
+            </div>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <XCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="px-4 sm:px-6 py-4 sm:py-6">
+          <div className="space-y-4 sm:space-y-6">
+            {/* Total Price Info */}
+            <div className="bg-blue-50 rounded-lg p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                  <span className="text-xs sm:text-sm font-medium text-gray-900">Total Pembayaran</span>
+                </div>
+                <span className="text-base sm:text-lg font-bold text-blue-600">
+                  Rp {totalPrice.toLocaleString('id-ID')}
+                </span>
+              </div>
+            </div>
+
+            {/* Bookings List */}
+            <div className="space-y-3 sm:space-y-4 max-h-[60vh] overflow-y-auto">
+              {allBookings.map((b, index) => (
+                <div key={b.id} className="border rounded-lg overflow-hidden">
+                  <div className="p-3 sm:p-4 bg-gray-50 border-b">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-xs font-medium">
+                          {index + 1}
+                        </span>
+                        <span className="text-xs sm:text-sm font-medium text-gray-900">
+                          {formatBookingDate(b.start_time)}
+                        </span>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-[10px] sm:text-xs font-medium ${getStatusColor(b.status)}`}>
+                        {b.status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                        <span className="text-xs sm:text-sm text-gray-600">
+                          {formatBookingTime(b.start_time, b.timezone)} - {formatBookingTime(b.end_time, b.timezone)}
+                        </span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-medium text-gray-900">
+                        Rp {calculateBasePrice(b.price).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                    {b.status === 'pending' && (
+                      <div className="flex items-center justify-end gap-2 pt-2 sm:pt-3 border-t">
+                        <button
+                          onClick={() => onReject(b.id, '')}
+                          className="text-xs sm:text-sm text-red-600 hover:text-red-700 transition-colors font-medium"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          onClick={() => onAccept(b.id)}
+                          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
+                        >
+                          Accept
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

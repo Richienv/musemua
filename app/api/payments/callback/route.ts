@@ -1,63 +1,60 @@
 import { NextResponse } from 'next/server';
 import { createBookingAfterPayment } from '@/services/payment/payment-service';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    // First check if request has content
-    const contentType = req.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      return NextResponse.json(
-        { error: 'Content-Type must be application/json' },
-        { status: 400 }
-      );
+    console.log('=== Payment Callback Start ===');
+    const body = await request.json();
+    console.log('Raw callback body:', JSON.stringify(body, null, 2));
+
+    const { result, metadata } = body;
+
+    if (!result || !metadata) {
+      console.error('Missing required data in callback:', { result, metadata });
+      throw new Error('Missing required payment data');
     }
 
-    // Get the raw text first
-    const text = await req.text();
-    if (!text) {
-      return NextResponse.json(
-        { error: 'Empty request body' },
-        { status: 400 }
-      );
-    }
+    console.log('=== Payment Callback Data Validation ===');
+    console.log('Payment result:', JSON.stringify(result, null, 2));
+    console.log('Payment metadata:', JSON.stringify(metadata, null, 2));
+    console.log('Booking time ranges:', JSON.stringify(metadata.bookings.map(b => ({
+      date: b.date,
+      timeRanges: b.timeRanges,
+      startTime: b.startTime,
+      endTime: b.endTime
+    })), null, 2));
 
-    // Try to parse JSON
-    let body;
     try {
-      body = JSON.parse(text);
+      const bookings = await createBookingAfterPayment(result, metadata);
+      console.log('Bookings created successfully:', JSON.stringify(bookings, null, 2));
+      return NextResponse.json(bookings);
     } catch (error) {
-      console.error('Failed to parse request body:', error);
-      console.error('Raw body:', text);
-      return NextResponse.json(
-        { error: 'Invalid JSON in request body' },
-        { status: 400 }
+      console.error('Error in createBookingAfterPayment:', error);
+      // Return a more detailed error response
+      return new NextResponse(
+        JSON.stringify({
+          error: 'Failed to create booking',
+          details: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        }),
+        { 
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
-
-    console.log('Payment callback received:', body);
-
-    if (!body.metadata || !body.result) {
-      console.error('Missing required data:', body);
-      return NextResponse.json(
-        { error: 'Missing required payment data' },
-        { status: 400 }
-      );
-    }
-
-    const bookingData = await createBookingAfterPayment(body.result, body.metadata);
-    
-    return NextResponse.json({ 
-      success: true, 
-      data: bookingData 
-    });
   } catch (error) {
     console.error('Payment callback error:', error);
-    return NextResponse.json(
+    return new NextResponse(
+      JSON.stringify({
+        error: 'Payment callback failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      }),
       { 
-        error: error instanceof Error ? error.message : 'Failed to process payment callback',
-        details: error
-      },
-      { status: 500 }
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
   }
 } 

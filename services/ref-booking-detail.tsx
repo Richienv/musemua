@@ -22,27 +22,14 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2 } from "lucide-react";
 import { voucherService } from "@/services/voucher/voucher-service";
 
-interface TimeRange {
-  start: string;
-  end: string;
-  duration: number;
-}
-
-interface BookingWithRanges {
-  date: string;
-  startTime: string;
-  endTime: string;
-  timeRanges?: TimeRange[];
-}
-
 interface BookingDetails {
   streamerId: string;
   streamerName: string;
-  bookings: BookingWithRanges[];
+  date: string;
+  startTime: string;
+  endTime: string;
   platform: string;
   price: number;
-  totalHours?: number;
-  totalPrice: number;
   location: string;
   rating: number;
   image_url?: string;
@@ -76,13 +63,8 @@ interface AppliedVoucher {
 interface PaymentMetadata {
   streamerId: string;
   userId: string;
-  bookings: Array<{
-    date: string;
-    startTime: string;
-    endTime: string;
-    hours: number;
-  }>;
-  timezone: string;
+  startTime: string;
+  endTime: string;
   platform: string;
   specialRequest: string;
   sub_acc_link: string;
@@ -90,8 +72,6 @@ interface PaymentMetadata {
   firstName: string;
   lastName: string;
   price: number;
-  totalHours: number;
-  totalPrice: number;
   voucher: {
     id: string;
     code: string;
@@ -99,8 +79,6 @@ interface PaymentMetadata {
   } | null;
   finalPrice: number;
 }
-
-type ShippingOption = 'yes' | 'no' | null;
 
 const platformStyles = {
   shopee: 'bg-gradient-to-r from-orange-500 to-orange-600',
@@ -117,14 +95,6 @@ export default function BookingDetailPage() {
       <BookingDetailContent />
     </Suspense>
   );
-}
-
-function getAdjustedPrice(basePrice: number): number {
-  return basePrice * 1.3; // Add 30% to base price
-}
-
-function formatPrice(price: number): string {
-  return `Rp ${Math.round(price).toLocaleString('id-ID')}`;
 }
 
 function BookingDetailContent() {
@@ -146,83 +116,36 @@ function BookingDetailContent() {
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(null);
-  const [needsShipping, setNeedsShipping] = useState<ShippingOption>(null);
-  const [platform, setPlatform] = useState<string | null>(null);
-
-  // Add helper function to calculate hours between times
-  const calculateHoursBetween = (start: string, end: string): number => {
-    const startHour = parseInt(start.split(':')[0]);
-    const endHour = parseInt(end.split(':')[0]);
-    return endHour - startHour;
-  };
-
-  // Update the calculateTotalHours function
-  const calculateTotalHours = (bookings: BookingWithRanges[]): number => {
-    return bookings.reduce((total, booking) => {
-      return total + booking.timeRanges!.reduce((rangeTotal, range) => {
-        return rangeTotal + calculateHoursBetween(range.start, range.end);
-      }, 0);
-    }, 0);
-  };
-
-  // Update the calculatePrices function
-  const calculatePrices = () => {
-    if (!bookingDetails) return { subtotal: 0, tax: 0, total: 0 };
-    
-    const adjustedPrice = getAdjustedPrice(bookingDetails.price);
-    const subtotal = bookingDetails.bookings.reduce((total, booking) => {
-      return total + booking.timeRanges!.reduce((rangeTotal, range) => {
-        const hours = calculateHoursBetween(range.start, range.end);
-        return rangeTotal + (adjustedPrice * hours);
-      }, 0);
-    }, 0);
-    
-    const tax = subtotal * 0.11;
-    const total = Math.round(subtotal + tax);
-    
-    return { subtotal, tax, total };
-  };
 
   useEffect(() => {
     if (searchParams) {
-      try {
-        // Parse the bookings data which now includes time ranges
-        const bookingsData = JSON.parse(searchParams.get('bookings') || '[]').map((booking: any) => {
-          // Convert the time ranges format from the URL
-          const timeRanges = booking.timeRanges?.map((range: any) => ({
-            start: range.start,
-            end: range.end,
-            duration: range.duration
-          })) || [{
-            start: booking.startTime,
-            end: booking.endTime,
-            duration: calculateHoursBetween(booking.startTime, booking.endTime)
-          }];
-
-          return {
-            ...booking,
-            timeRanges
-          };
-        });
-
-        const details: BookingDetails = {
-          streamerId: searchParams.get('streamerId') || '',
-          streamerName: searchParams.get('streamerName') || '',
-          bookings: bookingsData,
-          platform: searchParams.get('platform') || '',
-          price: Number(searchParams.get('price')) || 0,
-          totalHours: calculateTotalHours(bookingsData),
-          totalPrice: Number(searchParams.get('totalPrice')) || 0,
-          location: decodeURIComponent(searchParams.get('location') || ''),
-          rating: Number(searchParams.get('rating')) || 0,
-          image_url: searchParams.get('image_url') || '/placeholder-avatar.png',
-        };
-
-        setBookingDetails(details);
-      } catch (error) {
-        console.error('Error parsing booking details:', error);
-        toast.error('Invalid booking data');
+      const details: BookingDetails = {
+        streamerId: searchParams.get('streamerId') || '',
+        streamerName: searchParams.get('streamerName') || '',
+        date: searchParams.get('date') || '',
+        startTime: searchParams.get('startTime') || '',
+        endTime: searchParams.get('endTime') || '',
+        platform: searchParams.get('platform') || '',
+        price: Number(searchParams.get('price')) || 0,
+        location: decodeURIComponent(searchParams.get('location') || ''),
+        rating: Number(searchParams.get('rating')) || 0,
+        image_url: searchParams.get('image_url') || '/placeholder-avatar.png',
+      };
+      setBookingDetails(details);
+      
+      // Initialize selectedHours based on startTime and endTime
+      if (details.startTime && details.endTime) {
+        const start = parseInt(details.startTime.split(':')[0]);
+        const end = parseInt(details.endTime.split(':')[0]);
+        setSelectedHours(
+          Array.from({ length: end - start }, (_, i) => 
+            `${(start + i).toString().padStart(2, '0')}:00`
+          )
+        );
       }
+
+      fetchBookings();
+      fetchActiveSchedule();
     }
   }, [searchParams]);
 
@@ -306,12 +229,12 @@ function BookingDetailContent() {
 
   const generateTimeOptions = () => {
     if (!bookingDetails) return [];
-    const start = parseInt(bookingDetails.bookings[0].startTime.split(':')[0]);
-    const end = parseInt(bookingDetails.bookings[bookingDetails.bookings.length - 1].endTime.split(':')[0]);
+    const start = parseInt(bookingDetails.startTime.split(':')[0]);
+    const end = parseInt(bookingDetails.endTime.split(':')[0]);
     const options = Array.from({ length: end - start }, (_, i) => `${(start + i).toString().padStart(2, '0')}:00`);
     
     // Filter out hours that are not available
-    return options.filter(hour => isSlotAvailable(new Date(bookingDetails.bookings[0].date), parseInt(hour)));
+    return options.filter(hour => isSlotAvailable(new Date(bookingDetails.date), parseInt(hour)));
   };
 
   const handleHourSelection = (hour: string) => {
@@ -325,7 +248,7 @@ function BookingDetailContent() {
           const end = newSelected[newSelected.length - 1];
           return Array.from({ length: parseInt(end) - parseInt(start) + 1 }, (_, i) => 
             `${(parseInt(start) + i).toString().padStart(2, '0')}:00`
-          ).filter(h => isSlotAvailable(new Date(bookingDetails!.bookings[0].date), parseInt(h)));
+          ).filter(h => isSlotAvailable(new Date(bookingDetails!.date), parseInt(h)));
         }
         return newSelected;
       }
@@ -349,32 +272,34 @@ function BookingDetailContent() {
       // Get user's timezone
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-      console.log('=== Payment Metadata Creation ===');
-      console.log('Original booking details:', JSON.stringify(bookingDetails, null, 2));
-      
-      // Create metadata for each booking
-      const bookingsMetadata = bookingDetails.bookings.map(booking => {
-        console.log('Processing booking:', JSON.stringify(booking, null, 2));
-        console.log('Time ranges for booking:', JSON.stringify(booking.timeRanges, null, 2));
-        
-        const startDateTime = new Date(`${booking.date}T${booking.startTime}`);
-        const endDateTime = new Date(`${booking.date}T${booking.endTime}`);
-        const hours = calculateHoursBetween(booking.startTime, booking.endTime);
+      // Create Date objects with the correct local time
+      const startDateTime = new Date(`${bookingDetails.date}T${selectedHours[0]}`);
+      const endDateTime = new Date(`${bookingDetails.date}T${selectedHours[selectedHours.length - 1]}`);
+      const endDateTimeWithHour = addHours(endDateTime, 1);
 
-        return {
-          date: booking.date,
-          startTime: startDateTime.toISOString(),
-          endTime: endDateTime.toISOString(),
-          hours: hours,
-          timeRanges: booking.timeRanges
-        };
-      });
+      // Convert to UTC while preserving the intended hours
+      const startTimeUTC = new Date(Date.UTC(
+        startDateTime.getFullYear(),
+        startDateTime.getMonth(),
+        startDateTime.getDate(),
+        startDateTime.getHours(),
+        startDateTime.getMinutes()
+      ));
 
-      // Create payment metadata
+      const endTimeUTC = new Date(Date.UTC(
+        endDateTimeWithHour.getFullYear(),
+        endDateTimeWithHour.getMonth(),
+        endDateTimeWithHour.getDate(),
+        endDateTimeWithHour.getHours(),
+        endDateTimeWithHour.getMinutes()
+      ));
+
+      // Create payment metadata including voucher info
       const metadata = {
         streamerId: bookingDetails.streamerId,
         userId: user.id,
-        bookings: bookingsMetadata,
+        startTime: startTimeUTC.toISOString(),
+        endTime: endTimeUTC.toISOString(),
         timezone: userTimezone,
         platform: bookingDetails.platform,
         specialRequest: specialRequest,
@@ -382,9 +307,7 @@ function BookingDetailContent() {
         sub_acc_pass: subAccountPassword,
         firstName: user.user_metadata.first_name,
         lastName: user.user_metadata.last_name,
-        price: bookingDetails.price,
-        totalHours: calculateTotalHours(bookingDetails.bookings),
-        totalPrice: bookingDetails.totalPrice,
+        price: total,
         voucher: appliedVoucher ? {
           id: appliedVoucher.id,
           code: appliedVoucher.code,
@@ -393,9 +316,7 @@ function BookingDetailContent() {
         finalPrice: finalPrice
       };
 
-      console.log('Generated payment metadata:', JSON.stringify(metadata, null, 2));
-
-      // Create payment with updated description
+      // For description, use local time for display
       const paymentResponse = await fetch('/api/payments/create', {
         method: 'POST',
         headers: {
@@ -405,7 +326,7 @@ function BookingDetailContent() {
           amount: finalPrice,
           clientName: `${user.user_metadata.first_name} ${user.user_metadata.last_name}`,
           clientEmail: user.email,
-          description: `Booking with ${bookingDetails.streamerName} for ${bookingDetails.totalHours} hours across ${bookingDetails.bookings.length} days`,
+          description: `Booking with ${bookingDetails.streamerName} for ${format(startDateTime, 'PPP')} at ${format(startDateTime, 'HH:mm')} - ${format(endDateTimeWithHour, 'HH:mm')}`,
           metadata: metadata
         }),
       });
@@ -434,8 +355,8 @@ function BookingDetailContent() {
   const handlePaymentSuccess = async (result: any) => {
     try {
       console.log('=== Payment Success Start ===');
-      console.log('Result from Midtrans:', JSON.stringify(result, null, 2));
-      console.log('Payment metadata:', JSON.stringify(paymentMetadata, null, 2));
+      console.log('Result from Midtrans:', result);
+      console.log('Payment metadata:', paymentMetadata);
 
       if (!paymentMetadata || !bookingDetails) {
         console.error('Missing required data:', { paymentMetadata, bookingDetails });
@@ -467,11 +388,11 @@ function BookingDetailContent() {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Payment callback failed:', errorData);
-        throw new Error(errorData.details || errorData.error || 'Failed to process payment');
+        throw new Error(errorData.error || 'Failed to process payment');
       }
 
       const bookingData = await response.json();
-      console.log('Booking created:', JSON.stringify(bookingData, null, 2));
+      console.log('Booking created:', bookingData);
 
       toast.success('Payment successful! Booking created.');
       
@@ -484,7 +405,7 @@ function BookingDetailContent() {
     } catch (error) {
       console.error('=== Payment Success Error ===');
       console.error('Error details:', error);
-      toast.error(error instanceof Error ? error.message : 'Error occurred. Please check console for details.');
+      toast.error('Error occurred. Check console for details.');
       
       // Stay on page to see error
       setIsLoading(false);
@@ -563,52 +484,21 @@ function BookingDetailContent() {
     setVoucherError(null);
   };
 
-  // Update price calculations
-  const { subtotal, tax, total } = calculatePrices();
+  // Calculate prices with null checks
+  const priceWithPlatformFee = (bookingDetails?.price || 0) * 1.3;
+  const subtotal = priceWithPlatformFee * (selectedHours.length || 0);
+  const tax = subtotal * 0.11;
+  const total = Math.round(subtotal + tax);
   const finalPrice = appliedVoucher 
     ? Math.max(0, total - appliedVoucher.discountAmount)
     : total;
-
-  // Add new function to format booking dates for display
-  const formatBookingDates = (bookings: Array<any>) => {
-    if (bookings.length === 1) {
-      return format(new Date(bookings[0].date), 'dd MMMM yyyy');
-    }
-    return `${bookings.length} days (${format(new Date(bookings[0].date), 'dd MMM')} - ${format(new Date(bookings[bookings.length - 1].date), 'dd MMM yyyy')})`;
-  };
-
-  // Add function to format total hours
-  const formatTotalHours = (totalHours: number) => {
-    return `${totalHours} hour${totalHours > 1 ? 's' : ''}`;
-  };
-
-  // Add helper function for quick selection validation
-  const isQuickSelectionEnabled = (needsShipping: ShippingOption | null, platform: string | null): boolean => {
-    return needsShipping !== null && platform !== null && platform !== '';
-  };
-
-  // Add bulk selection handler
-  const handleBulkSelection = (mode: 'week' | 'twoWeeks') => {
-    if (!isQuickSelectionEnabled(needsShipping, platform)) {
-      toast.error('Please select shipping option and platform first');
-      return;
-    }
-    // Implementation of bulk selection logic
-    // This can be expanded based on your requirements
-  };
-
-  // Add a helper function to format time range
-  const formatTimeRange = (booking: { startTime: string; endTime: string }) => {
-    const hours = calculateHoursBetween(booking.startTime, booking.endTime);
-    return `${booking.startTime} - ${booking.endTime} (${hours} hours)`;
-  };
 
   if (!bookingDetails) {
     return <div className="container mx-auto p-4">Loading...</div>;
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-6xl font-sans text-xs sm:text-sm mt-4 sm:mt-8">
+    <div className="container mx-auto p-3 sm:p-4 max-w-6xl font-sans text-xs sm:text-sm mt-4 sm:mt-8">
       {/* Header Section */}
       <div className="flex items-center gap-3 sm:gap-6 mb-6 sm:mb-8">
         <button 
@@ -622,27 +512,27 @@ function BookingDetailContent() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
-        {/* Left Container */}
+        {/* Left Container - Main Content */}
         <div className="flex-1 space-y-6 sm:space-y-8">
-          {/* Streamer Info Card with increased padding */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 sm:p-8 shadow-sm">
-            <div className="flex items-start gap-6">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+          {/* Streamer Info Card */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
                 <Image
                   src={bookingDetails?.image_url || '/placeholder-avatar.png'}
                   alt={bookingDetails?.streamerName || ''}
-                  width={96}
-                  height={96}
+                  width={80}
+                  height={80}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div className="flex-1 space-y-4">
+              <div className="flex-1">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
                       {bookingDetails?.streamerName}
                     </h2>
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-1">
                       <MapPin className="h-4 w-4 text-gray-400" />
                       <span className="text-sm text-gray-600">{bookingDetails?.location}</span>
                     </div>
@@ -652,8 +542,8 @@ function BookingDetailContent() {
                     <span className="ml-1.5 font-medium">{bookingDetails?.rating.toFixed(1)}</span>
                   </div>
                 </div>
-
-                <div className="flex flex-wrap gap-4 pt-2">
+                
+                <div className="mt-4 flex flex-wrap gap-4">
                   <Badge className={`${
                     bookingDetails?.platform.toLowerCase() === 'shopee'
                       ? 'bg-gradient-to-r from-orange-500 to-orange-600'
@@ -662,71 +552,17 @@ function BookingDetailContent() {
                     {bookingDetails?.platform}
                   </Badge>
                   <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar className="h-4 w-4" />
-                    <span>{bookingDetails && formatBookingDates(bookingDetails.bookings)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
                     <Clock className="h-4 w-4" />
                     <span>
-                      {bookingDetails && `${calculateTotalHours(bookingDetails.bookings)} hours`}
+                      {selectedHours.length > 0 && (
+                        `${selectedHours[0]} - ${format(addHours(parseISO(`${bookingDetails?.date}T${selectedHours[selectedHours.length - 1]}`), 1), 'HH:mm')}`
+                      )}
                     </span>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Booking Summary Section */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Booking Summary</h3>
-              <span className="text-xs text-gray-500">*harga belum termasuk pajak</span>
-            </div>
-            
-            {bookingDetails?.bookings.map((booking, index) => (
-              <div key={index} className="border-b border-gray-100 pb-4">
-                <div className="space-y-3">
-                  <div className="text-sm font-medium text-gray-900">
-                    {format(new Date(booking.date), 'dd MMMM yyyy')}
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Calendar className="h-4 w-4" />
+                    <span>{format(new Date(bookingDetails?.date || ''), 'dd MMMM yyyy')}</span>
                   </div>
-                  
-                  {booking.timeRanges?.map((range, rangeIndex) => (
-                    <div key={rangeIndex} className="bg-blue-50/50 rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600">
-                          {`${range.start} - ${range.end} (${calculateHoursBetween(range.start, range.end)} hours)`}
-                        </div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {formatPrice(getAdjustedPrice(bookingDetails.price) * calculateHoursBetween(range.start, range.end))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {/* Total Section */}
-            <div className="pt-4 space-y-2">
-              {/* Subtotal breakdown */}
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>Subtotal ({calculateTotalHours(bookingDetails?.bookings || [])} hours)</span>
-                <span>{formatPrice(calculatePrices().subtotal)}</span>
-              </div>
-
-              {/* Tax */}
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>Tax (11%)</span>
-                <span>{formatPrice(calculatePrices().tax)}</span>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-gray-100 pt-2 mt-2">
-                <div className="flex items-center justify-between font-medium">
-                  <span className="text-gray-900">Total Amount:</span>
-                  <span className="text-gray-900">
-                    {formatPrice(calculatePrices().total)}
-                  </span>
                 </div>
               </div>
             </div>
@@ -877,15 +713,13 @@ function BookingDetailContent() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">
-                  {`${formatPrice(getAdjustedPrice(bookingDetails?.price || 0))} × ${
-                    calculateTotalHours(bookingDetails?.bookings || [])
-                  } jam`}
+                  {`Rp ${priceWithPlatformFee.toLocaleString()} × ${selectedHours.length} jam`}
                 </span>
-                <span className="font-medium">{formatPrice(calculatePrices().subtotal)}</span>
+                <span className="font-medium">Rp {subtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Pajak (11%)</span>
-                <span className="font-medium">{formatPrice(calculatePrices().tax)}</span>
+                <span className="font-medium">Rp {tax.toLocaleString()}</span>
               </div>
 
               {/* Voucher Section */}
@@ -944,7 +778,7 @@ function BookingDetailContent() {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-gray-900">Total Pembayaran</span>
                   <span className="text-xl font-bold text-gray-900">
-                    {formatPrice(finalPrice)}
+                    Rp {finalPrice.toLocaleString()}
                   </span>
                 </div>
               </div>

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
-import { Star, StarHalf, MapPin, ChevronLeft, ChevronRight, User, Calendar, Clock, Monitor, DollarSign, X, Mail, Sun, Sunset, Moon } from "lucide-react";
+import { Star, StarHalf, MapPin, ChevronLeft, ChevronRight, User, Calendar, Clock, Monitor, DollarSign, X, Mail, Sun, Sunset, Moon, Info, Package } from "lucide-react";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -13,6 +13,8 @@ import { useRouter } from 'next/navigation';
 import { createOrGetConversation } from '@/services/message-service';
 import { BookingCalendar } from './booking-calendar';
 import { cn } from '@/lib/utils';
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 // Add this function at the top of your file, outside of the StreamerCard component
 function getYouTubeVideoId(url: string): string | null {
@@ -55,6 +57,13 @@ const convertToUTC = (date: Date, hour: number): Date => {
   d.setHours(hour, 0, 0, 0);
   return d;
 };
+
+// Add TimeRange interface at the top with other interfaces
+interface TimeRange {
+  start: string;
+  end: string;
+  duration: number;
+}
 
 // Update the Streamer interface to include new fields
 export interface Streamer {
@@ -136,11 +145,13 @@ function RatingStars({ rating }: { rating: number }) {
   );
 }
 
+// Update the formatPrice function to use adjusted price
 function formatPrice(price: number): string {
-  if (price < 1000) {
-    return `Rp ${price}/hour`;
+  const adjustedPrice = price * 1.3; // Add 30% to base price
+  if (adjustedPrice < 1000) {
+    return `Rp ${Math.round(adjustedPrice)}/hour`;
   }
-  const firstTwoDigits = Math.floor(price / 1000);
+  const firstTwoDigits = Math.floor(adjustedPrice / 1000);
   return `Rp ${firstTwoDigits}K/hour`;
 }
 
@@ -302,6 +313,376 @@ interface RatingWithProfile {
   created_at: string;
 }
 
+// Add new interface for selected date info
+interface SelectedDateInfo {
+  date: Date;
+  hours: string[];
+  totalHours: number;
+  isEditing: boolean;
+  timeRanges?: { start: string; end: string; duration: number }[];
+}
+
+const calculateBlockDuration = (block: string[]): number => {
+  if (block.length === 0) return 0;
+  const startHour = parseInt(block[0]);
+  const endHour = parseInt(block[block.length - 1]);
+  // Calculate duration based on the actual time difference
+  return endHour - startHour + 1; // Add 1 because the end hour is inclusive
+};
+
+const getBulkDateRange = (mode: 'week' | 'twoWeeks' | 'month', startDate: Date = new Date()) => {
+  const start = startOfDay(startDate);
+  switch (mode) {
+    case 'week':
+      return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+    case 'twoWeeks':
+      return Array.from({ length: 14 }, (_, i) => addDays(start, i));
+    case 'month':
+      return Array.from({ length: 30 }, (_, i) => addDays(start, i));
+  }
+};
+
+const getTotalHoursAndPrice = (selectedDates: Map<string, SelectedDateInfo>, basePrice: number) => {
+  let totalHours = 0;
+  let totalPrice = 0;
+
+  selectedDates.forEach((dateInfo) => {
+    // Group consecutive hours into blocks
+    const blocks: string[][] = [];
+    let currentBlock: string[] = [dateInfo.hours[0]];
+    
+    for (let i = 1; i < dateInfo.hours.length; i++) {
+      if (parseInt(dateInfo.hours[i]) === parseInt(dateInfo.hours[i - 1]) + 1) {
+        currentBlock.push(dateInfo.hours[i]);
+      } else {
+        blocks.push([...currentBlock]);
+        currentBlock = [dateInfo.hours[i]];
+      }
+    }
+    blocks.push(currentBlock);
+
+    // Calculate hours for each block based on actual time difference
+    blocks.forEach(block => {
+      if (block.length > 0) {
+        const startHour = parseInt(block[0]);
+        const endHour = parseInt(block[block.length - 1]);
+        // Calculate duration by subtracting 1 from the difference to get actual hours
+        const duration = endHour - startHour + 1 - 1; // +1 for inclusive, -1 for actual hours
+        totalHours += duration;
+        totalPrice += duration * basePrice;
+      }
+    });
+  });
+
+  return { totalHours, totalPrice };
+};
+
+const validateTimeSlotSelection = (
+  currentHours: string[],
+  newHour: string,
+  dateKey: string,
+  selectedDates: Map<string, SelectedDateInfo>,
+  isRemoving: boolean = false,
+  isSlotAvailable: (date: Date, hour: number) => boolean
+): { isValid: boolean; error: string } => {
+  // Convert hours to numbers for easier comparison
+  const hourNum = parseInt(newHour);
+  const selectedHourNums = currentHours.map(h => parseInt(h));
+
+  // If removing an hour
+  if (isRemoving) {
+    // First, remove the hour we want to remove
+    const remainingHours = selectedHourNums.filter(h => h !== hourNum);
+    if (remainingHours.length === 0) return { isValid: true, error: "" };
+
+    // Group remaining hours into consecutive blocks
+    const blocks: number[][] = [];
+    let currentBlock: number[] = [remainingHours[0]];
+
+    for (let i = 1; i < remainingHours.length; i++) {
+      if (remainingHours[i] === remainingHours[i - 1] + 1) {
+        currentBlock.push(remainingHours[i]);
+      } else {
+        blocks.push([...currentBlock]);
+        currentBlock = [remainingHours[i]];
+      }
+    }
+    blocks.push(currentBlock);
+
+    // Check if all resulting blocks maintain the minimum 3-slot requirement
+    const hasValidBlocks = blocks.every(block => {
+      const duration = (Math.max(...block) - Math.min(...block)) + 1; // Add 1 for inclusive duration
+      return duration >= 3;
+    });
+
+    if (!hasValidBlocks) {
+      return {
+        isValid: false,
+        error: "Tidak dapat menghapus jam karena akan membuat durasi kurang dari 2 jam (3 slot)"
+      };
+    }
+
+    return { isValid: true, error: "" };
+  }
+
+  // If adding a new hour
+  // If no hours selected, always valid to start
+  if (selectedHourNums.length === 0) {
+    // When starting a new block, we need to ensure there are at least 2 more available hours after this one
+    const nextTwoHours = [hourNum + 1, hourNum + 2];
+    const dateInfo = selectedDates.get(dateKey);
+    
+    if (!dateInfo) return { isValid: false, error: "Invalid date" };
+    
+    const allHoursAvailable = nextTwoHours.every(h => 
+      isSlotAvailable(new Date(dateInfo.date), h)
+    );
+
+    if (!allHoursAvailable) {
+      return {
+        isValid: false,
+        error: "Harus tersedia minimal 2 jam berurutan setelah jam yang dipilih (total 3 slot)"
+      };
+    }
+
+    return { isValid: true, error: "" };
+  }
+
+  // Group existing hours into blocks
+  const blocks: number[][] = [];
+  let currentBlock: number[] = [selectedHourNums[0]];
+
+  for (let i = 1; i < selectedHourNums.length; i++) {
+    if (selectedHourNums[i] === selectedHourNums[i - 1] + 1) {
+      currentBlock.push(selectedHourNums[i]);
+    } else {
+      blocks.push([...currentBlock]);
+      currentBlock = [selectedHourNums[i]];
+    }
+  }
+  blocks.push(currentBlock);
+
+  // Check if the new hour extends any existing block
+  for (const block of blocks) {
+    const minHour = Math.min(...block);
+    const maxHour = Math.max(...block);
+
+    if (hourNum === maxHour + 1 || hourNum === minHour - 1) {
+      // When extending a block, ensure it doesn't exceed maximum allowed duration
+      const newBlockSize = hourNum === maxHour + 1 ? block.length + 1 : block.length + 1;
+      return { isValid: true, error: "" };
+    }
+  }
+
+  // If starting a new block, ensure there's at least a 2-hour gap
+  const minGap = Math.min(...blocks.map(block => {
+    const blockMin = Math.min(...block);
+    const blockMax = Math.max(...block);
+    return Math.min(
+      Math.abs(hourNum - blockMin),
+      Math.abs(hourNum - blockMax)
+    );
+  }));
+
+  if (minGap >= 2) {
+    // When starting a new block, we need to ensure there are at least 2 more available hours after this one
+    const nextTwoHours = [hourNum + 1, hourNum + 2];
+    const dateInfo = selectedDates.get(dateKey);
+    
+    if (!dateInfo) return { isValid: false, error: "Invalid date" };
+    
+    const allHoursAvailable = nextTwoHours.every(h => 
+      isSlotAvailable(new Date(dateInfo.date), h)
+    );
+
+    if (!allHoursAvailable) {
+      return {
+        isValid: false,
+        error: "Harus tersedia minimal 2 jam berurutan setelah jam yang dipilih (total 3 slot)"
+      };
+    }
+
+    return { isValid: true, error: "" };
+  }
+
+  return {
+    isValid: false,
+    error: "Mohon pilih jam yang berurutan atau berjarak minimal 2 jam dari jadwal lain"
+  };
+};
+
+const validateMinimumBooking = (hours: string[]): { isValid: boolean; error: string } => {
+  // Group consecutive hours into blocks
+  const blocks: string[][] = [];
+  let currentBlock: string[] = [hours[0]];
+
+  for (let i = 1; i < hours.length; i++) {
+    if (parseInt(hours[i]) === parseInt(hours[i - 1]) + 1) {
+      currentBlock.push(hours[i]);
+    } else {
+      blocks.push([...currentBlock]);
+      currentBlock = [hours[i]];
+    }
+  }
+  blocks.push(currentBlock);
+
+  // Check if any block meets the minimum requirement (3 slots = 2 hours)
+  const hasValidBlock = blocks.some(block => block.length >= 3);
+  
+  if (!hasValidBlock) {
+    return {
+      isValid: false,
+      error: "Setiap sesi pemesanan harus minimal 2 jam berurutan (3 slot waktu)"
+    };
+  }
+
+  return { isValid: true, error: "" };
+};
+
+// Add new validation function for shipping and date restrictions
+const validateDateRestrictions = (
+  date: Date,
+  needsShipping: ShippingOption,
+  clientLocation: string,
+  streamerLocation: string
+): { isValid: boolean; error: string } => {
+  const now = new Date();
+  const startOfTomorrow = startOfDay(addDays(now, 1));
+
+  // Basic validation - can't book today or in the past
+  if (isBefore(date, startOfTomorrow)) {
+    return {
+      isValid: false,
+      error: "Pemesanan hanya dapat dilakukan mulai besok"
+    };
+  }
+
+  // Shipping validation
+  if (needsShipping === 'yes') {
+    const isSameCity = clientLocation.toLowerCase() === streamerLocation.toLowerCase();
+    const minDays = isSameCity ? 1 : 3;
+    const earliestDate = addDays(startOfTomorrow, minDays - 1);
+
+    if (isBefore(date, earliestDate)) {
+      return {
+        isValid: false,
+        error: isSameCity
+          ? "Untuk pengiriman produk, pemesanan dapat dilakukan mulai besok untuk memastikan pengiriman produk"
+          : "Untuk pengiriman produk ke luar kota, pemesanan dapat dilakukan minimal 3 hari dari sekarang untuk memastikan pengiriman produk"
+      };
+    }
+  }
+
+  return { isValid: true, error: "" };
+};
+
+// Add this helper function for bulk selection validation
+const validateBulkSelection = (
+  dates: Date[],
+  needsShipping: ShippingOption | null,
+  clientLocation: string,
+  streamerLocation: string
+): { 
+  validDates: Date[],
+  invalidDates: { date: Date; reason: string }[]
+} => {
+  // Return early if required fields are not set
+  if (!needsShipping) {
+    return {
+      validDates: [],
+      invalidDates: dates.map(date => ({
+        date,
+        reason: "Shipping requirement not selected"
+      }))
+    };
+  }
+
+  const result = {
+    validDates: [] as Date[],
+    invalidDates: [] as { date: Date; reason: string }[]
+  };
+
+  for (const date of dates) {
+    const dateValidation = validateDateRestrictions(
+      date,
+      needsShipping,
+      clientLocation,
+      streamerLocation
+    );
+
+    if (dateValidation.isValid) {
+      result.validDates.push(date);
+    } else {
+      result.invalidDates.push({
+        date,
+        reason: dateValidation.error
+      });
+    }
+  }
+
+  return result;
+};
+
+// Add this validation helper at the top level
+const validateRequirementsForDateSelection = (
+  needsShipping: ShippingOption | null,
+  platform: string | null
+): { isValid: boolean; error: string } => {
+  if (!needsShipping) {
+    return {
+      isValid: false,
+      error: "Mohon pilih opsi pengiriman terlebih dahulu"
+    };
+  }
+  if (!platform) {
+    return {
+      isValid: false,
+      error: "Mohon pilih platform streaming terlebih dahulu"
+    };
+  }
+  return { isValid: true, error: "" };
+};
+
+// Add helper function to group consecutive hours into time ranges
+const groupConsecutiveHours = (hours: string[]): TimeRange[] => {
+  if (!hours.length) return [];
+  
+  const sortedHours = [...hours].sort();
+  const ranges: TimeRange[] = [];
+  let currentRange: { start: string; end: string } | null = null;
+
+  for (let i = 0; i < sortedHours.length; i++) {
+    const currentHour = parseInt(sortedHours[i]);
+    const nextHour = i < sortedHours.length - 1 ? parseInt(sortedHours[i + 1]) : null;
+
+    if (!currentRange) {
+      currentRange = {
+        start: `${currentHour.toString().padStart(2, '0')}:00`,
+        end: `${(currentHour + 1).toString().padStart(2, '0')}:00`
+      };
+    } else if (nextHour === currentHour + 1) {
+      currentRange.end = `${(currentHour + 1).toString().padStart(2, '0')}:00`;
+    } else {
+      ranges.push({
+        start: currentRange.start,
+        end: currentRange.end,
+        duration: parseInt(currentRange.end) - parseInt(currentRange.start)
+      });
+      currentRange = null;
+    }
+  }
+
+  if (currentRange) {
+    ranges.push({
+      start: currentRange.start,
+      end: currentRange.end,
+      duration: parseInt(currentRange.end) - parseInt(currentRange.start)
+    });
+  }
+
+  return ranges;
+};
+
 export function StreamerCard({ streamer }: { streamer: Streamer }) {
   const router = useRouter();
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -320,15 +701,53 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   const [isLoadingTestimonials, setIsLoadingTestimonials] = useState(false);
   const profileCache = useRef<Partial<StreamerProfile> | null>(null);
 
-  // Lazy load these states only when needed
+  // Add new state for multi-day selection
+  const [selectedDates, setSelectedDates] = useState<Map<string, SelectedDateInfo>>(new Map());
+  
+  // Keep existing states for backward compatibility during transition
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedHours, setSelectedHours] = useState<string[]>([]);
-  const [platform, setPlatform] = useState(streamer.platform);
+  const [platform, setPlatform] = useState<string | null>(null);
   const [daysOff, setDaysOff] = useState<string[]>([]);
-  const [needsShipping, setNeedsShipping] = useState<ShippingOption>('no');
+  const [needsShipping, setNeedsShipping] = useState<ShippingOption | null>(null);
   const [clientLocation, setClientLocation] = useState<string>('');
 
-  const isMinimumBookingMet = selectedHours.length >= 2;
+  // Add new state for active bulk selection mode
+  const [activeBulkMode, setActiveBulkMode] = useState<'week' | 'twoWeeks' | 'month' | null>(null);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
+
+  // Inside the StreamerCard component, add this state near other state declarations:
+  const [isRequirementsValid, setIsRequirementsValid] = useState(() => 
+    validateRequirementsForDateSelection(needsShipping, platform)
+  );
+
+  // Add this effect to update the requirements validation when dependencies change
+  useEffect(() => {
+    setIsRequirementsValid(validateRequirementsForDateSelection(needsShipping, platform));
+  }, [needsShipping, platform]);
+
+  const isMinimumBookingMet = useCallback(() => {
+    if (selectedDates.size === 0) return false;
+
+    return Array.from(selectedDates.values()).some(dateInfo => {
+      // Group consecutive hours into blocks
+      const blocks: string[][] = [];
+      let currentBlock: string[] = [dateInfo.hours[0]];
+
+      for (let i = 1; i < dateInfo.hours.length; i++) {
+        if (parseInt(dateInfo.hours[i]) === parseInt(dateInfo.hours[i - 1]) + 1) {
+          currentBlock.push(dateInfo.hours[i]);
+        } else {
+          blocks.push([...currentBlock]);
+          currentBlock = [dateInfo.hours[i]];
+        }
+      }
+      blocks.push(currentBlock);
+
+      // Check if any block meets the minimum requirement
+      return blocks.some(block => block.length >= 2);
+    });
+  }, [selectedDates]);
 
   // Load extended profile only when profile modal is opened
   useEffect(() => {
@@ -662,7 +1081,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     const isInSchedule = daySchedule.slots.some((slot: any) => {
       const start = parseInt(slot.start.split(':')[0]);
       const end = parseInt(slot.end.split(':')[0]);
-      return hour >= start && hour < end;
+      return hour >= start && hour <= end;  // Changed to <= to include end hour
     });
 
     if (!isInSchedule) {
@@ -726,32 +1145,120 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     return isAvailable;
   }, [activeSchedule, bookings]);
 
-  const handleBooking = () => {
-    if (!selectedDate || selectedHours.length === 0) {
-      alert('Please select a date and time for your booking');
+  // Update handleDateSelect to include required fields validation
+  const handleDateSelect = (date: Date) => {
+    // Validate required fields first
+    const requiredFieldsValidation = validateRequirementsForDateSelection(needsShipping, platform);
+    if (!requiredFieldsValidation.isValid) {
+      toast.error(requiredFieldsValidation.error, {
+        duration: 4000,
+        position: 'top-center',
+        className: 'bg-white text-red-600 border-2 border-red-100 shadow-lg px-4 py-3 rounded-xl',
+        icon: '⚠️',
+      });
       return;
     }
 
-    const startDateTime = new Date(selectedDate);
-    startDateTime.setHours(parseInt(selectedHours[0]), 0, 0, 0);
-    const endDateTime = new Date(selectedDate);
-    endDateTime.setHours(parseInt(selectedHours[selectedHours.length - 1]), 0, 0, 0);
+    // Rest of the validation...
+    const dateValidation = validateDateRestrictions(
+      date,
+      needsShipping as ShippingOption,
+      clientLocation,
+      streamer.location
+    );
 
-    const queryParams = new URLSearchParams({
+    if (!dateValidation.isValid) {
+      toast.error(dateValidation.error, {
+        duration: 4000,
+        position: 'top-center',
+        className: 'bg-white text-red-600 border-2 border-red-100 shadow-lg px-4 py-3 rounded-xl',
+      });
+      return;
+    }
+
+    const dateKey = format(date, 'yyyy-MM-dd');
+    
+    setSelectedDates(prev => {
+      const next = new Map(prev);
+      if (next.has(dateKey)) {
+        next.delete(dateKey);
+      } else {
+        // Get available hours for this date
+        const daySchedule = activeSchedule?.[date.getDay()];
+        const availableHours: string[] = [];
+        
+        if (daySchedule?.slots) {
+          daySchedule.slots.forEach((slot: any) => {
+            const startHour = parseInt(slot.start);
+            const endHour = parseInt(slot.end);
+            
+            for (let hour = startHour; hour <= endHour; hour++) {
+              const hourString = `${hour.toString().padStart(2, '0')}:00`;
+              if (isSlotAvailable(date, hour)) {
+                availableHours.push(hourString);
+              }
+            }
+          });
+
+          // Sort hours but don't limit them
+          const sortedHours = availableHours.sort((a, b) => parseInt(a) - parseInt(b));
+
+          if (sortedHours.length > 0) {
+            // Calculate actual hours based on time difference
+            const startHour = parseInt(sortedHours[0]);
+            const endHour = parseInt(sortedHours[sortedHours.length - 1]);
+            const actualHours = endHour - startHour + 1 - 1; // +1 for inclusive, -1 for actual hours
+
+            next.set(dateKey, {
+              date,
+              hours: sortedHours,
+              totalHours: actualHours,
+              isEditing: false
+            });
+          }
+        }
+      }
+      return next;
+    });
+  };
+
+  // Update handleBooking to handle multi-day bookings
+  const handleBooking = () => {
+    if (!selectedDates.size) return;
+
+    const bookingsData = Array.from(selectedDates.entries()).map(([dateKey, dateInfo]) => {
+      // Group consecutive hours into time ranges
+      const timeRanges = groupConsecutiveHours(dateInfo.hours.sort());
+      
+      return {
+        date: dateKey,
+        timeRanges,
+        // Keep these for backward compatibility
+        startTime: timeRanges[0].start,
+        endTime: timeRanges[timeRanges.length - 1].end,
+        hours: timeRanges.reduce((total, range) => total + range.duration, 0)
+      };
+    });
+
+    // Calculate total hours across all bookings and time ranges
+    const totalHours = bookingsData.reduce((total, booking) => 
+      total + booking.timeRanges.reduce((rangeTotal, range) => rangeTotal + range.duration, 0), 0
+    );
+
+    const params = new URLSearchParams({
       streamerId: streamer.id.toString(),
-      streamerName: `${streamer.first_name} ${streamer.last_name}`,
-      date: format(startDateTime, 'yyyy-MM-dd'),
-      startTime: format(startDateTime, 'HH:mm:ss'),
-      endTime: format(endDateTime, 'HH:mm:ss'),
-      platform: platform,
+      streamerName: formatName(streamer.first_name, streamer.last_name),
+      platform: platform || streamer.platform,
       price: streamer.price.toString(),
+      totalHours: totalHours.toString(),
+      totalPrice: (streamer.price * totalHours).toString(),
       location: streamer.location,
       rating: streamer.rating.toString(),
       image_url: streamer.image_url,
+      bookings: JSON.stringify(bookingsData)
     });
 
-    setIsBookingModalOpen(false);
-    router.push(`/booking-detail?${queryParams.toString()}`);
+    router.push(`/booking-detail?${params.toString()}`);
   };
 
   const generateTimeOptions = () => {
@@ -763,7 +1270,8 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     const options = daySchedule.slots.flatMap((slot: { start: string; end: string }) => {
       const start = parseInt(slot.start.split(':')[0]);
       const end = parseInt(slot.end.split(':')[0]);
-      return Array.from({ length: end - start }, (_, i) => `${(start + i).toString().padStart(2, '0')}:00`);
+      // Changed length calculation to include the end hour
+      return Array.from({ length: end - start + 1 }, (_, i) => `${(start + i).toString().padStart(2, '0')}:00`);
     });
 
     // Filter out hours that are not available
@@ -778,54 +1286,9 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
 
   const weekDays = generateWeekDays(currentWeekStart);
 
-  const handleHourSelection = (hour: string) => {
-    setSelectedHours((prevSelected) => {
-      const hourNum = parseInt(hour);
-      
-      // If clicking on an already selected hour
-      if (prevSelected.includes(hour)) {
-        const newSelected = prevSelected.filter(h => h !== hour);
-        
-        // After deselection, ensure remaining hours are continuous
-        if (newSelected.length > 0) {
-          const selectedHourNums = newSelected.map(h => parseInt(h));
-          const minHour = Math.min(...selectedHourNums);
-          const maxHour = Math.max(...selectedHourNums);
-          
-          // Create an array of all hours between min and max
-          return Array.from(
-            { length: maxHour - minHour + 1 }, 
-            (_, i) => `${(minHour + i).toString().padStart(2, '0')}:00`
-          );
-        }
-        return newSelected;
-      } else {
-        // If no hours are selected yet, just select this hour
-        if (prevSelected.length === 0) {
-          return [hour];
-        }
-        
-        // Get the first and last selected hours
-        const selectedHourNums = prevSelected.map(h => parseInt(h));
-        const minHour = Math.min(...selectedHourNums);
-        const maxHour = Math.max(...selectedHourNums);
-        
-        // Only allow selection if it's consecutive (either one hour before first or one hour after last)
-        if (hourNum === maxHour + 1 || hourNum === minHour - 1) {
-          const newSelected = [...prevSelected, hour];
-          // Sort numerically to ensure correct order
-          return newSelected.sort((a, b) => parseInt(a) - parseInt(b));
-        }
-        
-        // If clicking a new starting hour, reset selection to just this hour
-        return [hour];
-      }
-    });
-  };
-
   const isHourSelected = (hour: string) => selectedHours.includes(hour);
 
-  const isHourDisabled = (hour: string) => {
+  const isHourDisabled = (hour: string, dateKey: string) => {
     if (!selectedDate) return true;
     
     const hourNum = parseInt(hour);
@@ -842,16 +1305,16 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     // Check if slot is available in schedule
     if (!isSlotAvailable(selectedDate, hourNum)) return true;
     
-    // If no hours selected, all available hours are enabled
-    if (selectedHours.length === 0) return false;
+    // Get current date's selected hours
+    const dateInfo = selectedDates.get(dateKey);
+    if (!dateInfo || dateInfo.hours.length === 0) return false;
     
-    // Get the first and last selected hours
-    const selectedHourNums = selectedHours.map(h => parseInt(h));
+    // Get the first and last selected hours for this date
+    const selectedHourNums = dateInfo.hours.map(h => parseInt(h));
     const minHour = Math.min(...selectedHourNums);
     const maxHour = Math.max(...selectedHourNums);
     
     // Only enable hours that would maintain continuity
-    // Either one hour before the first selected hour or one hour after the last selected hour
     return hourNum !== maxHour + 1 && hourNum !== minHour - 1;
   };
 
@@ -862,12 +1325,14 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   };
 
   const getMinimumBookingDate = () => {
-    if (needsShipping === 'no') return startOfDay(new Date());
+    const startOfTomorrow = startOfDay(addDays(new Date(), 1));
+    
+    if (needsShipping === 'no') return startOfTomorrow;
     
     // If shipping is needed, check locations
     const isSameCity = clientLocation.toLowerCase() === streamer.location.toLowerCase();
-    const daysToAdd = isSameCity ? 1 : 3;
-    return addDays(startOfDay(new Date()), daysToAdd);
+    const daysToAdd = isSameCity ? 0 : 2; // Subtract 1 from previous values since we're starting from tomorrow
+    return addDays(startOfTomorrow, daysToAdd);
   };
 
   const isDateTooSoonForShipping = (date: Date) => {
@@ -964,6 +1429,247 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   // Debug the price info result
   console.log('Price info result:', priceInfo);
 
+  // Update the bulk selection click handler
+  const handleBulkSelection = async (mode: 'week' | 'twoWeeks' | 'month') => {
+    if (!isRequirementsValid.isValid) {
+      toast.error(isRequirementsValid.error, {
+        duration: 4000,
+        position: 'top-center',
+        className: 'bg-white text-red-600 border-2 border-red-100 shadow-lg px-4 py-3 rounded-xl',
+        icon: '⚠️',
+      });
+      return;
+    }
+
+    setActiveBulkMode(mode);
+    const dates = getBulkDateRange(mode);
+    
+    // Validate all dates first
+    const { validDates, invalidDates } = validateBulkSelection(
+      dates,
+      needsShipping as ShippingOption,
+      clientLocation,
+      streamer.location
+    );
+
+    if (validDates.length === 0) {
+      toast.error("Tidak ada tanggal yang tersedia untuk pemilihan", {
+        duration: 4000,
+        position: 'top-center',
+        className: 'bg-white text-red-600 border-2 border-red-100 shadow-lg px-4 py-3 rounded-xl',
+        icon: '⚠️',
+      });
+      setActiveBulkMode(null);
+      return;
+    }
+
+    // Show warning if some dates were invalid
+    if (invalidDates.length > 0) {
+      toast.error(`${invalidDates.length} tanggal dilewati karena pembatasan waktu`, {
+        duration: 4000,
+        position: 'top-center',
+        className: 'bg-white text-yellow-600 border-2 border-yellow-100 shadow-lg px-4 py-3 rounded-xl',
+        icon: '⚠️',
+      });
+    }
+
+    const newSelectedDates = new Map<string, SelectedDateInfo>();
+    
+    // Process each valid date
+    for (const date of validDates) {
+      const dateKey = format(date, 'yyyy-MM-dd');
+      const daySchedule = activeSchedule?.[date.getDay()];
+      
+      if (daySchedule?.slots) {
+        // Collect all available hours from all slots
+        const availableHours: string[] = [];
+        daySchedule.slots.forEach((slot: any) => {
+          const startHour = parseInt(slot.start);
+          const endHour = parseInt(slot.end);
+          
+          for (let hour = startHour; hour <= endHour; hour++) {  // Changed to <= to include end hour
+            const hourString = `${hour.toString().padStart(2, '0')}:00`;
+            if (isSlotAvailable(date, hour)) {
+              availableHours.push(hourString);
+            }
+          }
+        });
+        
+        // Only add dates with available hours
+        if (availableHours.length > 0) {
+          newSelectedDates.set(dateKey, {
+            date,
+            hours: availableHours.sort(),
+            totalHours: availableHours.length,
+            isEditing: false
+          });
+        }
+      }
+    }
+
+    // Update state only if we found available slots
+    if (newSelectedDates.size > 0) {
+      setSelectedDates(newSelectedDates);
+      setIsSummaryExpanded(true);
+      
+      // Show success message with summary
+      toast.success(
+        `Berhasil memilih ${newSelectedDates.size} hari dengan total ${Array.from(newSelectedDates.values()).reduce((total, date) => total + date.totalHours, 0)} jam`, {
+          duration: 4000,
+          position: 'top-center',
+          className: 'bg-white text-green-600 border-2 border-green-100 shadow-lg px-4 py-3 rounded-xl',
+          icon: '✓',
+        }
+      );
+    } else {
+      toast.error("Tidak ada slot waktu yang tersedia untuk periode yang dipilih", {
+        duration: 4000,
+        position: 'top-center',
+        className: 'bg-white text-red-600 border-2 border-red-100 shadow-lg px-4 py-3 rounded-xl',
+        icon: '⚠️',
+      });
+      setActiveBulkMode(null);
+    }
+  };
+
+  const handleTimeSlotSelect = (dateKey: string, hour: string) => {
+    setSelectedDates(prev => {
+      const next = new Map(prev);
+      const dateInfo = next.get(dateKey);
+      
+      if (!dateInfo) return next;
+
+      let newHours = [...(dateInfo.hours || [])];
+      const hourNum = parseInt(hour);
+      
+      // If hour is already selected, handle removal
+      if (newHours.includes(hour)) {
+        // Validate removal with the new isRemoving parameter
+        const validation = validateTimeSlotSelection(newHours, hour, dateKey, next, true, isSlotAvailable);
+        if (!validation.isValid) {
+          toast.error(validation.error, {
+            duration: 3000,
+            position: 'top-center',
+            className: 'bg-white text-red-600 border-2 border-red-100 shadow-lg',
+          });
+          return prev;
+        }
+        newHours = newHours.filter(h => h !== hour);
+      } else {
+        // When adding a new hour
+        if (newHours.length === 0) {
+          // If this is the first hour, automatically add three consecutive hours (2-hour duration)
+          const nextHours = [
+            hour,
+            `${(hourNum + 1).toString().padStart(2, '0')}:00`,
+            `${(hourNum + 2).toString().padStart(2, '0')}:00`
+          ];
+          
+          // Validate that all hours are available
+          const allHoursAvailable = nextHours.every(h => {
+            const hourNum = parseInt(h);
+            return isSlotAvailable(new Date(dateInfo.date), hourNum);
+          });
+
+          if (!allHoursAvailable) {
+            toast.error("Tidak dapat memilih jam ini karena durasi 2 jam berikutnya tidak tersedia (total 3 slot)", {
+              duration: 3000,
+              position: 'top-center',
+              className: 'bg-white text-red-600 border-2 border-red-100 shadow-lg',
+            });
+            return prev;
+          }
+
+          newHours = nextHours;
+        } else {
+          // For existing blocks, validate and add the hour
+          const validation = validateTimeSlotSelection(newHours, hour, dateKey, next, false, isSlotAvailable);
+          if (!validation.isValid) {
+            toast.error(validation.error, {
+              duration: 3000,
+              position: 'top-center',
+              className: 'bg-white text-red-600 border-2 border-red-100 shadow-lg',
+            });
+            return prev;
+          }
+          
+          newHours = [...newHours, hour].sort((a, b) => parseInt(a) - parseInt(b));
+        }
+      }
+
+      if (newHours.length === 0) {
+        next.delete(dateKey);
+        return next;
+      }
+
+      // Group consecutive hours into blocks
+      const blocks: string[][] = [];
+      let currentBlock: string[] = [newHours[0]];
+      
+      for (let i = 1; i < newHours.length; i++) {
+        if (parseInt(newHours[i]) === parseInt(newHours[i - 1]) + 1) {
+          currentBlock.push(newHours[i]);
+        } else {
+          blocks.push([...currentBlock]);
+          currentBlock = [newHours[i]];
+        }
+      }
+      blocks.push(currentBlock);
+
+      // Calculate total hours based on actual time differences
+      const totalHours = blocks.reduce((total, block) => {
+        if (block.length === 0) return total;
+        const startHour = parseInt(block[0]);
+        const endHour = parseInt(block[block.length - 1]);
+        return total + (endHour - startHour); // Remove the +1 to get actual duration
+      }, 0);
+
+      // Update the date info with new hours and formatted time ranges
+      next.set(dateKey, {
+        ...dateInfo,
+        hours: newHours,
+        totalHours,
+        timeRanges: blocks.map(block => {
+          const startHour = parseInt(block[0]);
+          const endHour = parseInt(block[block.length - 1]);
+          return {
+            start: block[0],
+            end: `${(endHour + 1).toString().padStart(2, '0')}:00`,
+            duration: endHour - startHour // Remove the +1 to get actual duration
+          };
+        })
+      });
+
+      return next;
+    });
+  };
+
+  // Add a new function to check schedule availability
+  const hasAvailableSchedule = useCallback((date: Date) => {
+    if (!activeSchedule) return false;
+    
+    const dayOfWeek = date.getDay();
+    const daySchedule = activeSchedule[dayOfWeek];
+    
+    if (!daySchedule || !daySchedule.slots || daySchedule.slots.length === 0) {
+      return false;
+    }
+
+    // Check if there are any available hours in the schedule
+    for (const slot of daySchedule.slots) {
+      const startHour = parseInt(slot.start);
+      const endHour = parseInt(slot.end);
+      
+      for (let hour = startHour; hour < endHour; hour++) {
+        if (isSlotAvailable(date, hour)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }, [activeSchedule, isSlotAvailable]);
+
   return (
     <>
       <div 
@@ -1028,6 +1734,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                 </span>
               </div>
             )}
+
           </div>
 
           {/* Rating */}
@@ -1036,14 +1743,14 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           </div>
 
           {/* Bio Preview */}
-          <div className="h-[48px] mb-4">
-            <p className="text-sm text-gray-600 line-clamp-2 min-h-[40px]">
-              {streamer.bio || 'Belum ada deskripsi tersedia'}
-              {streamer.bio && streamer.bio.length > 100 && (
-                <span className="font-medium text-blue-600 hover:text-blue-700 cursor-pointer ml-1 inline-block">
-                  Read more
-                </span>
-              )}
+          <div className="h-[3rem] mb-4">
+            <p className={cn(
+              "text-sm text-gray-600 leading-[1.5rem]",
+              "line-clamp-2 min-h-[3rem]",
+              "overflow-hidden display-webkit-box webkit-line-clamp-2 webkit-box-orient-vertical",
+              !streamer.bio && "text-gray-400"
+            )}>
+              {streamer.bio || 'No description available'}
             </p>
           </div>
 
@@ -1158,44 +1865,43 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           <div className="flex-1 overflow-y-auto">
             <div className="p-4 space-y-4">
               {/* Step 1: Basic Requirements */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2.5">
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
-                    <span className="text-white font-semibold text-sm">1</span>
+                    <span className="text-white font-medium text-xs">1</span>
                   </div>
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">Basic Requirements</h3>
-                    <p className="text-xs text-gray-500">Set up your booking preferences</p>
-                  </div>
+                  <h3 className="text-[15px] font-semibold text-gray-800">Persyaratan Dasar</h3>
                 </div>
                 
-                {/* Shipping Option */}
-                <div className="ml-8 space-y-3">
-                  <div className="space-y-2">
-                    <Label 
-                      htmlFor="shipping-needed" 
-                      className={cn(
-                        "text-sm font-medium",
-                        needsShipping ? "text-blue-700" : "text-gray-900"
-                      )}
-                    >
-                      Do you need to ship products?
+                <div className="ml-8 space-y-5">
+                  {/* Shipping Option */}
+                  <div className="space-y-2.5">
+                    <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      Pengiriman Produk
+                      <span className="text-red-500">*</span>
+                      <div className="relative group">
+                        <Info className="w-3.5 h-3.5 text-gray-400" />
+                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-48 p-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                          Wajib diisi sebelum memilih tanggal
+                        </div>
+                      </div>
                     </Label>
-                    <p className="text-xs text-gray-500">
-                      For physical product reviews and unboxing
-                    </p>
                     <Select
-                      value={needsShipping}
+                      value={needsShipping || undefined}
                       onValueChange={(value) => setNeedsShipping(value as ShippingOption)}
                     >
                       <SelectTrigger 
                         id="shipping-needed" 
                         className={cn(
-                          "w-full bg-white border-gray-200 h-11",
-                          needsShipping && "border-blue-200 ring-1 ring-blue-100"
+                          "w-full bg-white h-10 text-sm transition-all px-3",
+                          needsShipping === 'yes' 
+                            ? "bg-blue-50 border-blue-200 ring-1 ring-blue-100 text-blue-700 shadow-sm" 
+                            : needsShipping === 'no'
+                            ? "border-gray-200 text-gray-700 shadow-sm"
+                            : "text-gray-500 border-gray-300 border-dashed"
                         )}
                       >
-                        <SelectValue placeholder="Select shipping requirement" />
+                        <SelectValue placeholder="Apakah Anda perlu mengirim produk ke streamer?" />
                       </SelectTrigger>
                       <SelectContent 
                         position="popper" 
@@ -1204,59 +1910,79 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                         sideOffset={8}
                         className="z-[9999]"
                       >
-                        <SelectItem value="yes" className="py-2.5">
-                          <div>
-                            <div className="font-medium">Yes, I'll ship products</div>
-                            <div className="text-xs text-gray-500">For product reviews and unboxing content</div>
+                        <SelectItem value="yes" className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-blue-100 rounded-md flex-shrink-0">
+                              <Package className="w-3.5 h-3.5 text-blue-600" />
+                            </div>
+                            <span className="text-sm font-medium">Ya</span>
                           </div>
                         </SelectItem>
-                        <SelectItem value="no" className="py-2.5">
-                          <div>
-                            <div className="font-medium">No shipping needed</div>
-                            <div className="text-xs text-gray-500">For digital products or services only</div>
+                        <SelectItem value="no" className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-blue-100 rounded-md flex-shrink-0">
+                              <Clock className="w-3.5 h-3.5 text-blue-600" />
+                            </div>
+                            <span className="text-sm font-medium">Tidak</span>
                           </div>
                         </SelectItem>
                       </SelectContent>
                     </Select>
+
+                    {/* Shipping Notes */}
+                    <div className={cn(
+                      "text-sm text-gray-600 pl-1",
+                      needsShipping === 'yes' && "text-blue-700"
+                    )}>
+                      {needsShipping === 'yes' ? (
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mt-2">
+                          <div className="flex items-start gap-2">
+                            <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+                            <div className="space-y-1">
+                              <p className="font-medium">Pengiriman Diperlukan</p>
+                              <p className="text-sm text-blue-600">
+                                {clientLocation.toLowerCase() === streamer.location.toLowerCase()
+                                  ? "Pemesanan dapat dilakukan mulai besok untuk memastikan pengiriman produk"
+                                  : "Pemesanan dapat dilakukan minimal 3 hari dari sekarang untuk memastikan pengiriman produk"
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : needsShipping === 'no' ? (
+                        <div className="pl-1 mt-1.5">
+                          <p className="text-sm text-gray-500">Pemesanan dapat dilakukan mulai besok</p>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
 
-                  {needsShipping === 'yes' && (
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                      <p className="text-sm text-blue-800">
-                        {clientLocation.toLowerCase() === streamer.location.toLowerCase()
-                          ? "Since you're in the same city, booking starts from tomorrow to allow time for delivery."
-                          : "Since you're in a different city, booking starts from 3 days later for delivery time."
-                        }
-                      </p>
-                    </div>
-                  )}
-
                   {/* Platform Selection */}
-                  <div className="space-y-2">
-                    <Label 
-                      htmlFor="booking-platform" 
-                      className={cn(
-                        "text-sm font-medium",
-                        platform ? "text-blue-700" : "text-gray-900"
-                      )}
-                    >
-                      Where do you want to stream?
+                  <div className="space-y-2.5">
+                    <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      Platform Streaming
+                      <span className="text-red-500">*</span>
+                      <div className="relative group">
+                        <Info className="w-3.5 h-3.5 text-gray-400" />
+                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-48 p-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                          Wajib diisi sebelum memilih tanggal
+                        </div>
+                      </div>
                     </Label>
-                    <p className="text-xs text-gray-500">
-                      Choose your preferred streaming platform
-                    </p>
                     <Select 
+                      value={platform || undefined}
                       onValueChange={setPlatform} 
-                      value={platform}
                     >
                       <SelectTrigger 
                         id="booking-platform" 
                         className={cn(
-                          "w-full bg-white border-gray-200 h-11",
-                          platform && "border-blue-200 ring-1 ring-blue-100"
+                          "w-full bg-white h-10 text-sm transition-all px-3",
+                          platform 
+                            ? "bg-blue-50 border-blue-200 ring-1 ring-blue-100 text-blue-700 shadow-sm"
+                            : "text-gray-500 border-gray-300 border-dashed"
                         )}
                       >
-                        <SelectValue placeholder="Choose streaming platform" />
+                        <SelectValue placeholder="Platform mana yang Anda pilih?" />
                       </SelectTrigger>
                       <SelectContent 
                         position="popper" 
@@ -1265,244 +1991,422 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                         sideOffset={8}
                         className="z-[9999]"
                       >
-                        <SelectItem value="Shopee" className="py-2.5">
-                          <div>
-                            <div className="font-medium">Shopee Live</div>
-                            <div className="text-xs text-gray-500">Ideal for product sales with direct purchase links</div>
+                        <SelectItem value="Shopee" className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-orange-100 rounded-md flex-shrink-0">
+                              <Monitor className="w-3.5 h-3.5 text-orange-600" />
+                            </div>
+                            <span className="text-sm font-medium">Shopee Live</span>
                           </div>
                         </SelectItem>
-                        <SelectItem value="TikTok" className="py-2.5">
-                          <div>
-                            <div className="font-medium">TikTok Live</div>
-                            <div className="text-xs text-gray-500">Perfect for reaching a broader audience</div>
+                        <SelectItem value="TikTok" className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-blue-100 rounded-md flex-shrink-0">
+                              <Monitor className="w-3.5 h-3.5 text-blue-600" />
+                            </div>
+                            <span className="text-sm font-medium">TikTok Live</span>
                           </div>
                         </SelectItem>
                       </SelectContent>
                     </Select>
+
+                    {/* Platform Notes */}
+                    {platform && (
+                      <div className="pl-1 mt-1.5">
+                        <p className="text-sm text-gray-500">
+                          {platform === 'Shopee' ? 'Pembelian langsung dengan tautan produk' : 'Jangkau audiens yang lebih luas'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Step 2: Select Date */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
-                    <span className="text-white font-semibold text-sm">2</span>
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                    <span className="text-white font-medium text-xs">2</span>
                   </div>
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">Select Date</h3>
-                    <p className="text-xs text-gray-500">Choose your preferred streaming date</p>
-                  </div>
+                  <h3 className="text-sm font-medium text-gray-900">Pilih Tanggal</h3>
                 </div>
 
-                <div className="ml-8 space-y-3">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePreviousWeek}
-                      disabled={isBefore(startOfWeek(currentWeekStart), startOfWeek(new Date()))}
-                      className="h-8 w-8 p-0"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleNextWeek}
-                      className="h-8 w-8 p-0"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {/* Calendar Grid */}
-                  <div className="grid grid-cols-7 gap-2">
-                    {weekDays.map((date) => {
-                      const isSelected = selectedDate && isSameDay(date, selectedDate);
-                      const isDisabled = isDayOff(date);
-
-                      return (
-                        <button
-                          key={date.toISOString()}
-                          onClick={() => !isDisabled && setSelectedDate(date)}
-                          disabled={isDisabled}
-                          className={cn(
-                            "flex flex-col items-center p-3 rounded-xl transition-all",
-                            isSelected
-                              ? "bg-blue-600 text-white shadow-lg ring-2 ring-blue-200"
-                              : "hover:bg-blue-50",
-                            isDisabled && "opacity-50 cursor-not-allowed bg-gray-50"
-                          )}
-                        >
-                          <span className="text-xs font-medium mb-1">
-                            {format(date, 'EEE')}
-                          </span>
-                          <span className="text-lg font-semibold">
-                            {format(date, 'd')}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 3: Select Time */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
-                    <span className="text-white font-semibold text-sm">3</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">Select Time</h3>
-                    <p className="text-xs text-gray-500">Choose your preferred time slots (minimum 2 hours)</p>
-                  </div>
-                </div>
-
-                <div className="ml-8">
-                  {activeSchedule ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-end">
-                        {selectedHours.length > 0 && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedHours([])}
-                            className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 transition-colors"
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Clear Selection
-                          </Button>
-                        )}
-                      </div>
-
-                      {/* Time Selection */}
-                      {(['Morning', 'Afternoon', 'Evening', 'Night'] as const).map((timeOfDay) => {
-                        const slots = getTimeSlots(timeOfDay);
-                        const availableSlots = slots.filter(hour => {
-                          if (!selectedDate) return false;
-                          const hourNum = parseInt(hour);
-                          return isSlotAvailable(selectedDate, hourNum);
-                        });
-
-                        if (availableSlots.length === 0) return null;
-
-                        return (
-                          <div key={timeOfDay} className="space-y-3">
-                            <div className="flex items-center gap-2">
-                              {timeOfDay === 'Morning' && <Sun className="h-4 w-4 text-amber-500" />}
-                              {timeOfDay === 'Afternoon' && <Sun className="h-4 w-4 text-orange-500" />}
-                              {timeOfDay === 'Evening' && <Sunset className="h-4 w-4 text-indigo-500" />}
-                              {timeOfDay === 'Night' && <Moon className="h-4 w-4 text-blue-500" />}
-                              <h4 className="text-sm font-medium text-gray-700">{timeOfDay}</h4>
-                            </div>
-                            <div className="grid grid-cols-4 gap-2">
-                              {availableSlots.map((hour) => {
-                                const isSelected = selectedHours.includes(hour);
-                                const isEndpoint = hour === selectedHours[0] || hour === selectedHours[selectedHours.length - 1];
-                                const isMiddle = isSelected && !isEndpoint;
-                                const disabled = isMiddle || isHourDisabled(hour);
-
-                                return (
-                                  <button
-                                    key={hour}
-                                    onClick={() => !disabled && handleHourSelection(hour)}
-                                    disabled={disabled}
-                                    className={cn(
-                                      "relative h-12 rounded-xl border transition-all duration-200",
-                                      isSelected
-                                        ? "bg-blue-50 border-blue-200 shadow-sm"
-                                        : "border-gray-200 hover:border-blue-300",
-                                      isMiddle && "cursor-not-allowed opacity-50",
-                                      !isSelected && !disabled && "hover:bg-blue-50",
-                                      disabled && "cursor-not-allowed opacity-50"
-                                    )}
-                                  >
-                                    <time className="text-sm font-medium">
-                                      {format(parse(hour, 'HH:mm', new Date()), 'h:mm a')}
-                                    </time>
-                                    {isEndpoint && (
-                                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-blue-100 rounded-full">
-                                        <span className="text-[10px] font-medium text-blue-700">
-                                          {hour === selectedHours[0] ? 'Start' : 'End'}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {/* Show "No Available Time" message if no slots are available for the selected date */}
-                      {selectedDate && !(['Morning', 'Afternoon', 'Evening', 'Night'] as const).some(timeOfDay => {
-                        const slots = getTimeSlots(timeOfDay);
-                        return slots.some(hour => isSlotAvailable(selectedDate, parseInt(hour)));
-                      }) && (
-                        <div className="text-center py-4 px-3">
-                          <div className="max-w-[140px] mx-auto mb-3">
-                            <Image
-                              src="/images/no-streamer-found.png"
-                              alt="No time slots available"
-                              width={140}
-                              height={140}
-                              className="w-full h-auto"
-                            />
-                          </div>
-                          <h4 className="text-sm font-medium text-gray-900 mb-1">
-                            No Available Time Slots
-                          </h4>
-                          <p className="text-xs text-gray-500 mb-2">
-                            This streamer doesn't have any available slots for the selected date. 
-                            Try selecting a different date to find available time slots.
+                {/* Weekly Calendar View */}
+                <div className="ml-7 mb-6">
+                  <div className={cn(
+                    "bg-white rounded-xl border transition-all duration-200",
+                    isRequirementsValid.isValid 
+                      ? "border-gray-200" 
+                      : "border-red-200 bg-red-50/30"
+                  )}>
+                    <div className="p-4">
+                      {!isRequirementsValid.isValid && (
+                        <div className="mb-3 px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+                          <p className="text-xs text-red-600">
+                            {isRequirementsValid.error}
                           </p>
                         </div>
                       )}
+                      <BookingCalendar
+                        selectedDate={selectedDate}
+                        onDateSelect={(dateStr) => handleDateSelect(new Date(dateStr))}
+                        onTimeSelect={(time) => {
+                          if (selectedDate) {
+                            const [hours, minutes] = time.split(':').map(Number);
+                            const newDate = new Date(selectedDate);
+                            newDate.setHours(hours, minutes, 0, 0);
+                            setSelectedDate(newDate);
+                          }
+                        }}
+                        isRequirementsValid={isRequirementsValid.isValid}
+                        selectedDates={selectedDates}
+                        isDateSelectable={(date) => {
+                          const dateValidation = validateDateRestrictions(
+                            date,
+                            needsShipping as ShippingOption,
+                            clientLocation,
+                            streamer.location
+                          );
+                          return dateValidation.isValid;
+                        }}
+                        hasAvailableSchedule={hasAvailableSchedule}
+                      />
+                    </div>
+                  </div>
+                </div>
 
-                      {/* Selected Time Summary */}
-                      {selectedHours.length > 0 && (
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-1">
-                              <h4 className="text-sm font-medium text-blue-900">Selected Time Range</h4>
-                              <p className="text-lg font-semibold text-blue-700">
-                                {format(parse(selectedHours[0], 'HH:mm', new Date()), 'h:mm a')} - 
-                                {format(parse(selectedHours[selectedHours.length - 1], 'HH:mm', new Date()), 'h:mm a')}
+                {/* Quick Selection Section with enhanced styling */}
+                <div className="ml-8 mb-6">
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-medium text-gray-800">Pemilihan Cepat</h4>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 w-6 p-0 hover:bg-blue-50"
+                            >
+                              <Info className="h-4 w-4 text-blue-600" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent 
+                            className="w-80 p-3 text-xs text-gray-600 bg-white shadow-lg border border-gray-200 rounded-lg z-[99999]"
+                            side="top"
+                            align="start"
+                          >
+                            <div className="space-y-2">
+                              <p>
+                                Ini akan secara otomatis memilih semua jam yang tersedia untuk setiap hari berdasarkan jadwal streamer.
                               </p>
+                              <div className="pt-2 border-t border-gray-100">
+                                <p className="font-medium text-blue-600">Persyaratan:</p>
+                                <ul className="mt-1 space-y-1">
+                                  <li className="flex items-center gap-2">
+                                    <div className={cn(
+                                      "w-4 h-4 rounded-full flex items-center justify-center text-[10px]",
+                                      needsShipping ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
+                                    )}>
+                                      {needsShipping ? "✓" : "!"}
+                                    </div>
+                                    <span>Pilih opsi pengiriman</span>
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                    <div className={cn(
+                                      "w-4 h-4 rounded-full flex items-center justify-center text-[10px]",
+                                      platform ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
+                                    )}>
+                                      {platform ? "✓" : "!"}
+                                    </div>
+                                    <span>Pilih platform streaming</span>
+                                  </li>
+                                </ul>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-sm font-medium text-blue-900">Duration</p>
-                              <p className="text-lg font-semibold text-blue-700">
-                                {selectedHours.length - 1} hours
-                              </p>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      {[
+                        { id: 'week', label: '1 Minggu', icon: Calendar },
+                        { id: 'twoWeeks', label: '2 Minggu', icon: Calendar },
+                        { id: 'month', label: '1 Bulan', icon: Calendar }
+                      ].map((option) => (
+                        <Button
+                          key={option.id}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleBulkSelection(option.id as 'week' | 'twoWeeks' | 'month')}
+                          className={cn(
+                            "flex-1 relative px-3 py-2 transition-all duration-300",
+                            "border rounded-lg shadow-sm group",
+                            !isRequirementsValid.isValid && "cursor-not-allowed opacity-50",
+                            activeBulkMode === option.id
+                              ? "bg-blue-50 border-blue-500 text-blue-700 shadow-blue-100"
+                              : isRequirementsValid.isValid
+                                ? "border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600"
+                                : "border-gray-200 text-gray-400"
+                          )}
+                          disabled={!isRequirementsValid.isValid}
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <option.icon className={cn(
+                              "h-4 w-4 transition-transform duration-300",
+                              activeBulkMode === option.id ? "scale-110" : "group-hover:scale-110"
+                            )} />
+                            <span>{option.label}</span>
+                          </div>
+                          {!isRequirementsValid.isValid && (
+                            <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-100 rounded-full flex items-center justify-center">
+                              <span className="text-[10px] text-red-600">!</span>
                             </div>
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3: Select Time */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                      <span className="text-white font-medium text-xs">3</span>
+                    </div>
+                    <h3 className="text-sm font-medium text-gray-900">Pilih Waktu</h3>
+                  </div>
+
+                  <div className="ml-7">
+                    {selectedDates.size > 0 ? (
+                      <div className="bg-white rounded-lg border border-blue-200 overflow-hidden shadow-sm">
+                        <div 
+                          className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 cursor-pointer"
+                          onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-3.5 w-3.5 text-blue-600" />
+                            <span className="text-xs font-medium text-blue-900">
+                              {selectedDates.size} {selectedDates.size === 1 ? 'hari' : 'hari'} dipilih
+                            </span>
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[11px] font-medium px-2 py-0.5">
+                              {Array.from(selectedDates.values()).reduce((total, date) => total + date.totalHours, 0)} jam total
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDates(new Map());
+                                setActiveBulkMode(null);
+                              }}
+                              className="h-7 hover:bg-red-50 hover:text-red-600 text-gray-500 text-xs"
+                            >
+                              Hapus Semua
+                            </Button>
+                            <ChevronRight 
+                              className={cn(
+                                "h-3.5 w-3.5 text-blue-600 transition-transform duration-300",
+                                isSummaryExpanded ? "rotate-90" : ""
+                              )}
+                            />
                           </div>
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 px-3">
-                      <div className="max-w-[140px] mx-auto mb-3">
-                        <Image
-                          src="/images/no-streamer-found.png"
-                          alt="No schedule available"
-                          width={140}
-                          height={140}
-                          className="w-full h-auto"
-                        />
+
+                        {isSummaryExpanded && (
+                          <div className="divide-y divide-gray-100">
+                            {Array.from(selectedDates.entries()).map(([dateKey, dateInfo]) => (
+                              <div key={dateKey}>
+                                <div 
+                                  className="flex items-center justify-between p-3 hover:bg-gray-50/80 transition-colors cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedDates(prev => {
+                                      const next = new Map(prev);
+                                      const info = next.get(dateKey);
+                                      if (info) {
+                                        next.set(dateKey, {
+                                          ...info,
+                                          isEditing: !info.isEditing
+                                        });
+                                      }
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex flex-col">
+                                      <span className="text-xs font-medium text-gray-900">
+                                        {format(dateInfo.date, 'EEEE, d MMMM')}
+                                      </span>
+                                      <span className="text-[11px] text-gray-500">
+                                        {dateInfo.timeRanges?.map((range, index) => (
+                                          <span key={index}>
+                                            {index > 0 && ', '}
+                                            {range.start}–{range.end}
+                                          </span>
+                                        ))}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary" className="bg-blue-50 text-blue-700 text-[11px] px-2 py-0.5">
+                                      {dateInfo.totalHours} jam
+                                    </Badge>
+                                    <ChevronRight 
+                                      className={cn(
+                                        "h-3.5 w-3.5 text-gray-400 transition-transform duration-200",
+                                        dateInfo.isEditing && "rotate-90"
+                                      )}
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newDates = new Map(selectedDates);
+                                        newDates.delete(dateKey);
+                                        setSelectedDates(newDates);
+                                        if (newDates.size === 0) {
+                                          setActiveBulkMode(null);
+                                        }
+                                      }}
+                                      className="h-7 w-7 p-0 hover:bg-red-50 hover:text-red-600"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Time Slot Editor */}
+                                {dateInfo.isEditing && (
+                                  <div className="px-3 pb-3 bg-gray-50/80">
+                                    <div className="mb-2">
+                                      <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                                        <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                        <div className="space-y-1">
+                                          <p className="text-[11px] font-medium text-blue-900">Aturan Pemesanan:</p>
+                                          <ul className="text-[11px] text-blue-700 space-y-0.5">
+                                            <li>• Minimal 2 jam berurutan untuk setiap sesi</li>
+                                            <li>• Sesi terpisah harus berjarak minimal 2 jam</li>
+                                            <li>• Tidak dapat menghapus jam yang akan membuat sesi kurang dari 2 jam</li>
+                                          </ul>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                                      {(() => {
+                                        const daySchedule = activeSchedule?.[dateInfo.date.getDay()];
+                                        const availableHours: string[] = [];
+                                        
+                                        if (daySchedule?.slots) {
+                                          daySchedule.slots.forEach((slot: any) => {
+                                            const startHour = parseInt(slot.start);
+                                            const endHour = parseInt(slot.end);
+                                            
+                                            for (let hour = startHour; hour <= endHour; hour++) {  // Changed to <= to include end hour
+                                              const hourString = `${hour.toString().padStart(2, '0')}:00`;
+                                              if (isSlotAvailable(dateInfo.date, hour) || dateInfo.hours.includes(hourString)) {
+                                                availableHours.push(hourString);
+                                              }
+                                            }
+                                          });
+                                        }
+
+                                        // This code renders the time slot buttons for booking a streamer
+                                        // It maps through the available hours and creates interactive buttons
+                                        return availableHours.sort().map(hour => {
+                                          // Check if this hour is already selected by the user
+                                          const isSelected = dateInfo.hours.includes(hour);
+                                          
+                                          // Convert hour string to number for comparisons
+                                          const hourNum = parseInt(hour);
+                                          
+                                          // Get all currently selected hours as numbers for checking continuity
+                                          const selectedHourNums = dateInfo.hours.map(h => parseInt(h));
+                                          
+                                          // Find the earliest and latest selected hours
+                                          const minHour = Math.min(...selectedHourNums);
+                                          const maxHour = Math.max(...selectedHourNums);
+                                          
+                                          // Disable time slots that would break the continuous booking rule:
+                                          // - Only enable if no hours are selected yet
+                                          // - Or if this hour is already selected
+                                          // - Or if this hour is immediately before/after existing selection
+                                          const isDisabled = dateInfo.hours.length > 0 && 
+                                            !isSelected && 
+                                            hourNum !== maxHour + 1 && 
+                                            hourNum !== minHour - 1;
+
+                                          return (
+                                            <Button
+                                              key={hour}
+                                              variant={isSelected ? "default" : "outline"}
+                                              size="sm"
+                                              disabled={isDisabled}
+                                              onClick={() => handleTimeSlotSelect(dateKey, hour)}
+                                              className={cn(
+                                                "h-8 px-2 text-[11px] font-medium",
+                                                isSelected && "bg-blue-600 text-white hover:bg-blue-700",
+                                                !isSelected && "hover:bg-blue-50 hover:text-blue-600",
+                                                isDisabled && "opacity-50 cursor-not-allowed"
+                                              )}
+                                            >
+                                              {format(parse(hour, 'HH:mm', new Date()), 'HH:mm')}
+                                            </Button>
+                                          );
+                                        });
+                                      })()}
+                                    </div>
+                                    {dateInfo.hours.length === 0 && (
+                                      <p className="text-[11px] text-gray-500 mt-2">
+                                        Pilih waktu mulai untuk memulai
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-1">
-                        No Schedule Available
-                      </h4>
-                      <p className="text-xs text-gray-500">
-                        This streamer hasn't set their availability yet.
-                        Please check back later or try contacting them directly.
-                      </p>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="text-center py-8 px-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <Calendar className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                        <h4 className="text-sm font-medium text-gray-900 mb-1">Belum Ada Waktu yang Dipilih</h4>
+                        <p className="text-xs text-gray-500">
+                          Gunakan kalender atau tombol pemilihan cepat di atas untuk memilih tanggal dan waktu yang Anda inginkan.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Summary Footer */}
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  {(() => {
+                    const { totalHours, totalPrice } = getTotalHoursAndPrice(selectedDates, streamer.price);
+                    return (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">Total Durasi</p>
+                          <p className="text-lg font-semibold text-gray-900">{totalHours} jam</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Estimasi Total</p>
+                          <div>
+                            <p className="text-lg font-semibold text-gray-900">
+                              Rp {(totalPrice * 1.3).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-500">*harga belum termasuk pajak</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -1512,14 +2416,14 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           <div className="p-6 border-t border-gray-100 bg-white flex-shrink-0">
             <Button
               onClick={handleBooking}
-              disabled={!isMinimumBookingMet || !platform}
+              disabled={!isMinimumBookingMet() || !platform}
               className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium"
             >
               {!platform
-                ? 'Please select a platform'
-                : !isMinimumBookingMet
-                ? 'Select at least 2 hours'
-                : 'Proceed to Booking Details'
+                ? 'Silakan pilih platform'
+                : !isMinimumBookingMet()
+                ? 'Pilih minimal 2 jam'
+                : 'Lanjut ke Detail Pemesanan'
               }
             </Button>
           </div>

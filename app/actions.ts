@@ -827,17 +827,54 @@ export async function startStream(bookingId: number, streamLink: string) {
   const supabase = createClient();
 
   try {
-    // Fetch booking data first
+    // 1. Verify authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      throw new Error('Not authenticated');
+    }
+
+    // 2. Fetch booking data with streamer info
     const { data: bookingData, error: bookingFetchError } = await supabase
       .from('bookings')
-      .select('*, streamers(first_name, last_name)')
+      .select(`
+        *,
+        streamers!inner(
+          id,
+          user_id,
+          first_name,
+          last_name
+        )
+      `)
       .eq('id', bookingId)
       .single();
 
     if (bookingFetchError) throw bookingFetchError;
     if (!bookingData) throw new Error('Booking not found');
 
-    // Update the booking with the stream link and change status to 'live'
+    // 3. Verify authorization (streamer owns the booking)
+    if (bookingData.streamers.user_id !== user.id) {
+      throw new Error('Unauthorized to start this stream');
+    }
+
+    // 4. Verify booking status and items received
+    if (bookingData.status !== 'accepted') {
+      throw new Error('Booking must be in accepted status to start stream');
+    }
+    if (!bookingData.items_received) {
+      throw new Error('Items must be received before starting stream');
+    }
+
+    // 5. Validate stream link
+    if (!streamLink || !streamLink.trim()) {
+      throw new Error('Stream link is required');
+    }
+    try {
+      new URL(streamLink);
+    } catch {
+      throw new Error('Invalid stream link format');
+    }
+
+    // 6. Update the booking with optimistic locking
     const { error: updateError } = await supabase
       .from('bookings')
       .update({ 
@@ -845,30 +882,36 @@ export async function startStream(bookingId: number, streamLink: string) {
         status: 'live',
         updated_at: new Date().toISOString()
       })
-      .eq('id', bookingId);
+      .eq('id', bookingId)
+      .eq('status', 'accepted'); // Ensure status hasn't changed
 
     if (updateError) throw updateError;
 
-    // Get streamer name safely
-    const streamerName = bookingData.streamers?.first_name || 'Streamer';
-
-    // Create notification using the notification service to ensure proper type handling
-    await createStreamNotifications({
-      client_id: bookingData.client_id,
-      streamer_id: bookingData.streamer_id,
-      booking_id: bookingId,
-      streamer_name: bookingData.streamers.first_name,
-      start_time: format(new Date(bookingData.start_time), 'dd MMMM HH:mm'),
-      platform: bookingData.platform,
-      stream_link: streamLink,
-      type: 'stream_started'
-    });
+    // 7. Create notification
+    try {
+      await createStreamNotifications({
+        client_id: bookingData.client_id,
+        streamer_id: bookingData.streamer_id,
+        booking_id: bookingId,
+        streamer_name: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name}`,
+        start_time: format(new Date(bookingData.start_time), 'dd MMMM HH:mm'),
+        platform: bookingData.platform,
+        stream_link: streamLink,
+        type: 'stream_started'
+      });
+    } catch (notificationError) {
+      console.error('Failed to send notification:', notificationError);
+      // Don't throw here as the main operation succeeded
+    }
 
     revalidatePath('/streamer-dashboard');
     return { success: true, updatedBooking: bookingData };
   } catch (error) {
     console.error('Error starting stream:', error);
-    return { success: false, error: 'Failed to start stream: ' + (error instanceof Error ? error.message : String(error)) };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to start stream'
+    };
   }
 }
 
@@ -1021,16 +1064,30 @@ export async function acceptItems(bookingId: number) {
   const supabase = createClient();
   
   try {
+    // First verify authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      throw new Error('Not authenticated');
+    }
+
     // Fetch the booking first to get client and streamer details
     const { data: bookingData, error: bookingFetchError } = await supabase
       .from('bookings')
-      .select('*, streamers(first_name, last_name)')
+      .select('*, streamers(first_name, last_name, user_id)')
       .eq('id', bookingId)
       .single();
 
-    if (bookingFetchError) throw bookingFetchError;
+    if (bookingFetchError) {
+      throw new Error(`Failed to fetch booking: ${bookingFetchError.message}`);
+    }
 
-    // Update booking status
+    // Verify the streamer has permission to accept items for this booking
+    if (!bookingData || bookingData.streamers.user_id !== user.id) {
+      throw new Error('Unauthorized to accept items for this booking');
+    }
+
+    // Update booking status with optimistic locking
     const { error: updateError } = await supabase
       .from('bookings')
       .update({ 
@@ -1038,23 +1095,35 @@ export async function acceptItems(bookingId: number) {
         items_received_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      .eq('id', bookingId);
+      .eq('id', bookingId)
+      .eq('items_received', false) // Ensure item hasn't been received yet
+      .select();
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      throw new Error(`Failed to update booking: ${updateError.message}`);
+    }
 
     // Create notification with proper error handling
-    await createItemReceivedNotification({
-      client_id: bookingData.client_id,
-      streamer_id: bookingData.streamer_id,
-      booking_id: bookingId,
-      streamer_name: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name}`
-    });
+    try {
+      await createItemReceivedNotification({
+        client_id: bookingData.client_id,
+        streamer_id: bookingData.streamer_id,
+        booking_id: bookingId,
+        streamer_name: `${bookingData.streamers.first_name} ${bookingData.streamers.last_name}`
+      });
+    } catch (notificationError) {
+      console.error('Failed to send notification:', notificationError);
+      // Don't throw here, as the main operation succeeded
+    }
 
     revalidatePath('/streamer-dashboard');
     return { success: true };
   } catch (error) {
     console.error('Error accepting items:', error);
-    return { error: 'Failed to accept items: ' + (error instanceof Error ? error.message : String(error)) };
+    return { 
+      success: false,
+      error: error instanceof Error ? error.message : 'An unexpected error occurred'
+    };
   }
 }
 

@@ -52,11 +52,9 @@ const categories = [
 ];
 
 const carouselImages = [
-  "/images/ads.svg",
-  "/images/ads.svg",
-  "/images/ads.svg",
-  "/images/ads.svg",
-  "/images/ads.svg",
+  "/images/banner-salda-01.jpg",
+  "/images/banner-salda-02.jpg",
+  "/images/banner-salda-03.jpg",
 ];
 
 // Add these constants at the top

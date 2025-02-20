@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/client";
 import midtransClient from 'midtrans-client';
 import { createNotification, type NotificationType } from '@/services/notification-service';
 import { format } from 'date-fns';
+import crypto from 'crypto';
 
 // Initialize Snap client with proper error handling
 const snap = new midtransClient.Snap({
@@ -13,15 +14,27 @@ const snap = new midtransClient.Snap({
 export interface PaymentMetadata {
   streamerId: string;
   userId: string;
-  startTime: string;
-  endTime: string;
+  bookings: Array<{
+    date: string;
+    startTime: string;
+    endTime: string;
+    hours: number;
+    timeRanges: Array<{
+      start: string;
+      end: string;
+      duration: number;
+    }>;
+  }>;
+  timezone: string;
   platform: string;
-  specialRequest?: string;
-  sub_acc_link?: string;
-  sub_acc_pass?: string;
+  specialRequest: string;
+  sub_acc_link: string;
+  sub_acc_pass: string;
   firstName: string;
   lastName: string;
   price: number;
+  totalHours: number;
+  totalPrice: number;
   voucher: {
     id: string;
     code: string;
@@ -106,54 +119,131 @@ interface BookingResponse {
   client_last_name: string;
 }
 
-// Add a new function to create booking after successful payment
 export async function createBookingAfterPayment(
   result: any, 
   metadata: PaymentMetadata
-): Promise<BookingResponse> {
+): Promise<BookingResponse[]> {
   const supabase = createClient();
   
   try {
+    console.log('=== Debug: Creating Booking After Payment ===');
+    console.log('Raw Result:', JSON.stringify(result, null, 2));
+    console.log('Raw Metadata:', JSON.stringify(metadata, null, 2));
+    
     const transactionId = result.order_id || result.transaction_id;
     if (!transactionId) {
       throw new Error('Missing transaction ID in payment result');
     }
 
-    // Create booking first
-    const bookingInsert = {
-      client_id: metadata.userId,
-      streamer_id: parseInt(metadata.streamerId),
-      start_time: metadata.startTime,
-      end_time: metadata.endTime,
-      platform: metadata.platform,
-      status: 'pending',
-      special_request: metadata.specialRequest || null,
-      sub_acc_link: metadata.sub_acc_link || null,
-      sub_acc_pass: metadata.sub_acc_pass || null,
-      price: metadata.price,
-      client_first_name: metadata.firstName,
-      client_last_name: metadata.lastName,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      stream_link: null,
-      items_received: false,
-      items_received_at: null,
-      reason: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    // Create bookings array with proper time blocks
+    console.log('=== Processing Bookings ===');
+    const bookingInserts = metadata.bookings.map(booking => {
+      console.log('Processing booking:', JSON.stringify(booking, null, 2));
+      console.log('Time ranges from metadata:', JSON.stringify(booking.timeRanges, null, 2));
+      
+      // If no timeRanges, create a single booking
+      const timeBlocks = booking.timeRanges?.length ? booking.timeRanges : [{
+        start: booking.startTime.split('T')[1] || booking.startTime,
+        end: booking.endTime.split('T')[1] || booking.endTime,
+        duration: booking.hours
+      }];
+      
+      console.log('Generated time blocks:', JSON.stringify(timeBlocks, null, 2));
 
-    console.log('Inserting booking:', bookingInsert);
+      // Create a booking for each time block
+      return timeBlocks.map(block => {
+        // Create the full ISO string by combining date and time
+        const startTime = new Date(`${booking.date}T${block.start.split('T')[1] || block.start}`);
+        const endTime = new Date(`${booking.date}T${block.end.split('T')[1] || block.end}`);
 
-    // Insert booking
-    const { data: newBooking, error: bookingError } = await supabase
+        // Store the times in UTC format without any manual adjustments
+        const bookingData = {
+          client_id: metadata.userId,
+          streamer_id: parseInt(metadata.streamerId),
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          platform: metadata.platform,
+          status: 'pending',
+          special_request: metadata.specialRequest || null,
+          sub_acc_link: metadata.sub_acc_link || null,
+          sub_acc_pass: metadata.sub_acc_pass || null,
+          price: Math.round(metadata.finalPrice / metadata.bookings.length / (timeBlocks.length || 1)),
+          client_first_name: metadata.firstName,
+          client_last_name: metadata.lastName,
+          timezone: metadata.timezone, // Store the original timezone
+          stream_link: null,
+          items_received: false,
+          items_received_at: null,
+          reason: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        console.log('Created booking data:', JSON.stringify(bookingData, null, 2));
+        return bookingData;
+      });
+    }).flat();
+
+    console.log('=== Final Booking Data ===');
+    console.log('Number of bookings to create:', bookingInserts.length);
+    console.log('Final booking inserts:', JSON.stringify(bookingInserts, null, 2));
+
+    // Insert all bookings first
+    const { data: newBookings, error: bookingError } = await supabase
       .from('bookings')
-      .insert([bookingInsert])
-      .select()
-      .single();
+      .insert(bookingInserts)
+      .select();
 
     if (bookingError) {
       console.error('Booking creation error:', bookingError);
       throw bookingError;
+    }
+
+    if (!newBookings || newBookings.length === 0) {
+      console.error('No bookings were created');
+      throw new Error('Failed to create bookings');
+    }
+
+    console.log('Successfully created bookings:', JSON.stringify(newBookings, null, 2));
+
+    // Create payment record with the first booking's ID
+    const paymentInsert = {
+      booking_id: newBookings[0].id,
+      amount: metadata.finalPrice,
+      status: 'success',
+      payment_method: 'midtrans',
+      transaction_id: transactionId,
+      payment_token: result.token || null,
+      payment_url: result.redirect_url || null,
+      payment_status: 'settlement',
+      midtrans_response: result,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Insert payment and get the created payment record
+    const { data: newPayment, error: paymentError } = await supabase
+      .from('payments')
+      .insert([paymentInsert])
+      .select()
+      .single();
+
+    if (paymentError || !newPayment) {
+      console.error('Payment record creation error:', paymentError);
+      throw paymentError || new Error('Failed to create payment record');
+    }
+
+    console.log('Successfully created payment:', JSON.stringify(newPayment, null, 2));
+
+    // Update all bookings with the payment's ID as the payment_group_id
+    const { error: updateError } = await supabase
+      .from('bookings')
+      .update({ payment_group_id: newPayment.id })
+      .in('id', newBookings.map(b => b.id));
+
+    if (updateError) {
+      console.error('Error updating bookings with payment ID:', updateError);
+      throw updateError;
     }
 
     // Handle voucher if present
@@ -162,10 +252,10 @@ export async function createBookingAfterPayment(
         .from('voucher_usage')
         .insert({
           voucher_id: metadata.voucher.id,
-          booking_id: newBooking.id,
+          booking_id: newBookings[0].id,
           user_id: metadata.userId,
           discount_applied: metadata.voucher.discountAmount,
-          original_price: metadata.price,
+          original_price: metadata.totalPrice,
           final_price: metadata.finalPrice,
           used_at: new Date().toISOString()
         });
@@ -186,53 +276,34 @@ export async function createBookingAfterPayment(
       }
     }
 
-    // Create payment record
-    const paymentInsert = {
-      booking_id: newBooking.id,
-      amount: metadata.finalPrice,
-      status: 'success',
-      payment_method: 'midtrans',
-      transaction_id: transactionId,
-      payment_token: result.token || null,
-      payment_url: result.redirect_url || null,
-      midtrans_response: result,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    // Create notifications for each booking
+    for (const booking of newBookings) {
+      const bookingDate = format(new Date(booking.start_time), 'dd MMMM HH:mm');
+      
+      await createNotification({
+        user_id: metadata.userId,
+        streamer_id: parseInt(metadata.streamerId),
+        message: `Payment confirmed for your booking on ${bookingDate}. Menunggu streamer menerima pesanan Anda.`,
+        type: 'booking_payment',
+        booking_id: booking.id,
+        is_read: false
+      });
 
-    const { error: paymentError } = await supabase
-      .from('payments')
-      .insert([paymentInsert]);
-
-    if (paymentError) {
-      console.error('Payment record creation error:', paymentError);
-      throw paymentError;
+      await createNotification({
+        streamer_id: parseInt(metadata.streamerId),
+        message: `New booking request from ${metadata.firstName} for ${bookingDate}. Payment confirmed.`,
+        type: 'booking_payment',
+        booking_id: booking.id,
+        is_read: false
+      });
     }
 
-    // Create notifications using simplified approach
-    await createNotification({
-      user_id: metadata.userId,
-      streamer_id: parseInt(metadata.streamerId),
-      message: `Payment confirmed for your booking on ${format(new Date(metadata.startTime), 'dd MMMM HH:mm')}. Menunggu streamer menerima pesanan Anda.`,
-      type: 'booking_payment',
-      booking_id: newBooking.id,
-      is_read: false
-    });
-
-    await createNotification({
-      streamer_id: parseInt(metadata.streamerId),
-      message: `New booking request from ${metadata.firstName} for ${format(new Date(metadata.startTime), 'dd MMMM HH:mm')}. Payment confirmed.`,
-      type: 'booking_payment',
-      booking_id: newBooking.id,
-      is_read: false
-    });
-
-    return {
-      id: newBooking.id,
-      client_id: newBooking.client_id,
-      client_first_name: newBooking.client_first_name,
-      client_last_name: newBooking.client_last_name
-    };
+    return newBookings.map(booking => ({
+      id: booking.id,
+      client_id: booking.client_id,
+      client_first_name: booking.client_first_name,
+      client_last_name: booking.client_last_name
+    }));
 
   } catch (error) {
     console.error('Error in createBookingAfterPayment:', error);
