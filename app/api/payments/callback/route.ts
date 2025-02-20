@@ -1,10 +1,23 @@
 import { NextResponse } from 'next/server';
-import { createBookingAfterPayment } from '@/services/payment/payment-service';
+import { createBookingAfterPayment, type PaymentMetadata } from '@/services/payment/payment-service';
+
+// Add these interfaces at the top of the file
+interface Booking {
+  date: string;
+  timeRanges: string[];
+  startTime: string;
+  endTime: string;
+}
+
+interface PaymentCallbackBody {
+  result: any; // You can make this more specific based on your payment provider's response type
+  metadata: PaymentMetadata;
+}
 
 export async function POST(request: Request) {
   try {
     console.log('=== Payment Callback Start ===');
-    const body = await request.json();
+    const body: PaymentCallbackBody = await request.json();
     console.log('Raw callback body:', JSON.stringify(body, null, 2));
 
     const { result, metadata } = body;
