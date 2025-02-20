@@ -124,6 +124,14 @@ interface PriceUpdateResult {
   discount_percentage: number | null;
 }
 
+// Add new interface for gallery photos
+interface GalleryPhoto {
+  id?: string;
+  url: string;
+  isNew: boolean;
+  file?: File;
+}
+
 // Create a separate component for the settings content
 function SettingsContent() {
   const router = useRouter();
@@ -140,8 +148,7 @@ function SettingsContent() {
   const [userType, setUserType] = useState<'streamer' | 'client' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
-  const [newGalleryPhotos, setNewGalleryPhotos] = useState<File[]>([]);
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [isLoading, setIsLoading] = useState(false); // New state for loading
   const [location, setLocation] = useState("");
   const [newBrandGuideline, setNewBrandGuideline] = useState<File | null>(null);
@@ -256,11 +263,17 @@ function SettingsContent() {
           // Fetch gallery photos
           const { data: galleryData } = await supabase
             .from('streamer_gallery_photos')
-            .select('photo_url')
+            .select('id, photo_url')
             .eq('streamer_id', streamerData.id)
             .order('order_number');
 
-          setGalleryPhotos(galleryData?.map(item => item.photo_url) || []);
+          setGalleryPhotos(
+            galleryData?.map(item => ({
+              id: item.id,
+              url: item.photo_url,
+              isNew: false
+            })) || []
+          );
         }
       } else {
         // Regular user data fetch for clients
@@ -326,11 +339,17 @@ function SettingsContent() {
         formData.append('category', category);
         formData.append('fullAddress', fullAddress);
         
-        newGalleryPhotos.forEach((photo) => {
-          formData.append('gallery', photo);
+        galleryPhotos.forEach(photo => {
+          if (photo.isNew && photo.file) {
+            formData.append('gallery', photo.file);
+          }
         });
         
-        formData.append('existingGalleryPhotos', JSON.stringify(galleryPhotos));
+        formData.append('existingGalleryPhotos', JSON.stringify(
+          galleryPhotos
+            .filter(photo => !photo.isNew)
+            .map(photo => photo.url)
+        ));
 
         // Add new fields
         formData.append('gender', gender);
@@ -419,24 +438,33 @@ function SettingsContent() {
   const handleGalleryPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const remainingSlots = maxGalleryPhotos - (galleryPhotos.length + newGalleryPhotos.length);
+      const remainingSlots = maxGalleryPhotos - galleryPhotos.length;
       if (remainingSlots <= 0) {
         setGalleryError(`Maximum ${maxGalleryPhotos} photos allowed`);
         return;
       }
 
       const newPhotos = Array.from(files).slice(0, remainingSlots);
-      setNewGalleryPhotos(prev => [...prev, ...newPhotos]);
+      setGalleryPhotos(prev => [
+        ...prev,
+        ...newPhotos.map(file => ({
+          url: URL.createObjectURL(file),
+          isNew: true,
+          file: file
+        }))
+      ]);
       setGalleryError('');
     }
   };
 
-  const removeGalleryPhoto = (index: number, isNew: boolean = false) => {
-    if (isNew) {
-      setNewGalleryPhotos(prev => prev.filter((_, i) => i !== index));
-    } else {
-      setGalleryPhotos(prev => prev.filter((_, i) => i !== index));
-    }
+  const removeGalleryPhoto = (index: number) => {
+    setGalleryPhotos(prev => {
+      const photo = prev[index];
+      if (photo.isNew && photo.url) {
+        URL.revokeObjectURL(photo.url);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleBackNavigation = () => {
@@ -936,13 +964,13 @@ function SettingsContent() {
                                 onChange={handleGalleryPhotoChange}
                                 accept="image/*"
                                 multiple
-                                disabled={galleryPhotos.length + newGalleryPhotos.length >= maxGalleryPhotos}
+                                disabled={galleryPhotos.length >= maxGalleryPhotos}
                               />
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mt-4">
                                 {galleryPhotos.map((photo, index) => (
                                   <div key={index} className="relative aspect-square">
                                     <Image
-                                      src={photo}
+                                      src={photo.url}
                                       alt={`Gallery photo ${index + 1}`}
                                       width={200}
                                       height={200}
@@ -951,24 +979,6 @@ function SettingsContent() {
                                     <button
                                       type="button"
                                       onClick={() => removeGalleryPhoto(index)}
-                                      className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
-                                    >
-                                      <XCircle className="h-5 w-5 text-red-500" />
-                                    </button>
-                                  </div>
-                                ))}
-                                {newGalleryPhotos.map((photo, index) => (
-                                  <div key={`new-${index}`} className="relative aspect-square">
-                                    <Image
-                                      src={URL.createObjectURL(photo)}
-                                      alt={`New gallery photo ${index + 1}`}
-                                      width={200}
-                                      height={200}
-                                      className="w-full h-full object-cover rounded-lg"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => removeGalleryPhoto(index, true)}
                                       className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
                                     >
                                       <XCircle className="h-5 w-5 text-red-500" />

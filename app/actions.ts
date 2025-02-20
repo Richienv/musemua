@@ -460,44 +460,81 @@ export async function streamerSignUpAction(formData: FormData): Promise<SignUpRe
 
       profileImageUrl = publicUrl;
 
-      // Handle gallery photos upload
+      // Sequential gallery photos upload with retry mechanism
       const galleryFiles = formData.getAll('gallery') as File[];
-      const galleryUrls = await Promise.all(
-        galleryFiles.map(async (file, index) => {
-          const galleryFileName = `${timestamp}-gallery`;
-          const galleryPath = `streamers/${user.id}/${galleryFileName}`;
+      const uploadedGalleryUrls: { url: string; order_number: number }[] = [];
+      const maxRetries = 3;
 
-          console.log('Uploading gallery image:', {
-            galleryPath,
-            fileType: file.type,
-            fileSize: file.size
-          });
+      for (let i = 0; i < galleryFiles.length; i++) {
+        const file = galleryFiles[i];
+        let retryCount = 0;
+        let uploadSuccess = false;
 
-          const { error: uploadError } = await supabase.storage
-            .from('gallery_images')
-            .upload(galleryPath, file, {
-              cacheControl: '3600',
-              upsert: true,
-              contentType: file.type
+        while (retryCount < maxRetries && !uploadSuccess) {
+          try {
+            const galleryFileName = `${timestamp}-gallery-${i}`;
+            const galleryPath = `streamers/${user.id}/${galleryFileName}`;
+
+            console.log(`Uploading gallery image ${i + 1}/${galleryFiles.length}:`, {
+              galleryPath,
+              fileType: file.type,
+              fileSize: file.size,
+              retryAttempt: retryCount + 1
             });
 
-          if (uploadError) {
-            console.error('Gallery upload error:', uploadError);
-            throw new Error(`Failed to upload gallery image ${index + 1}: ${uploadError.message}`);
+            const { error: uploadError } = await supabase.storage
+              .from('gallery_images')
+              .upload(galleryPath, file, {
+                cacheControl: '3600',
+                upsert: true,
+                contentType: file.type
+              });
+
+            if (uploadError) {
+              throw uploadError;
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('gallery_images')
+              .getPublicUrl(galleryPath);
+
+            uploadedGalleryUrls.push({
+              url: publicUrl,
+              order_number: i
+            });
+
+            uploadSuccess = true;
+            console.log(`Successfully uploaded gallery image ${i + 1}/${galleryFiles.length}`);
+
+          } catch (error) {
+            console.error(`Error uploading gallery image ${i + 1}, attempt ${retryCount + 1}:`, error);
+            retryCount++;
+
+            if (retryCount === maxRetries) {
+              // If all retries failed, clean up previously uploaded files and throw error
+              console.error(`Failed to upload gallery image ${i + 1} after ${maxRetries} attempts`);
+              
+              // Clean up previously uploaded gallery images
+              await Promise.all(uploadedGalleryUrls.map(async (photo) => {
+                const pathParts = new URL(photo.url).pathname.split('/');
+                const fileName = pathParts[pathParts.length - 1];
+                const filePath = `streamers/${user.id}/${fileName}`;
+                
+                await supabase.storage
+                  .from('gallery_images')
+                  .remove([filePath]);
+              }));
+
+              throw new Error(`Failed to upload gallery image ${i + 1} after ${maxRetries} attempts`);
+            }
+
+            // Wait before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
           }
+        }
+      }
 
-          const { data: { publicUrl } } = supabase.storage
-            .from('gallery_images')
-            .getPublicUrl(galleryPath);
-
-          return {
-            url: publicUrl,
-            order_number: index
-          };
-        })
-      );
-
-      // Create user record
+      // Begin database transaction
       const { error: userError } = await supabase
         .from('users')
         .insert({
@@ -538,21 +575,34 @@ export async function streamerSignUpAction(formData: FormData): Promise<SignUpRe
 
       if (streamerError) throw streamerError;
 
-      // Add gallery photos to database
-      if (galleryUrls.length > 0) {
+      // Add gallery photos to database with error handling
+      if (uploadedGalleryUrls.length > 0) {
         const { error: galleryError } = await supabase
           .from('streamer_gallery_photos')
           .insert(
-            galleryUrls.map((photo, index) => ({
+            uploadedGalleryUrls.map(photo => ({
               streamer_id: streamerData.id,
               photo_url: photo.url,
-              order_number: index,
+              order_number: photo.order_number,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             }))
           );
 
-        if (galleryError) throw galleryError;
+        if (galleryError) {
+          // If gallery database insert fails, clean up uploaded files
+          await Promise.all(uploadedGalleryUrls.map(async (photo) => {
+            const pathParts = new URL(photo.url).pathname.split('/');
+            const fileName = pathParts[pathParts.length - 1];
+            const filePath = `streamers/${user.id}/${fileName}`;
+            
+            await supabase.storage
+              .from('gallery_images')
+              .remove([filePath]);
+          }));
+
+          throw galleryError;
+        }
       }
 
       return {
@@ -584,7 +634,7 @@ export async function updateStreamerProfile(formData: FormData): Promise<Streame
     let imageUrl;
     const image = formData.get('image') as File;
     if (image && image.size > 0) {
-      const fileName = `${user.id}/${Date.now()}_${image.name}`;
+      const fileName = `${user.id}/${Date.now()}_${sanitizeFileName(image.name)}`;
       const filePath = fileName;
 
       const { error: uploadError } = await supabase.storage
@@ -617,7 +667,7 @@ export async function updateStreamerProfile(formData: FormData): Promise<Streame
       ...(imageUrl && { image_url: imageUrl }),
     };
 
-    console.log('Updating streamer profile with data:', updateData); // Debug log
+    console.log('Updating streamer profile with data:', updateData);
 
     const { error: updateError } = await supabase
       .from('streamers')
@@ -638,94 +688,154 @@ export async function updateStreamerProfile(formData: FormData): Promise<Streame
 
     if (streamerError) throw streamerError;
 
-    // Handle gallery photos
+    // Handle gallery photos with sequential upload and retry mechanism
     const existingPhotos = JSON.parse(formData.get('existingGalleryPhotos') as string || '[]');
+    const galleryFiles = formData.getAll('gallery') as File[];
+    const maxRetries = 3;
+    const uploadedGalleryUrls: string[] = [];
     
-    // First, delete existing gallery photos from storage
-    const { data: existingFiles, error: listError } = await supabase.storage
-      .from('gallery_images')
-      .list(`${user.id}`);
+    try {
+      // First, delete existing gallery photos from storage
+      const { data: existingFiles, error: listError } = await supabase.storage
+        .from('gallery_images')
+        .list(`${user.id}`);
 
-    if (!listError && existingFiles) {
-      for (const file of existingFiles) {
+      if (!listError && existingFiles) {
+        await Promise.all(existingFiles.map(file => 
+          supabase.storage
+            .from('gallery_images')
+            .remove([`${user.id}/${file.name}`])
+        ));
+      }
+
+      // Delete existing gallery photo records
+      await supabase
+        .from('streamer_gallery_photos')
+        .delete()
+        .eq('streamer_id', streamerData.id);
+
+      // Sequential upload of new gallery photos with retry mechanism
+      for (let i = 0; i < galleryFiles.length; i++) {
+        const file = galleryFiles[i];
+        let retryCount = 0;
+        let uploadSuccess = false;
+
+        while (retryCount < maxRetries && !uploadSuccess) {
+          try {
+            const fileName = `${user.id}/${Date.now()}_${sanitizeFileName(file.name)}`;
+            
+            console.log(`Uploading gallery image ${i + 1}/${galleryFiles.length}:`, {
+              fileName,
+              fileType: file.type,
+              fileSize: file.size,
+              retryAttempt: retryCount + 1
+            });
+
+            const { error: uploadError } = await supabase.storage
+              .from('gallery_images')
+              .upload(fileName, file, {
+                cacheControl: '3600',
+                upsert: true,
+                contentType: file.type
+              });
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('gallery_images')
+              .getPublicUrl(fileName);
+
+            uploadedGalleryUrls.push(publicUrl);
+            uploadSuccess = true;
+            console.log(`Successfully uploaded gallery image ${i + 1}/${galleryFiles.length}`);
+
+          } catch (error) {
+            console.error(`Error uploading gallery image ${i + 1}, attempt ${retryCount + 1}:`, error);
+            retryCount++;
+
+            if (retryCount === maxRetries) {
+              // If all retries failed, clean up previously uploaded files
+              console.error(`Failed to upload gallery image ${i + 1} after ${maxRetries} attempts`);
+              
+              // Clean up previously uploaded gallery images
+              await Promise.all(uploadedGalleryUrls.map(async (url) => {
+                const pathParts = new URL(url).pathname.split('/');
+                const fileName = pathParts[pathParts.length - 1];
+                const filePath = `${user.id}/${fileName}`;
+                
+                await supabase.storage
+                  .from('gallery_images')
+                  .remove([filePath]);
+              }));
+
+              throw new Error(`Failed to upload gallery image ${i + 1} after ${maxRetries} attempts`);
+            }
+
+            // Wait before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+          }
+        }
+      }
+
+      // Combine existing and new photos
+      const allPhotos = [...existingPhotos, ...uploadedGalleryUrls];
+      
+      // Insert all gallery photos with proper error handling
+      if (allPhotos.length > 0) {
+        const galleryInserts = allPhotos.map((photo_url, index) => ({
+          streamer_id: streamerData.id,
+          photo_url,
+          order_number: index + 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }));
+
+        const { error: galleryError } = await supabase
+          .from('streamer_gallery_photos')
+          .insert(galleryInserts);
+
+        if (galleryError) {
+          // If gallery database insert fails, clean up uploaded files
+          await Promise.all(uploadedGalleryUrls.map(async (url) => {
+            const pathParts = new URL(url).pathname.split('/');
+            const fileName = pathParts[pathParts.length - 1];
+            const filePath = `${user.id}/${fileName}`;
+            
+            await supabase.storage
+              .from('gallery_images')
+              .remove([filePath]);
+          }));
+
+          throw galleryError;
+        }
+      }
+
+      return {
+        success: true,
+        imageUrl: imageUrl
+      };
+
+    } catch (error) {
+      // Clean up any uploaded files if there's an error
+      await Promise.all(uploadedGalleryUrls.map(async (url) => {
+        const pathParts = new URL(url).pathname.split('/');
+        const fileName = pathParts[pathParts.length - 1];
+        const filePath = `${user.id}/${fileName}`;
+        
         await supabase.storage
           .from('gallery_images')
-          .remove([`${user.id}/${file.name}`]);
-      }
+          .remove([filePath]);
+      }));
+
+      throw error;
     }
-
-    // Delete existing gallery photo records
-    await supabase
-      .from('streamer_gallery_photos')
-      .delete()
-      .eq('streamer_id', streamerData.id);
-
-    // Upload new gallery photos
-    const newGalleryUrls = [];
-    const galleryFiles = formData.getAll('gallery') as File[];
-    
-    console.log('Gallery files to upload:', galleryFiles); // Debug log
-
-    for (const photo of galleryFiles) {
-      const fileName = `${user.id}/${Date.now()}_${photo.name}`;
-      
-      console.log('Uploading file:', fileName); // Debug log
-      
-      const { error: uploadError, data: uploadData } = await supabase.storage
-        .from('gallery_images')
-        .upload(fileName, photo, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: photo.type
-        });
-
-      if (uploadError) {
-        console.error('Gallery upload error:', uploadError);
-        continue;
-      }
-
-      console.log('Upload successful:', uploadData); // Debug log
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('gallery_images')
-        .getPublicUrl(fileName);
-      
-      newGalleryUrls.push(publicUrl);
-    }
-
-    console.log('New gallery URLs:', newGalleryUrls); // Debug log
-
-    // Insert all gallery photos
-    const allPhotos = [...existingPhotos, ...newGalleryUrls];
-    const galleryInserts = allPhotos.map((photo_url, index) => ({
-      streamer_id: streamerData.id,
-      photo_url,
-      order_number: index + 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }));
-
-    if (galleryInserts.length > 0) {
-      console.log('Inserting gallery records:', galleryInserts); // Debug log
-      
-      const { error: galleryError } = await supabase
-        .from('streamer_gallery_photos')
-        .insert(galleryInserts);
-
-      if (galleryError) {
-        console.error('Gallery insert error:', galleryError);
-        throw galleryError;
-      }
-    }
-
-    return {
-      success: true,
-      imageUrl: imageUrl
-    };
 
   } catch (error) {
     console.error('Error updating streamer profile:', error);
-    return { success: false, error: 'Failed to update profile' };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to update profile' 
+    };
   }
 }
 
