@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Bell, ArrowLeft, CheckCheck } from "lucide-react";
+import { Bell, ArrowLeft, CheckCheck, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/client";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { type NotificationType } from '@/services/notification-service';
+import { getNotificationMessage } from '@/services/notification-templates';
+import React from 'react';
 
 interface Notification {
   id: string;
@@ -19,6 +21,21 @@ interface Notification {
   metadata?: Record<string, any>;
   booking_id?: number;
   streamer_id?: number;
+  bookings?: {
+    id: number;
+    client_id: string;
+    streamer_id: number;
+    start_time: string;
+    end_time: string;
+    platform: string;
+    stream_link?: string;
+    client_first_name: string;
+    client_last_name: string;
+    streamer?: {
+      first_name: string;
+      last_name: string;
+    };
+  };
 }
 
 interface NotificationGroup {
@@ -26,11 +43,16 @@ interface NotificationGroup {
   notifications: Notification[];
 }
 
+interface ExpandedState {
+  [key: string]: boolean;
+}
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
   const supabase = createClient();
+  const [expandedNotifications, setExpandedNotifications] = useState<ExpandedState>({});
 
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
@@ -147,6 +169,37 @@ export default function NotificationsPage() {
     }
   };
 
+  const calculateDuration = (start: Date, end: Date): number => {
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+  };
+
+  const formatNotificationMessage = (notification: any, userType: 'client' | 'streamer'): string => {
+    if (!notification) return '';
+
+    if (notification.bookings) {
+      const booking = notification.bookings;
+      const startTime = new Date(booking.start_time);
+      const endTime = new Date(booking.end_time);
+      const duration = calculateDuration(startTime, endTime);
+      
+      const templateData = {
+        streamer_name: `${booking.streamer?.first_name} ${booking.streamer?.last_name}`,
+        client_name: `${booking.client_first_name} ${booking.client_last_name}`,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        platform: booking.platform,
+        duration,
+        message: notification.message,
+        reason: booking.reason,
+        stream_link: booking.stream_link
+      };
+
+      return getNotificationMessage(notification.type, userType, templateData);
+    }
+
+    return getNotificationMessage(notification.type, userType, { message: notification.message });
+  };
+
   const fetchNotifications = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -162,7 +215,31 @@ export default function NotificationsPage() {
 
       let query = supabase
         .from('notifications')
-        .select('*')
+        .select(`
+          id,
+          user_id,
+          streamer_id,
+          message,
+          type,
+          created_at,
+          is_read,
+          booking_id,
+          bookings (
+            id,
+            client_id,
+            streamer_id,
+            start_time,
+            end_time,
+            platform,
+            stream_link,
+            client_first_name,
+            client_last_name,
+            streamer:streamers (
+              first_name,
+              last_name
+            )
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (userData.user_type === 'streamer') {
@@ -173,10 +250,12 @@ export default function NotificationsPage() {
           .single();
 
         if (streamerData) {
-          query = query.or(`streamer_id.eq.${streamerData.id},user_id.eq.${user.id}`);
+          query = query
+            .or(`streamer_id.eq.${streamerData.id},user_id.eq.${user.id}`);
         }
       } else {
-        query = query.eq('user_id', user.id);
+        query = query
+          .eq('user_id', user.id);
       }
 
       const { data: notifications, error } = await query;
@@ -186,8 +265,25 @@ export default function NotificationsPage() {
         return;
       }
 
-      setNotifications(notifications || []);
-      setUnreadCount(notifications?.filter(n => !n.is_read).length || 0);
+      console.log('Raw notifications data:', notifications);
+      
+      const processedNotifications = (notifications as any[])?.map(notification => {
+        const message = formatNotificationMessage(notification, userData.user_type as 'client' | 'streamer');
+        console.log('Processing notification:', {
+          id: notification.id,
+          type: notification.type,
+          bookingData: notification.bookings,
+          streamLink: notification.bookings?.stream_link,
+          formattedMessage: message
+        });
+        return {
+          ...notification,
+          message
+        } as Notification;
+      }) || [];
+
+      setNotifications(processedNotifications);
+      setUnreadCount(processedNotifications.filter(n => !n.is_read).length);
     } catch (error) {
       console.error('Error in fetchNotifications:', error);
     }
@@ -216,10 +312,18 @@ export default function NotificationsPage() {
     };
   }, []);
 
+  const toggleNotificationExpansion = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setExpandedNotifications(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-10">
+      <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-[var(--z-navbar)]">
         <div className="h-14 px-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button 
@@ -256,15 +360,17 @@ export default function NotificationsPage() {
         ) : (
           groupNotifications(notifications).map((group) => (
             <div key={group.title} className="mb-2">
-              <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-600 sticky top-14 z-10">
+              <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-600 sticky top-14 z-[var(--z-sticky)]">
                 {group.title}
               </div>
               {group.notifications.map((notification) => (
                 <div 
                   key={notification.id} 
-                  className={`px-4 py-3 border-b border-gray-100 active:bg-gray-50
-                    ${!notification.is_read ? 'bg-blue-50/60' : ''}`}
-                  onClick={() => handleNotificationSeen(notification.id)}
+                  className={`notification-item px-4 py-3 border-b border-gray-100 ${
+                    !notification.is_read ? 'bg-blue-50/60' : ''
+                  } ${
+                    expandedNotifications[notification.id] ? 'expanded' : ''
+                  }`}
                 >
                   <div className="flex gap-3">
                     <span className="text-xl flex-shrink-0 w-8 h-8 flex items-center justify-center">
@@ -275,16 +381,75 @@ export default function NotificationsPage() {
                         <h4 className="font-medium text-sm text-gray-900 truncate">
                           {getNotificationTitle(notification.type)}
                         </h4>
-                        <time className="text-xs text-gray-500 whitespace-nowrap">
-                          {format(new Date(notification.created_at), 'HH:mm', { locale: id })}
-                        </time>
+                        <div className="flex items-center gap-2">
+                          <time className="text-xs text-gray-500 whitespace-nowrap">
+                            {format(new Date(notification.created_at), 'HH:mm', { locale: id })}
+                          </time>
+                          <button
+                            onClick={(e) => toggleNotificationExpansion(notification.id, e)}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            {expandedNotifications[notification.id] ? (
+                              <ChevronUp className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-gray-500" />
+                            )}
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {format(new Date(notification.created_at), 'dd MMM yyyy', { locale: id })}
-                      </p>
+                      <div 
+                        className={`notification-content ${
+                          expandedNotifications[notification.id] ? 'max-h-96' : 'max-h-12'
+                        }`}
+                      >
+                        <p className={`text-sm text-gray-600 mt-0.5 ${
+                          expandedNotifications[notification.id] ? '' : 'notification-preview'
+                        }`}>
+                          {notification.type === 'stream_started' && notification.bookings?.stream_link ? (
+                            <>
+                              {notification.message.split(notification.bookings?.stream_link || '').map((part, index, array) => {
+                                if (index === array.length - 1) {
+                                  return <span key={index}>{part}</span>;
+                                }
+                                const streamLink = notification.bookings?.stream_link;
+                                if (!streamLink) return null;
+                                return (
+                                  <React.Fragment key={index}>
+                                    {part}
+                                    <a 
+                                      href={streamLink} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(streamLink, '_blank');
+                                      }}
+                                    >
+                                      {streamLink}
+                                    </a>
+                                  </React.Fragment>
+                                );
+                              })}
+                            </>
+                          ) : (
+                            notification.message
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-gray-400">
+                          {format(new Date(notification.created_at), 'dd MMM yyyy', { locale: id })}
+                        </p>
+                        {!notification.is_read && (
+                          <button
+                            onClick={() => handleNotificationSeen(notification.id)}
+                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            Tandai Dibaca
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {!notification.is_read && (
                       <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />

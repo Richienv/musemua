@@ -2439,11 +2439,16 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           <DialogContent 
             className="max-w-2xl w-full h-[85vh] overflow-y-auto z-[9999] fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] p-6 dialog-content-mobile"
           >
-            <DialogHeader className="bg-white pb-4">
-              <DialogTitle>Streamer Profile</DialogTitle>
-              <DialogDescription>
-                View detailed information about this streamer
-              </DialogDescription>
+            <DialogHeader className="bg-white pb-4 flex flex-row items-start justify-between">
+              <div>
+                <DialogTitle className="text-xl font-semibold text-gray-900">Streamer Profile</DialogTitle>
+                <DialogDescription className="text-sm text-gray-500 mt-1">
+                  View detailed information about this streamer
+                </DialogDescription>
+              </div>
+              <DialogClose className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <X className="h-5 w-5 text-gray-500" />
+              </DialogClose>
             </DialogHeader>
             
             {isLoadingProfile ? (

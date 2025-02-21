@@ -1483,6 +1483,8 @@ function IDCard({ userId, streamerId, firstName, stats, joinDate, rating, galler
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -1490,165 +1492,277 @@ function IDCard({ userId, streamerId, firstName, stats, joinDate, rating, galler
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
-      <div className="p-4 sm:p-6">
-        <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
-          {/* Left Column - Info */}
-          <div className="flex-1 space-y-4 lg:space-y-6 lg:border-r lg:border-gray-100 lg:pr-12">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900">{firstName}</h3>
-                  <p className="text-xs sm:text-sm text-gray-500 mt-1">Joined {format(new Date(joinDate), 'MMMM d, yyyy')}</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs sm:text-sm text-gray-600">User ID:</span>
-                    <code className="bg-gray-100 px-2 py-1 rounded text-xs sm:text-sm font-mono truncate max-w-[150px] sm:max-w-none">{userId}</code>
-                    <button
-                      onClick={() => copyToClipboard(userId, 'user')}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      {copiedId === 'user' ? (
-                        <span className="text-green-500 text-xs">Copied!</span>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
+  const openGalleryModal = (index: number = 0) => {
+    setSelectedPhotoIndex(index);
+    setIsGalleryModalOpen(true);
+  };
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs sm:text-sm text-gray-600">Streamer ID:</span>
-                    <code className="bg-gray-100 px-2 py-1 rounded text-xs sm:text-sm font-mono">{streamerId}</code>
-                    <button
-                      onClick={() => copyToClipboard(streamerId.toString(), 'streamer')}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      {copiedId === 'streamer' ? (
-                        <span className="text-green-500 text-xs">Copied!</span>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      )}
-                    </button>
+  const handleNextPhoto = () => {
+    setSelectedPhotoIndex((prev) => 
+      prev === galleryPhotos.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  const handlePrevPhoto = () => {
+    setSelectedPhotoIndex((prev) => 
+      prev === 0 ? galleryPhotos.length - 1 : prev - 1
+    );
+  };
+
+  return (
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
+            {/* Left Column - Info */}
+            <div className="flex-1 space-y-4 lg:space-y-6 lg:border-r lg:border-gray-100 lg:pr-12">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">{firstName}</h3>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">Joined {format(new Date(joinDate), 'MMMM d, yyyy')}</p>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm text-gray-600">User ID:</span>
+                      <code className="bg-gray-100 px-2 py-1 rounded text-xs sm:text-sm font-mono truncate max-w-[150px] sm:max-w-none">{userId}</code>
+                      <button
+                        onClick={() => copyToClipboard(userId, 'user')}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        {copiedId === 'user' ? (
+                          <span className="text-green-500 text-xs">Copied!</span>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm text-gray-600">Streamer ID:</span>
+                      <code className="bg-gray-100 px-2 py-1 rounded text-xs sm:text-sm font-mono">{streamerId}</code>
+                      <button
+                        onClick={() => copyToClipboard(streamerId.toString(), 'streamer')}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        {copiedId === 'streamer' ? (
+                          <span className="text-green-500 text-xs">Copied!</span>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Basic Stats */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+                  <p className="text-xs sm:text-sm text-gray-500">Rating</p>
+                  <p className="text-base sm:text-lg font-semibold mt-1">{rating.toFixed(1)}/5.0</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+                  <p className="text-xs sm:text-sm text-gray-500">Total Hours</p>
+                  <p className="text-base sm:text-lg font-semibold mt-1">{Math.round(stats.totalLiveHours)} hrs</p>
                 </div>
               </div>
             </div>
 
-            {/* Basic Stats */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-4">
-              <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
-                <p className="text-xs sm:text-sm text-gray-500">Rating</p>
-                <p className="text-base sm:text-lg font-semibold mt-1">{rating.toFixed(1)}/5.0</p>
+            {/* Right Column - Gallery and Buttons */}
+            <div className="w-full lg:w-[400px] lg:pl-12">
+              {/* Gallery Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm sm:text-base font-semibold text-gray-900">Galeri Photo Kamu</h3>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 relative">
+                  {galleryPhotos.slice(0, 3).map((photo, index) => (
+                    <div 
+                      key={photo.id} 
+                      className="relative aspect-square cursor-pointer group"
+                      onClick={() => openGalleryModal(index)}
+                    >
+                      <img 
+                        src={photo.photo_url}
+                        alt={`Gallery image ${index + 1}`}
+                        className="rounded-xl w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+                    </div>
+                  ))}
+                  {galleryPhotos.length > 3 && (
+                    <div 
+                      className="absolute right-0 bottom-0 w-[calc(33.33%-4px)] aspect-square rounded-xl overflow-hidden cursor-pointer transform transition-transform duration-200 hover:scale-105"
+                      onClick={() => openGalleryModal(3)}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-black/80 flex items-center justify-center z-10">
+                        <span className="text-white font-medium text-lg">+{galleryPhotos.length - 3}</span>
+                      </div>
+                      <img 
+                        src={galleryPhotos[3].photo_url}
+                        alt="More photos preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  {(!galleryPhotos || galleryPhotos.length === 0) && (
+                    <div className="col-span-full text-center py-6 sm:py-8 text-xs sm:text-sm text-gray-500">
+                      Belum ada foto
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
-                <p className="text-xs sm:text-sm text-gray-500">Total Hours</p>
-                <p className="text-base sm:text-lg font-semibold mt-1">{Math.round(stats.totalLiveHours)} hrs</p>
+
+              {/* Action Buttons - Centered with visual separation */}
+              <div className="my-4 sm:my-6 py-4 sm:py-6 border-y border-gray-100">
+                <div className="flex justify-center gap-2 sm:gap-3">
+                  <Button
+                    onClick={() => router.push('/streamer-schedule')}
+                    className="w-10 h-10 sm:w-12 sm:h-12 p-0 rounded-xl bg-[#E23744] hover:bg-[#E23744]/90 text-white shadow-sm hover:shadow-md transition-all duration-200"
+                    title="Atur Jadwal"
+                  >
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </Button>
+                  <Button
+                    onClick={() => router.push('/settings?type=streamer')}
+                    className="w-10 h-10 sm:w-12 sm:h-12 p-0 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 shadow-sm hover:shadow-md transition-all duration-200"
+                    title="Pengaturan"
+                  >
+                    <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </Button>
+                  <Button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className={`w-10 h-10 sm:w-12 sm:h-12 p-0 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 shadow-sm hover:shadow-md transition-all duration-200 ${
+                      isExpanded ? 'bg-gray-200' : ''
+                    }`}
+                    title="Lihat Analytics"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`h-4 w-4 sm:h-5 sm:w-5 transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right Column - Gallery and Buttons */}
-          <div className="w-full lg:w-[400px] lg:pl-12">
-            {/* Gallery Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm sm:text-base font-semibold text-gray-900">Galeri Live Terakhir</h3>
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {/* Expandable Analytics Section */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="p-4 sm:p-6 pt-0 border-t border-gray-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+              <AnalyticsCard
+                title="Total Pendapatan"
+                value={`Rp ${stats.totalEarnings.toLocaleString('id-ID')}`}
+                trend={stats.trends.earnings}
+              />
+              <AnalyticsCard
+                title="Total Booking"
+                value={stats.totalBookings.toString()}
+                trend={stats.trends.bookings}
+              />
+              <AnalyticsCard
+                title="Total Live"
+                value={stats.totalLive.toString()}
+                trend={stats.trends.lives}
+              />
+              <AnalyticsCard
+                title="Booking Dibatalkan"
+                value={stats.cancelledBookings.toString()}
+                trend={stats.trends.cancellations}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Gallery Modal */}
+      {isGalleryModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setIsGalleryModalOpen(false)}
+        >
+          <div 
+            className="relative max-w-4xl w-full bg-white rounded-2xl overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">Gallery Photos</h3>
+              <button 
+                onClick={() => setIsGalleryModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="relative aspect-[3/2] bg-black">
+              <img
+                src={galleryPhotos[selectedPhotoIndex].photo_url}
+                alt={`Gallery photo ${selectedPhotoIndex + 1}`}
+                className="w-full h-full object-contain"
+              />
+              
+              {/* Navigation Buttons */}
+              <button
+                onClick={handlePrevPhoto}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              
+              <button
+                onClick={handleNextPhoto}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Thumbnails */}
+            <div className="p-4 border-t border-gray-200">
+              <div className="flex gap-2 overflow-x-auto pb-2">
                 {galleryPhotos.map((photo, index) => (
-                  <div key={photo.id} className="relative aspect-square">
-                    <img 
+                  <div
+                    key={photo.id}
+                    onClick={() => setSelectedPhotoIndex(index)}
+                    className={`relative w-20 aspect-square flex-shrink-0 cursor-pointer rounded-lg overflow-hidden ${
+                      selectedPhotoIndex === index ? 'ring-2 ring-blue-500' : ''
+                    }`}
+                  >
+                    <img
                       src={photo.photo_url}
-                      alt={`Gallery image ${index + 1}`}
-                      className="rounded-xl w-full h-full object-cover"
+                      alt={`Thumbnail ${index + 1}`}
+                      className="w-full h-full object-cover"
                     />
                   </div>
                 ))}
-                {(!galleryPhotos || galleryPhotos.length === 0) && (
-                  <div className="col-span-full text-center py-6 sm:py-8 text-xs sm:text-sm text-gray-500">
-                    Belum ada foto
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons - Centered with visual separation */}
-            <div className="my-4 sm:my-6 py-4 sm:py-6 border-y border-gray-100">
-              <div className="flex justify-center gap-2 sm:gap-3">
-                <Button
-                  onClick={() => router.push('/streamer-schedule')}
-                  className="w-10 h-10 sm:w-12 sm:h-12 p-0 rounded-xl bg-[#E23744] hover:bg-[#E23744]/90 text-white shadow-sm hover:shadow-md transition-all duration-200"
-                  title="Atur Jadwal"
-                >
-                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-                <Button
-                  onClick={() => router.push('/settings?type=streamer')}
-                  className="w-10 h-10 sm:w-12 sm:h-12 p-0 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 shadow-sm hover:shadow-md transition-all duration-200"
-                  title="Pengaturan"
-                >
-                  <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-                <Button
-                  onClick={() => setIsExpanded(!isExpanded)}
-                  className={`w-10 h-10 sm:w-12 sm:h-12 p-0 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 shadow-sm hover:shadow-md transition-all duration-200 ${
-                    isExpanded ? 'bg-gray-200' : ''
-                  }`}
-                  title="Lihat Analytics"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className={`h-4 w-4 sm:h-5 sm:w-5 transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </Button>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Expandable Analytics Section */}
-      <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-        }`}
-      >
-        <div className="p-4 sm:p-6 pt-0 border-t border-gray-100">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
-            <AnalyticsCard
-              title="Total Pendapatan"
-              value={`Rp ${stats.totalEarnings.toLocaleString('id-ID')}`}
-              trend={stats.trends.earnings}
-            />
-            <AnalyticsCard
-              title="Total Booking"
-              value={stats.totalBookings.toString()}
-              trend={stats.trends.bookings}
-            />
-            <AnalyticsCard
-              title="Total Live"
-              value={stats.totalLive.toString()}
-              trend={stats.trends.lives}
-            />
-            <AnalyticsCard
-              title="Booking Dibatalkan"
-              value={stats.cancelledBookings.toString()}
-              trend={stats.trends.cancellations}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 

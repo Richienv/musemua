@@ -6,13 +6,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Bell, Check, CheckCheck } from "lucide-react";
+import { Bell, Check, CheckCheck, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/client";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { type NotificationType, markAllNotificationsAsRead, markNotificationAsRead } from '@/services/notification-service';
 import { useRouter } from 'next/navigation';
+import { getNotificationMessage } from '@/services/notification-templates';
 
 // Add these utility functions
 const roundToNearestHour = (date: Date): Date => {
@@ -37,6 +38,21 @@ interface Notification {
   metadata?: Record<string, any>;
   booking_id?: number;
   streamer_id?: number;
+  bookings?: {
+    id: number;
+    client_id: string;
+    streamer_id: number;
+    start_time: string;
+    end_time: string;
+    platform: string;
+    stream_link?: string;
+    client_first_name: string;
+    client_last_name: string;
+    streamer?: {
+      first_name: string;
+      last_name: string;
+    };
+  };
 }
 
 interface NotificationGroup {
@@ -50,6 +66,10 @@ interface UserData {
   streamer_id?: number;
 }
 
+interface ExpandedState {
+  [key: string]: boolean;
+}
+
 export function NotificationsPopup() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -58,6 +78,7 @@ export function NotificationsPopup() {
   const [isMobile, setIsMobile] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+  const [expandedNotifications, setExpandedNotifications] = useState<ExpandedState>({});
 
   const groupNotifications = (notifications: Notification[]): NotificationGroup[] => {
     const groups: NotificationGroup[] = [];
@@ -253,6 +274,7 @@ export function NotificationsPopup() {
             start_time,
             end_time,
             platform,
+            stream_link,
             client_first_name,
             client_last_name,
             streamer:streamers (
@@ -272,13 +294,16 @@ export function NotificationsPopup() {
           .single();
 
         if (streamerData) {
-          // Use proper OR condition for streamer notifications
+          // Direct query approach: Show notifications where either:
+          // 1. streamer_id matches their streamer ID (notifications for them as a streamer)
+          // 2. user_id matches their user ID (notifications for them as a user)
           notificationsQuery = notificationsQuery
             .or(`streamer_id.eq.${streamerData.id},user_id.eq.${user.id}`);
         }
       } else {
-        // Client notifications
-        notificationsQuery = notificationsQuery.eq('user_id', user.id);
+        // For clients: Simply show notifications where user_id matches
+        notificationsQuery = notificationsQuery
+          .eq('user_id', user.id);
       }
 
       const { data: notifications, error } = await notificationsQuery;
@@ -288,12 +313,22 @@ export function NotificationsPopup() {
         return;
       }
 
-      console.log('Fetched notifications:', notifications);
+      console.log('Raw notifications data:', notifications);
       
-      const processedNotifications = notifications?.map(notification => ({
-        ...notification,
-        message: formatNotificationMessage(notification, userData.user_type)
-      })) || [];
+      const processedNotifications = (notifications as any[])?.map(notification => {
+        const message = formatNotificationMessage(notification, userData.user_type as 'client' | 'streamer');
+        console.log('Processing notification:', {
+          id: notification.id,
+          type: notification.type,
+          bookingData: notification.bookings,
+          streamLink: notification.bookings?.stream_link,
+          formattedMessage: message
+        });
+        return {
+          ...notification,
+          message
+        } as Notification;
+      }) || [];
 
       setNotifications(processedNotifications);
       setUnreadCount(processedNotifications.filter(n => !n.is_read).length);
@@ -303,8 +338,8 @@ export function NotificationsPopup() {
     }
   }, [supabase]);
 
-  // New helper function to format notification messages
-  const formatNotificationMessage = (notification: any, userType: string): string => {
+  // Update the formatNotificationMessage function
+  const formatNotificationMessage = (notification: any, userType: 'client' | 'streamer'): string => {
     if (!notification) return '';
 
     if (notification.bookings) {
@@ -313,31 +348,23 @@ export function NotificationsPopup() {
       const endTime = new Date(booking.end_time);
       const duration = calculateDuration(startTime, endTime);
       
-      switch (notification.type) {
-        case 'booking_request':
-          return `${booking.client_first_name} ${booking.client_last_name} has booked your services for ${format(startTime, 'dd MMMM HH:mm')} - ${format(endTime, 'HH:mm')} (${duration} hours)`;
-        case 'booking_payment':
-          return `Payment confirmed for booking with ${booking.client_first_name} ${booking.client_last_name} (${format(startTime, 'dd MMMM')})`;
-        case 'booking_cancelled':
-          return `Booking cancelled by ${booking.client_first_name} ${booking.client_last_name} for ${format(startTime, 'dd MMMM')}`;
-        case 'stream_started':
-          return userType === 'client' 
-            ? `${booking.streamer_first_name} ${booking.streamer_last_name} telah memulai live stream untuk booking Anda pada ${format(startTime, 'dd MMMM HH:mm')}. Klik untuk bergabung.`
-            : `Anda telah memulai live stream dengan ${booking.client_first_name} ${booking.client_last_name}`;
-        case 'stream_ended':
-          return userType === 'client'
-            ? `${booking.streamer_first_name} ${booking.streamer_last_name} telah mengakhiri live stream untuk booking Anda.`
-            : `Anda telah mengakhiri live stream dengan ${booking.client_first_name} ${booking.client_last_name}`;
-        case 'reschedule_request':
-          return userType === 'client' 
-            ? `Streamer ${booking.streamer_first_name} ${booking.streamer_last_name} mengajukan perubahan jadwal untuk sesi live streaming Anda.`
-            : `Anda mengajukan perubahan jadwal untuk sesi dengan ${booking.client_first_name} ${booking.client_last_name}`;
-        default:
-          return notification.message;
-      }
+      const templateData = {
+        streamer_name: `${booking.streamer?.first_name} ${booking.streamer?.last_name}`,
+        client_name: `${booking.client_first_name} ${booking.client_last_name}`,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        platform: booking.platform,
+        duration,
+        message: notification.message,
+        reason: booking.reason,
+        stream_link: booking.stream_link
+      };
+
+      return getNotificationMessage(notification.type, userType, templateData);
     }
 
-    return notification.message;
+    // For non-booking notifications, pass through the message
+    return getNotificationMessage(notification.type, userType, { message: notification.message });
   };
 
   useEffect(() => {
@@ -376,6 +403,14 @@ export function NotificationsPopup() {
     
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  const toggleNotificationExpansion = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent triggering the read state
+    setExpandedNotifications(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen} modal={true}>
@@ -453,9 +488,11 @@ export function NotificationsPopup() {
                       {group.notifications.map((notification) => (
                         <div 
                           key={notification.id} 
-                          className={`px-4 py-3 border-b border-gray-100 active:bg-gray-50 transition-colors cursor-pointer
-                            ${!notification.is_read ? 'bg-blue-50/60' : ''}`}
-                          onClick={() => handleNotificationSeen(notification.id)}
+                          className={`notification-item px-4 py-3 border-b border-gray-100 ${
+                            !notification.is_read ? 'bg-blue-50/60' : ''
+                          } ${
+                            expandedNotifications[notification.id] ? 'expanded' : ''
+                          }`}
                         >
                           <div className="flex gap-3">
                             <span className="text-xl flex-shrink-0 w-8 h-8 flex items-center justify-center">
@@ -466,16 +503,75 @@ export function NotificationsPopup() {
                                 <h4 className="font-medium text-sm text-gray-900 truncate">
                                   {getNotificationTitle(notification.type)}
                                 </h4>
-                                <time className="text-xs text-gray-500 whitespace-nowrap">
-                                  {format(new Date(notification.created_at), 'HH:mm', { locale: id })}
-                                </time>
+                                <div className="flex items-center gap-2">
+                                  <time className="text-xs text-gray-500 whitespace-nowrap">
+                                    {format(new Date(notification.created_at), 'HH:mm', { locale: id })}
+                                  </time>
+                                  <button
+                                    onClick={(e) => toggleNotificationExpansion(notification.id, e)}
+                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                  >
+                                    {expandedNotifications[notification.id] ? (
+                                      <ChevronUp className="h-4 w-4 text-gray-500" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4 text-gray-500" />
+                                    )}
+                                  </button>
+                                </div>
                               </div>
-                              <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
-                                {notification.message}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-1">
-                                {format(new Date(notification.created_at), 'dd MMM yyyy', { locale: id })}
-                              </p>
+                              <div 
+                                className={`notification-content ${
+                                  expandedNotifications[notification.id] ? 'max-h-96' : 'max-h-12'
+                                }`}
+                              >
+                                <p className={`text-sm text-gray-600 mt-0.5 ${
+                                  expandedNotifications[notification.id] ? '' : 'notification-preview'
+                                }`}>
+                                  {notification.type === 'stream_started' && notification.bookings?.stream_link ? (
+                                    <>
+                                      {notification.message.split(notification.bookings?.stream_link || '').map((part, index, array) => {
+                                        if (index === array.length - 1) {
+                                          return <span key={index}>{part}</span>;
+                                        }
+                                        const streamLink = notification.bookings?.stream_link;
+                                        if (!streamLink) return null;
+                                        return (
+                                          <React.Fragment key={index}>
+                                            {part}
+                                            <a 
+                                              href={streamLink} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                window.open(streamLink, '_blank');
+                                              }}
+                                            >
+                                              {streamLink}
+                                            </a>
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    </>
+                                  ) : (
+                                    notification.message
+                                  )}
+                                </p>
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <p className="text-xs text-gray-400">
+                                  {format(new Date(notification.created_at), 'dd MMM yyyy', { locale: id })}
+                                </p>
+                                {!notification.is_read && (
+                                  <button
+                                    onClick={() => handleNotificationSeen(notification.id)}
+                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                  >
+                                    Tandai Dibaca
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             {!notification.is_read && (
                               <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />

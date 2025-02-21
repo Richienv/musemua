@@ -30,6 +30,16 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --app-height: 100vh;
+    --z-base: 0;
+    --z-dropdown: 1000;
+    --z-sticky: 1020;
+    --z-navbar: 1030;
+    --z-drawer: 1040;
+    --z-modal: 1050;
+    --z-popover: 1060;
+    --z-notification: 1070;
+    --z-tooltip: 1080;
+    --z-toast: 1090;
   }
 
   .dark {
@@ -360,9 +370,33 @@ a:not(.no-transition),
 
 /* Notification Popup Styles */
 .notification-popup {
-  z-index: 50;
+  z-index: var(--z-notification);
   background-color: white;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  isolation: isolate;
+  position: relative;
+}
+
+.notification-item {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.notification-item.expanded {
+  background-color: rgb(243 244 246 / 0.8);
+}
+
+.notification-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out;
+}
+
+.notification-preview {
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Safe area padding for mobile */

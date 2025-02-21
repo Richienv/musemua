@@ -173,14 +173,18 @@ export const streamerService = {
   async getStreamerGallery(streamerId: number): Promise<StreamerGalleryPhoto[]> {
     const supabase = createClient();
     
-    const { data, error } = await supabase
-      .from('streamer_gallery_photos')
-      .select('*')
-      .eq('streamer_id', streamerId)
-      .order('order_number', { ascending: true })
-      .limit(3);
+    try {
+      const { data, error } = await supabase
+        .from('streamer_gallery_photos')
+        .select('*')
+        .eq('streamer_id', streamerId)
+        .order('order_number', { ascending: true });
 
-    if (error) throw error;
-    return data || [];
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching streamer gallery:', error);
+      return [];
+    }
   }
 }; 
