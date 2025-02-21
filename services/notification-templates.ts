@@ -100,7 +100,8 @@ export function processTemplate(
     /{(\w+)}/g,
     (match, key: keyof TemplateData) => {
       if (key === 'start_time' || key === 'end_time') {
-        return data[key] ? format(new Date(data[key]), 'dd MMMM HH:mm') : '';
+        const value = data[key];
+        return value ? format(new Date(value), 'dd MMMM HH:mm') : '';
       }
       return data[key]?.toString() || '';
     }
