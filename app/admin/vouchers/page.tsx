@@ -44,6 +44,10 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { Dialog as HeadlessUIDialog } from '@headlessui/react'
+import { PlusIcon } from '@heroicons/react/24/outline'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { Database } from '@/types/supabase'
 
 interface Voucher {
   id: string;
@@ -55,6 +59,66 @@ interface Voucher {
   is_active: boolean;
   expires_at: string;
   created_at: string;
+}
+
+interface VoucherUsage {
+  id: string;
+  voucher_id: string;
+  booking_id: number;
+  user_id: string;
+  discount_applied: number;
+  original_price: number;
+  final_price: number;
+  used_at: string;
+  client?: {
+    first_name: string;
+    last_name: string;
+  };
+  streamer?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    image_url?: string;
+  };
+}
+
+interface VoucherAnalytics {
+  total_vouchers_created: number;
+  total_vouchers_used: number;
+  total_discount_amount: number;
+  usage_ratio: number;
+  top_streamers: StreamerVoucherUsage[];
+  monthly_usage: MonthlyUsage[];
+  usage_by_status: StatusUsage[];
+}
+
+interface StreamerVoucherUsage {
+  streamer_id: number;
+  first_name: string;
+  last_name: string;
+  image_url?: string;
+  total_vouchers_used: number;
+  total_discount_amount: number;
+  usage_count: number;
+}
+
+interface MonthlyUsage {
+  month: string;
+  vouchers_used: number;
+  total_discount: number;
+}
+
+interface StatusUsage {
+  status: string;
+  count: number;
+  percentage: number;
+}
+
+interface VoucherWithAnalytics extends Voucher {
+  total_discount_amount: number;
+  usage_count: number;
+  usage_details: VoucherUsage[];
+  analytics?: VoucherAnalytics;
 }
 
 // Add form validation schema
@@ -88,14 +152,210 @@ interface FieldRenderProps {
   };
 }
 
+// Add transition styles for hover effects and animations
+const cardHoverStyle = 'transition-all duration-200 hover:shadow-lg hover:border-gray-300'
+const progressBarStyle = 'transition-all duration-300 ease-in-out'
+const badgeStyle = 'transition-colors duration-200'
+
+function AnalyticsDashboard({ analytics }: { analytics: VoucherAnalytics }) {
+  return (
+    <div className="space-y-6 mb-8 animate-fade-in">
+      {/* Top Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[
+          {
+            title: 'Operations',
+            value: analytics.total_vouchers_used,
+            label: 'Total vouchers redeemed',
+            color: 'blue'
+          },
+          {
+            title: 'Types',
+            value: analytics.total_vouchers_created,
+            label: 'Total vouchers created',
+            color: 'green'
+          },
+          {
+            title: 'Fields',
+            value: `Rp ${analytics.total_discount_amount.toLocaleString()}`,
+            label: 'Total discount given',
+            color: 'purple'
+          }
+        ].map((stat, index) => (
+          <div 
+            key={stat.title}
+            className={`bg-white rounded-xl border border-gray-200 p-6 ${cardHoverStyle}`}
+          >
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold text-gray-900">{stat.title}</h3>
+              <div className={`text-3xl font-bold text-${stat.color}-600`}>{stat.value}</div>
+              <p className="text-sm text-gray-500">{stat.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Usage Stats and Top Streamers */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column - Usage Stats */}
+        <div className={`bg-white rounded-xl border border-gray-200 overflow-hidden ${cardHoverStyle}`}>
+          <div className="p-6 border-b border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900">Usage Statistics</h3>
+          </div>
+          <div className="p-6">
+            <div className="space-y-6">
+              {/* Usage Ratio */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">Usage Ratio</span>
+                  <span className="text-sm text-gray-500">{Math.round(analytics.usage_ratio)}%</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full bg-blue-600 rounded-full ${progressBarStyle}`}
+                    style={{ width: `${analytics.usage_ratio}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Status Distribution */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-4">Status Distribution</h4>
+                <div className="space-y-3">
+                  {analytics.usage_by_status.map((status) => (
+                    <div key={status.status} className="group">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-sm text-gray-600 capitalize group-hover:text-gray-900 transition-colors">
+                          {status.status}
+                        </span>
+                        <span className="text-sm text-gray-500 group-hover:text-gray-900 transition-colors">
+                          {Math.round(status.percentage)}%
+                        </span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full bg-blue-600 rounded-full group-hover:bg-blue-700 ${progressBarStyle}`}
+                          style={{ width: `${status.percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Monthly Usage Chart */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-4">Monthly Usage Trend</h4>
+                <div className="space-y-2">
+                  {analytics.monthly_usage.slice(0, 6).map((month) => (
+                    <div key={month.month} className="group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-24 text-xs text-gray-500 group-hover:text-gray-900 transition-colors">
+                          {month.month}
+                        </div>
+                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full bg-blue-600 rounded-full group-hover:bg-blue-700 ${progressBarStyle}`}
+                            style={{ 
+                              width: `${(month.vouchers_used / Math.max(...analytics.monthly_usage.map(m => m.vouchers_used))) * 100}%` 
+                            }}
+                          />
+                        </div>
+                        <div className="w-20 text-xs text-gray-500 text-right group-hover:text-gray-900 transition-colors">
+                          {month.vouchers_used} used
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column - Top Streamers */}
+        <div className={`bg-white rounded-xl border border-gray-200 overflow-hidden ${cardHoverStyle}`}>
+          <div className="p-6 border-b border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900">Top Streamers by Usage</h3>
+          </div>
+          <div className="p-6">
+            <div className="space-y-6">
+              {analytics.top_streamers.slice(0, 5).map((streamer, index) => (
+                <div 
+                  key={streamer.streamer_id} 
+                  className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                >
+                  <div className="w-10 h-10 flex-shrink-0 relative">
+                    {streamer.image_url ? (
+                      <img 
+                        src={streamer.image_url} 
+                        alt={`${streamer.first_name} ${streamer.last_name}`}
+                        className="w-full h-full rounded-full object-cover ring-2 ring-white"
+                      />
+                    ) : (
+                      <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center ring-2 ring-white">
+                        <span className="text-gray-500 text-sm font-medium">
+                          {streamer.first_name[0]}
+                        </span>
+                      </div>
+                    )}
+                    {index < 3 && (
+                      <div 
+                        className={`absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold border-2 border-white ${
+                          index === 0 ? 'bg-yellow-400 text-yellow-900' :
+                          index === 1 ? 'bg-gray-300 text-gray-900' :
+                          'bg-orange-400 text-orange-900'
+                        }`}
+                      >
+                        {index + 1}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                        {streamer.first_name} {streamer.last_name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 mt-1">
+                      <span className="text-sm text-gray-500 group-hover:text-gray-700 transition-colors">
+                        {streamer.usage_count} vouchers used
+                      </span>
+                      <span className="text-sm font-medium text-blue-600 group-hover:text-blue-700 transition-colors">
+                        Rp {streamer.total_discount_amount.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-24 text-right">
+                    <div className="text-sm font-medium text-gray-900">
+                      {Math.round((streamer.usage_count / analytics.total_vouchers_used) * 100)}%
+                    </div>
+                    <div className="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">
+                      of total
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VouchersPage() {
-  const [vouchers, setVouchers] = useState<Voucher[]>([]);
-  const [filteredVouchers, setFilteredVouchers] = useState<Voucher[]>([]);
+  const [vouchers, setVouchers] = useState<VoucherWithAnalytics[]>([]);
+  const [filteredVouchers, setFilteredVouchers] = useState<VoucherWithAnalytics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
+  const [selectedVoucher, setSelectedVoucher] = useState<VoucherWithAnalytics | null>(null);
+  const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
+  const [globalAnalytics, setGlobalAnalytics] = useState<VoucherAnalytics | null>(null);
+  const [selectedTimeRange, setSelectedTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
 
   const form = useForm<FormData>({
     resolver: zodResolver(voucherFormSchema),
@@ -122,19 +382,133 @@ export default function VouchersPage() {
     const supabase = createClient();
     
     try {
-      const { data, error } = await supabase
+      // First get all vouchers
+      const { data: vouchersData, error: vouchersError } = await supabase
         .from('vouchers')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (vouchersError) throw vouchersError;
       
-      if (!data) {
+      if (!vouchersData) {
         throw new Error('No data returned from Supabase');
       }
 
-      setVouchers(data);
-      setFilteredVouchers(data);
+      // Then get usage data for each voucher with streamer information
+      const vouchersWithAnalytics = await Promise.all(
+        vouchersData.map(async (voucher) => {
+          const { data: usageData, error: usageError } = await supabase
+            .from('voucher_usage')
+            .select(`
+              *,
+              client:user_id (
+                first_name,
+                last_name
+              ),
+              booking:booking_id (
+                streamer:streamer_id (
+                  id,
+                  first_name,
+                  last_name,
+                  image_url
+                )
+              )
+            `)
+            .eq('voucher_id', voucher.id);
+
+          if (usageError) throw usageError;
+
+          const usage = usageData || [];
+          const totalDiscount = usage.reduce((sum, u) => sum + u.discount_applied, 0);
+
+          // Process streamer usage statistics
+          const streamerUsage = usage.reduce((acc: { [key: number]: StreamerVoucherUsage }, u) => {
+            const streamerId = u.booking?.streamer?.id;
+            if (streamerId) {
+              if (!acc[streamerId]) {
+                acc[streamerId] = {
+                  streamer_id: streamerId,
+                  first_name: u.booking.streamer.first_name,
+                  last_name: u.booking.streamer.last_name,
+                  image_url: u.booking.streamer.image_url,
+                  total_vouchers_used: 0,
+                  total_discount_amount: 0,
+                  usage_count: 0
+                };
+              }
+              acc[streamerId].total_vouchers_used++;
+              acc[streamerId].total_discount_amount += u.discount_applied;
+              acc[streamerId].usage_count++;
+            }
+            return acc;
+          }, {});
+
+          // Calculate monthly usage
+          const monthlyUsage = usage.reduce((acc: { [key: string]: MonthlyUsage }, u) => {
+            const month = new Date(u.used_at).toLocaleString('default', { month: 'long', year: 'numeric' });
+            if (!acc[month]) {
+              acc[month] = {
+                month,
+                vouchers_used: 0,
+                total_discount: 0
+              };
+            }
+            acc[month].vouchers_used++;
+            acc[month].total_discount += u.discount_applied;
+            return acc;
+          }, {});
+
+          // Calculate status distribution
+          const statusCount = usage.reduce((acc: { [key: string]: number }, u) => {
+            const status = u.booking?.status || 'unknown';
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+          }, {});
+
+          const totalUsage = usage.length;
+          const statusUsage: StatusUsage[] = Object.entries(statusCount).map(([status, count]) => ({
+            status,
+            count,
+            percentage: (count / totalUsage) * 100
+          }));
+
+          const analytics: VoucherAnalytics = {
+            total_vouchers_created: voucher.total_quantity,
+            total_vouchers_used: usage.length,
+            total_discount_amount: totalDiscount,
+            usage_ratio: (usage.length / voucher.total_quantity) * 100,
+            top_streamers: Object.values(streamerUsage).sort((a, b) => b.total_discount_amount - a.total_discount_amount),
+            monthly_usage: Object.values(monthlyUsage).sort((a, b) => 
+              new Date(b.month).getTime() - new Date(a.month).getTime()
+            ),
+            usage_by_status: statusUsage
+          };
+          
+          return {
+            ...voucher,
+            total_discount_amount: totalDiscount,
+            usage_count: usage.length,
+            usage_details: usage,
+            analytics
+          };
+        })
+      );
+
+      // Calculate global analytics
+      const globalAnalytics: VoucherAnalytics = {
+        total_vouchers_created: vouchersWithAnalytics.reduce((sum, v) => sum + v.total_quantity, 0),
+        total_vouchers_used: vouchersWithAnalytics.reduce((sum, v) => sum + v.usage_count, 0),
+        total_discount_amount: vouchersWithAnalytics.reduce((sum, v) => sum + v.total_discount_amount, 0),
+        usage_ratio: vouchersWithAnalytics.reduce((sum, v) => sum + v.usage_count, 0) / 
+                    vouchersWithAnalytics.reduce((sum, v) => sum + v.total_quantity, 0) * 100,
+        top_streamers: calculateGlobalTopStreamers(vouchersWithAnalytics),
+        monthly_usage: calculateGlobalMonthlyUsage(vouchersWithAnalytics),
+        usage_by_status: calculateGlobalStatusUsage(vouchersWithAnalytics)
+      };
+
+      setVouchers(vouchersWithAnalytics);
+      setFilteredVouchers(vouchersWithAnalytics);
+      setGlobalAnalytics(globalAnalytics);
     } catch (error) {
       console.error('Error fetching vouchers:', error);
       setError(error instanceof Error ? error.message : 'Failed to load vouchers');
@@ -204,6 +578,188 @@ export default function VouchersPage() {
 
   const handleRetry = () => {
     fetchVouchers();
+  };
+
+  function VoucherAnalyticsModal({ 
+    voucher, 
+    isOpen, 
+    onClose 
+  }: { 
+    voucher: VoucherWithAnalytics; 
+    isOpen: boolean; 
+    onClose: () => void;
+  }) {
+    if (!isOpen) return null;
+
+    return (
+      <div 
+        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <div 
+          className="bg-white rounded-xl w-full max-w-4xl overflow-hidden shadow-xl"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Voucher Analytics: {voucher.code}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Detailed usage statistics and performance metrics
+                </p>
+              </div>
+              <button 
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="p-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="text-sm text-gray-600 mb-1">Total Usage</p>
+                <p className="text-2xl font-semibold text-blue-600">
+                  {voucher.usage_count}/{voucher.total_quantity}
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-xl p-4">
+                <p className="text-sm text-gray-600 mb-1">Total Discount Given</p>
+                <p className="text-2xl font-semibold text-green-600">
+                  Rp {voucher.total_discount_amount.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-purple-50 rounded-xl p-4">
+                <p className="text-sm text-gray-600 mb-1">Average Discount</p>
+                <p className="text-2xl font-semibold text-purple-600">
+                  Rp {voucher.usage_count ? Math.round(voucher.total_discount_amount / voucher.usage_count).toLocaleString() : 0}
+                </p>
+              </div>
+              <div className="bg-orange-50 rounded-xl p-4">
+                <p className="text-sm text-gray-600 mb-1">Usage Rate</p>
+                <p className="text-2xl font-semibold text-orange-600">
+                  {Math.round((voucher.usage_count / voucher.total_quantity) * 100)}%
+                </p>
+              </div>
+            </div>
+
+            {/* Usage History */}
+            <div className="bg-white rounded-xl border border-gray-200">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-900">Usage History</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Price</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Price</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {voucher.usage_details.length > 0 ? (
+                      voucher.usage_details.map((usage) => (
+                        <tr key={usage.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {usage.client ? `${usage.client.first_name} ${usage.client.last_name}` : 'Unknown User'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {format(new Date(usage.used_at), 'dd MMM yyyy HH:mm')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            Rp {usage.original_price.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                            Rp {usage.discount_applied.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            Rp {usage.final_price.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                          No usage history available
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Helper functions for global analytics
+  const calculateGlobalTopStreamers = (vouchers: VoucherWithAnalytics[]): StreamerVoucherUsage[] => {
+    const streamerMap = new Map<number, StreamerVoucherUsage>();
+    
+    vouchers.forEach(voucher => {
+      voucher.analytics?.top_streamers.forEach(streamer => {
+        const existing = streamerMap.get(streamer.streamer_id);
+        if (existing) {
+          existing.total_vouchers_used += streamer.total_vouchers_used;
+          existing.total_discount_amount += streamer.total_discount_amount;
+          existing.usage_count += streamer.usage_count;
+        } else {
+          streamerMap.set(streamer.streamer_id, { ...streamer });
+        }
+      });
+    });
+
+    return Array.from(streamerMap.values())
+      .sort((a, b) => b.total_discount_amount - a.total_discount_amount);
+  };
+
+  const calculateGlobalMonthlyUsage = (vouchers: VoucherWithAnalytics[]): MonthlyUsage[] => {
+    const monthlyMap = new Map<string, MonthlyUsage>();
+    
+    vouchers.forEach(voucher => {
+      voucher.analytics?.monthly_usage.forEach(monthly => {
+        const existing = monthlyMap.get(monthly.month);
+        if (existing) {
+          existing.vouchers_used += monthly.vouchers_used;
+          existing.total_discount += monthly.total_discount;
+        } else {
+          monthlyMap.set(monthly.month, { ...monthly });
+        }
+      });
+    });
+
+    return Array.from(monthlyMap.values())
+      .sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime());
+  };
+
+  const calculateGlobalStatusUsage = (vouchers: VoucherWithAnalytics[]): StatusUsage[] => {
+    const statusMap = new Map<string, number>();
+    let totalUsage = 0;
+
+    vouchers.forEach(voucher => {
+      voucher.analytics?.usage_by_status.forEach(status => {
+        statusMap.set(status.status, (statusMap.get(status.status) || 0) + status.count);
+        totalUsage += status.count;
+      });
+    });
+
+    return Array.from(statusMap.entries()).map(([status, count]) => ({
+      status,
+      count,
+      percentage: (count / totalUsage) * 100
+    }));
   };
 
   return (
@@ -405,6 +961,9 @@ export default function VouchersPage() {
           </Dialog>
         </div>
 
+        {/* Analytics Dashboard */}
+        {globalAnalytics && <AnalyticsDashboard analytics={globalAnalytics} />}
+
         {/* Filters */}
         <div className="mb-6 flex gap-4">
           <div className="relative flex-1 max-w-md">
@@ -478,9 +1037,10 @@ export default function VouchersPage() {
                   <TableHead className="font-medium">Description</TableHead>
                   <TableHead className="font-medium">Discount</TableHead>
                   <TableHead className="font-medium">Usage</TableHead>
+                  <TableHead className="font-medium">Total Discount Given</TableHead>
                   <TableHead className="font-medium">Status</TableHead>
                   <TableHead className="font-medium">Expires At</TableHead>
-                  <TableHead className="font-medium">Created At</TableHead>
+                  <TableHead className="font-medium">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -490,7 +1050,10 @@ export default function VouchersPage() {
                     <TableCell className="text-gray-600">{voucher.description}</TableCell>
                     <TableCell>Rp {voucher.discount_amount.toLocaleString()}</TableCell>
                     <TableCell className="text-gray-600">
-                      {voucher.remaining_quantity}/{voucher.total_quantity}
+                      {voucher.usage_count}/{voucher.total_quantity}
+                    </TableCell>
+                    <TableCell className="text-green-600">
+                      Rp {voucher.total_discount_amount.toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -504,8 +1067,18 @@ export default function VouchersPage() {
                     <TableCell className="text-gray-600">
                       {format(new Date(voucher.expires_at), 'dd MMM yyyy')}
                     </TableCell>
-                    <TableCell className="text-gray-600">
-                      {format(new Date(voucher.created_at), 'dd MMM yyyy')}
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedVoucher(voucher);
+                          setIsAnalyticsModalOpen(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        View Analytics
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -514,6 +1087,18 @@ export default function VouchersPage() {
           )}
         </div>
       </div>
+
+      {/* Analytics Modal */}
+      {selectedVoucher && (
+        <VoucherAnalyticsModal
+          voucher={selectedVoucher}
+          isOpen={isAnalyticsModalOpen}
+          onClose={() => {
+            setIsAnalyticsModalOpen(false);
+            setSelectedVoucher(null);
+          }}
+        />
+      )}
     </div>
   );
 } 

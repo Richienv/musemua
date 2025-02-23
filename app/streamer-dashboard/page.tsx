@@ -65,6 +65,14 @@ interface Booking {
     image_url: string;
   };
   payment_group_id?: string;
+  voucher_usage?: Array<{
+    id: string;
+    voucher_id: string;
+    discount_applied: number;
+    original_price: number;
+    final_price: number;
+    used_at: string;
+  }>;
 }
 
 // Add these utility functions at the top of the file
@@ -716,9 +724,31 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
             <h3 className="font-medium text-gray-900">
               {booking.client_first_name} {booking.client_last_name}
             </h3>
-            <p className="text-sm text-gray-500">
-              {booking.platform} Livestreaming
-            </p>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-gray-500">
+                  {booking.platform} Livestreaming
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Monitor className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                  <span className="text-xs sm:text-sm text-gray-500">{booking.platform}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                {booking.payment_group_id && (
+                  <span className="text-xs sm:text-sm text-blue-600 font-medium">
+                    Group (3 sessions)
+                  </span>
+                )}
+                {booking.voucher_usage && booking.voucher_usage.length > 0 && (
+                  <div className="text-[10px] sm:text-xs bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-2 py-0.5 rounded-md">
+                    Voucher | Rp {booking.voucher_usage[0].discount_applied.toLocaleString()}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
         <div className={`px-3 py-1.5 rounded-lg text-sm font-medium ${getStatusColor(booking.status)}`}>
@@ -727,19 +757,30 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
       </div>
 
       {/* Single Time Block Display */}
-      <div className="bg-gray-50 rounded-lg p-4 mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm text-gray-500 mb-1">
-              {formatBookingDate(booking.start_time)}
-            </div>
-            <div className="font-medium">
-              {formatBookingTime(booking.start_time, booking.timezone)} - {formatBookingTime(booking.end_time, booking.timezone)}
-            </div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <Clock className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-500">
+              {format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}
+            </span>
           </div>
-          <div className="text-sm text-gray-500">
-            {differenceInHours(new Date(booking.end_time), new Date(booking.start_time))}h
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-500">
+              {format(new Date(booking.start_time), 'EEEE, d MMMM yyyy')}
+            </span>
           </div>
+        </div>
+        <div className="text-right">
+          <div className="text-base font-medium text-gray-900 flex flex-col items-end">
+            <span className="text-gray-900">
+              Rp {booking.price.toLocaleString()}
+            </span>
+          </div>
+          <span className="text-xs text-gray-500">
+            {differenceInHours(new Date(booking.end_time), new Date(booking.start_time))} jam
+          </span>
         </div>
       </div>
 
@@ -758,20 +799,6 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
           </button>
         </div>
       )}
-
-      {/* Price and Platform Section */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <div className="text-sm text-gray-500 mb-1">Platform</div>
-          <div className="font-medium text-gray-900">{booking.platform}</div>
-        </div>
-        <div>
-          <div className="text-sm text-gray-500 mb-1">Price</div>
-          <div className="text-lg font-bold text-blue-600">
-            Rp {calculateBasePrice(booking.price).toLocaleString('id-ID')}
-          </div>
-        </div>
-      </div>
 
       {/* Special Request Section */}
       {booking.special_request && (
@@ -1096,83 +1123,48 @@ function BookingCard({ booking, onAccept, onReject }: BookingCardProps) {
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <Monitor className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-              <span className="text-xs sm:text-sm text-gray-500">{booking.platform}</span>
-            </div>
-          </div>
-
-          {/* Time Section - Similar to Flight Times */}
-          <div className="flex items-center justify-between mb-6">
-            {/* Start Time */}
-            <div className="text-center">
-              <div className="flex items-center gap-1 sm:gap-2 mb-1">
-                <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
-                <span className="text-xs sm:text-sm font-medium text-gray-500">Start</span>
-              </div>
-              <div className="text-base sm:text-lg font-bold text-gray-900">
-                {formatBookingTime(booking.start_time, booking.timezone)}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Monitor className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                <span className="text-xs sm:text-sm text-gray-500">{booking.platform}</span>
               </div>
             </div>
-
-            {/* Duration Line with Logo */}
-            <div className="flex-1 flex flex-col items-center px-2 sm:px-4">
-              <div className="w-full flex flex-col items-center gap-1">
-                <Image
-                  src="/images/salda-icon.png"
-                  alt="Salda"
-                  width={60}
-                  height={24}
-                  className="mb-1 sm:w-[80px] sm:h-[30px]"
-                />
-                <div className="w-full flex items-center gap-2">
-                  <div className="h-px bg-gray-300 flex-1"></div>
-                  <div className="bg-blue-50 rounded-lg px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium text-blue-700">
-                    {differenceInHours(new Date(booking.end_time), new Date(booking.start_time))}h
-                  </div>
-                  <div className="h-px bg-gray-300 flex-1"></div>
+            <div className="flex items-center gap-2 mt-1">
+              {booking.voucher_usage && booking.voucher_usage.length > 0 && (
+                <div className="text-[10px] sm:text-xs bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-2 py-0.5 rounded-md">
+                  Voucher | Rp {booking.voucher_usage[0].discount_applied.toLocaleString()}
                 </div>
-              </div>
-            </div>
-
-            {/* End Time */}
-            <div className="text-center">
-              <div className="flex items-center gap-1 sm:gap-2 mb-1">
-                <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
-                <span className="text-xs sm:text-sm font-medium text-gray-500">End</span>
-              </div>
-              <div className="text-base sm:text-lg font-bold text-gray-900">
-                {formatBookingTime(booking.end_time, booking.timezone)}
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Price and Date Section */}
-          <div className="flex justify-between items-center mb-4 sm:mb-6">
-            <div>
-              <div className="text-xs sm:text-sm text-gray-500 mb-1">Date</div>
-              <div className="text-sm sm:text-base font-medium">
-                {formatBookingDate(booking.start_time)}
+          {/* Time Section */}
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                <span className="text-xs sm:text-sm text-gray-500">
+                  {format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                <span className="text-xs sm:text-sm text-gray-500">
+                  {format(new Date(booking.start_time), 'EEEE, d MMMM yyyy')}
+                </span>
               </div>
             </div>
-            <div>
-              <div className="text-xs sm:text-sm text-gray-500 mb-1">Price</div>
-              <div className="text-base sm:text-xl font-bold text-blue-600">
-                Rp {calculateBasePrice(booking.price).toLocaleString('id-ID')}
+            <div className="text-right flex flex-col items-end">
+              <div className="text-sm sm:text-base font-medium text-gray-900 flex flex-col items-end">
+                <span className="text-gray-900">
+                  Rp {booking.price.toLocaleString()}
+                </span>
               </div>
+              <span className="text-xs text-gray-500">
+                {differenceInHours(new Date(booking.end_time), new Date(booking.start_time))} jam
+              </span>
             </div>
           </div>
-
-          {/* Special Request Section */}
-          {booking.special_request && (
-            <div className="mb-4 sm:mb-6 p-2 sm:p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
-                <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
-                <span className="text-xs sm:text-sm font-medium text-gray-700">Special Request</span>
-              </div>
-              <p className="text-xs sm:text-sm text-gray-600">{booking.special_request}</p>
-            </div>
-          )}
 
           {/* Action Buttons */}
           {booking.status === 'pending' && (
@@ -1181,13 +1173,13 @@ function BookingCard({ booking, onAccept, onReject }: BookingCardProps) {
                 onClick={() => setIsRejectionModalOpen(true)}
                 className="text-xs sm:text-sm text-red-600 hover:text-red-700 transition-colors font-medium"
               >
-                Reject
+                Tolak
               </button>
               <button
                 onClick={() => onAccept(booking.id)}
                 className="px-4 sm:px-8 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-xl transition-colors"
               >
-                Accept Session
+                Terima
               </button>
             </div>
           )}
@@ -1568,8 +1560,8 @@ function IDCard({ userId, streamerId, firstName, stats, joinDate, rating, galler
                   <p className="text-base sm:text-lg font-semibold mt-1">{rating.toFixed(1)}/5.0</p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
-                  <p className="text-xs sm:text-sm text-gray-500">Total Hours</p>
-                  <p className="text-base sm:text-lg font-semibold mt-1">{Math.round(stats.totalLiveHours)} hrs</p>
+                  <p className="text-xs sm:text-sm text-gray-500">Total Durasi</p>
+                  <p className="text-base sm:text-lg font-semibold mt-1">{Math.round(stats.totalLiveHours)} jam</p>
                 </div>
               </div>
             </div>
@@ -2100,6 +2092,50 @@ function PaymentGroupBookingModal({ isOpen, onClose, booking, relatedBookings, o
   );
 }
 
+// Add this new LoadingScreen component before the StreamerDashboard component
+function LoadingScreen() {
+  return (
+    <div className="fixed inset-0 bg-[#faf9f6] flex items-center justify-center z-50">
+      <div className="text-center">
+        {/* Main Animation Container */}
+        <div className="relative w-32 h-32 mx-auto mb-8">
+          {/* Outer rotating circle */}
+          <div className="absolute inset-0 border-8 border-t-[#E23744] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+          
+          {/* Inner pulsing video icon */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-16 h-16 bg-[#E23744] rounded-2xl flex items-center justify-center animate-pulse">
+              <svg 
+                className="w-10 h-10 text-white" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" 
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading Text */}
+        <div className="space-y-3">
+          <h2 className="text-2xl font-bold text-gray-900">Loading your dashboard...</h2>
+          <div className="flex items-center justify-center gap-1">
+            <div className="w-2 h-2 bg-[#E23744] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-2 h-2 bg-[#E23744] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-2 h-2 bg-[#E23744] rounded-full animate-bounce"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function StreamerDashboard() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -2119,24 +2155,20 @@ export default function StreamerDashboard() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
       if (!user) {
-        router.push("/sign-in");
+        router.push('/login');
         return;
       }
 
       // Get streamer data
       const { data: streamerData, error: streamerError } = await supabase
         .from('streamers')
-        .select('id, user_id, first_name')
+        .select('*')
         .eq('user_id', user.id)
         .single();
 
-      if (streamerError) {
-        if (streamerError.code !== 'PGRST116') {
-          throw streamerError;
-        }
-        return;
-      }
+      if (streamerError) throw streamerError;
 
       if (streamerData) {
         try {
@@ -2153,7 +2185,7 @@ export default function StreamerDashboard() {
             streamer_id: streamerData.id
           });
 
-          // Fetch all bookings with different statuses
+          // Fetch all bookings with different statuses and include voucher usage
           const { data: allBookings, error: bookingsError } = await supabase
             .from('bookings')
             .select(`
@@ -2161,7 +2193,15 @@ export default function StreamerDashboard() {
               client_first_name,
               client_last_name,
               sub_acc_link,
-              sub_acc_pass
+              sub_acc_pass,
+              voucher_usage (
+                id,
+                voucher_id,
+                discount_applied,
+                original_price,
+                final_price,
+                used_at
+              )
             `)
             .eq('streamer_id', streamerData.id)
             .order('start_time', { ascending: true });
@@ -2194,9 +2234,9 @@ export default function StreamerDashboard() {
           throw err;
         }
       }
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Failed to load data');
     } finally {
       setIsLoading(false);
     }
@@ -2399,8 +2439,9 @@ export default function StreamerDashboard() {
     }
   };
 
+  // Replace the simple loading div with our new LoadingScreen component
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <LoadingScreen />;
   }
 
   if (error) {
@@ -2559,3 +2600,4 @@ export default function StreamerDashboard() {
     </div>
   );
 }
+

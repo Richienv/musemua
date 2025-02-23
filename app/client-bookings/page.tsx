@@ -928,25 +928,9 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
         <div className="flex items-center gap-3 text-sm">
           <DollarSign className="h-4 w-4 text-gray-400" />
           <div className="flex flex-col">
-            {hasDiscount ? (
-              <>
-                <span className="line-through text-gray-400">
-                  Rp {booking.price.toLocaleString()}
-                </span>
-                <span className="font-medium text-green-600">
-                  Rp {displayPrice.toLocaleString()}
-                  {hasDiscount && (
-                    <span className="text-xs ml-2">
-                      (Saved Rp {discountAmount.toLocaleString()})
-                    </span>
-                  )}
-                </span>
-              </>
-            ) : (
-              <span className="font-medium">
-                Rp {displayPrice.toLocaleString()}
-              </span>
-            )}
+            <span className="font-medium text-gray-900">
+              Rp {booking.price.toLocaleString()}
+            </span>
           </div>
         </div>
         <div className="flex gap-2 justify-end">
@@ -1452,7 +1436,7 @@ export default function ClientBookings(): JSX.Element {
                             </span>
                           </>
                         ) : (
-                          <span className="font-medium">
+                          <span className="font-medium text-gray-900">
                             Rp {booking.price.toLocaleString()}
                           </span>
                         )}
