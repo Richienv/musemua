@@ -15,8 +15,6 @@ import { BookingCalendar } from './booking-calendar';
 import { cn } from '@/lib/utils';
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { useIntersectionObserver } from '@/lib/hooks/use-intersection-observer';
-import { useTouchGestures } from '@/lib/hooks/use-touch-gestures';
 
 // Add this function at the top of your file, outside of the StreamerCard component
 function getYouTubeVideoId(url: string): string | null {
@@ -1672,140 +1670,1018 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     return false;
   }, [activeSchedule, isSlotAvailable]);
 
-  // Add intersection observer
-  const { ref: cardRef, isIntersecting } = useIntersectionObserver({
-    threshold: 0.1,
-    rootMargin: '50px',
-  });
-
-  // Add touch gestures
-  const touchRef = useTouchGestures({
-    onSwipe: (direction) => {
-      if (direction === 'left') {
-        setIsBookingModalOpen(true);
-      } else if (direction === 'right') {
-        setIsProfileModalOpen(true);
-      }
-    },
-    onLongPress: () => {
-      setIsProfileModalOpen(true);
-    },
-  });
-
-  // Merge refs
-  const setRefs = (element: HTMLDivElement | null) => {
-    cardRef.current = element;
-    touchRef.current = element;
-  };
-
   return (
-    <div 
-      ref={setRefs}
-      className={cn(
-        "relative rounded-lg overflow-hidden bg-white shadow-lg",
-        "gpu-accelerated touch-optimized",
-        "hover:shadow-xl transition-shadow duration-normal ease-smooth",
-        "active:scale-[0.98] transition-transform duration-instant",
-        "dark:bg-gray-800",
-        isIntersecting ? "animate-card-entrance" : "opacity-0 translate-y-4"
-      )}
-      onClick={() => setIsProfileModalOpen(true)}
-      onMouseEnter={handleCardHover}
-    >
-      <div className="relative aspect-[4/3] overflow-hidden">
-        <Image
-          src={streamer.image_url}
-          alt={`${streamer.first_name} ${streamer.last_name}`}
-          fill
-          className={cn(
-            "object-cover w-full h-full",
-            "transition-transform duration-normal ease-out",
-            "group-hover:scale-105"
-          )}
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          priority={false}
-          loading="lazy"
-        />
-      </div>
-
-      <div className="p-4">
-        <div className="flex items-center justify-between">
-          <h3 className={cn(
-            "text-lg font-semibold",
-            "transition-colors duration-fast ease-out"
-          )}>
-            {formatName(streamer.first_name, streamer.last_name)}
-          </h3>
-          <RatingStars rating={streamer.rating} />
-        </div>
-
-        {/* Price section with optimized animations */}
-        <div className={cn(
-          "mt-2 flex items-center gap-2",
-          "animate-response content-optimized"
-        )}>
-          <span className="text-xl font-bold text-primary">
-            {formatPrice(streamer.price)}
-          </span>
-          {streamer.previous_price && (
-            <span className="text-sm text-gray-500 line-through">
-              {formatPrice(streamer.previous_price)}
-            </span>
-          )}
-        </div>
-
-        {/* Platform badges with optimized animations */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {streamer.platforms?.map((platform) => (
-            <span
-              key={platform}
-              className={cn(
-                "px-2 py-1 text-xs rounded-full",
-                "transition-all duration-fast ease-out",
-                "hover:scale-105 active:scale-95",
-                "gpu-accelerated"
-              )}
-            >
-              {platform}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Booking button with optimized animations */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          handleBooking();
-        }}
-        className={cn(
-          "mt-4 w-full py-3 px-4",
-          "bg-primary text-white font-semibold",
-          "transition-all duration-fast ease-out",
-          "hover:bg-primary-dark",
-          "active:scale-[0.98]",
-          "gpu-accelerated touch-optimized"
-        )}
+    <>
+      <div 
+        className="group relative bg-transparent w-full font-sans cursor-pointer transition-transform duration-200 hover:-translate-y-1"
+        onClick={() => setIsProfileModalOpen(true)}
+        onMouseEnter={handleCardHover}
       >
-        Book Now
-      </button>
-    </div>
+        {/* Image Container with Location Overlay */}
+        <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden border border-[#f0f0ef]">
+          <img
+            src={streamer.image_url}
+            alt={formatName(streamer.first_name, streamer.last_name)}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+          {/* Location overlay */}
+          <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1.5 rounded-lg shadow-sm flex items-center gap-2">
+            <MapPin className="w-3.5 h-3.5 text-[#2563eb]" />
+            <span className="text-xs font-medium text-gray-700">{streamer.location}</span>
+          </div>
+        </div>
+
+        {/* Content Container */}
+        <div className="p-4 pt-3 bg-[#faf9f6]">
+          {/* Name and Platforms */}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-medium text-gray-900">
+                {formatName(streamer.first_name, streamer.last_name)}
+              </h3>
+              <div className="flex gap-1">
+                {(streamer.platforms || [streamer.platform]).map((platform, index) => (
+                  <div
+                    key={platform}
+                    className={`px-2 py-0.5 rounded-full text-white text-[10px] font-medium
+                      ${platform.toLowerCase() === 'shopee' 
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
+                        : 'bg-gradient-to-r from-blue-900 to-black text-white'
+                      }`}
+                  >
+                    {platform}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Price Display */}
+          <div className="flex flex-col mb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-base font-semibold text-gray-900">
+                {priceInfo.displayPrice}
+              </span>
+              <span className="text-xs font-normal text-gray-500">/ jam</span>
+            </div>
+            {priceInfo.originalPrice && priceInfo.discountPercentage && priceInfo.discountPercentage > 0 && (
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-sm text-gray-400 line-through">
+                  {priceInfo.originalPrice}
+                </span>
+                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                  Hemat {priceInfo.discountPercentage}%
+                </span>
+              </div>
+            )}
+
+          </div>
+
+          {/* Rating */}
+          <div className="mb-3">
+            <RatingStars rating={averageRating} />
+          </div>
+
+          {/* Bio Preview */}
+          <div className="h-[3rem] mb-4">
+            <p className={cn(
+              "text-sm text-gray-600 leading-[1.5rem]",
+              "line-clamp-2 min-h-[3rem]",
+              "overflow-hidden display-webkit-box webkit-line-clamp-2 webkit-box-orient-vertical",
+              !streamer.bio && "text-gray-400"
+            )}>
+              {streamer.bio || 'No description available'}
+            </p>
+          </div>
+
+          {/* Categories */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(streamer.category || '')
+              .split(',')
+              .filter(Boolean)
+              .slice(0, 3)
+              .map((category) => (
+              <div 
+                key={category} 
+                className="flex items-center gap-1.5 bg-white/80 px-2.5 py-1.5 rounded-lg border border-[#f0f0ef]"
+              >
+                <div className="p-1 bg-[#2563eb]/10 rounded-full">
+                  <Monitor className="w-3 h-3 text-[#2563eb]" />
+                </div>
+                <span className="text-xs text-gray-600 truncate">
+                  {category.trim()}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Buttons */}
+          <div 
+            className="flex gap-2" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button 
+              className="flex-1 text-xs py-2 text-white max-w-[85%] 
+                bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87]
+                transition-all duration-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                openBookingModal();
+              }}
+            >
+              Book Livestreamer
+            </Button>
+            <Button
+              variant="outline"
+              className="px-2.5 text-[#2563eb] border-[#2563eb] hover:bg-[#2563eb]/5 transition-colors duration-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsProfileModalOpen(false);
+                handleMessageClick(e);
+              }}
+              disabled={isMessageLoading}
+            >
+              {isMessageLoading ? (
+                <span className="animate-spin">⏳</span>
+              ) : (
+                <Mail className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
+        <DialogContent className="max-w-[680px] p-0 overflow-hidden rounded-2xl bg-white max-h-[85vh] flex flex-col fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] z-[9999] booking-dialog-mobile">
+          {/* Hero Section with Streamer Info - Fixed height */}
+          <div className="relative h-48 flex-shrink-0">
+            {/* Background Image with Gradient */}
+            <div className="absolute inset-0">
+              <Image
+                src={streamer.image_url}
+                alt={formatName(streamer.first_name, streamer.last_name)}
+                fill
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/80" />
+            </div>
+
+            {/* Close Button */}
+            <DialogClose className="absolute top-4 right-4 p-2 rounded-full bg-white/10 backdrop-blur-md hover:bg-white/20 transition-colors">
+              <X className="h-4 w-4 text-white" />
+            </DialogClose>
+
+            {/* Streamer Info */}
+            <div className="absolute bottom-0 w-full p-6">
+              <div className="flex items-end gap-4">
+                <div className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-white/20 backdrop-blur-sm">
+                  <Image
+                    src={streamer.image_url}
+                    alt={formatName(streamer.first_name, streamer.last_name)}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div className="flex-1 mb-1">
+                  <h2 className="text-xl font-semibold text-white mb-1">
+                    {formatName(streamer.first_name, streamer.last_name)}
+                  </h2>
+                  <div className="flex items-center gap-3 text-white/80">
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-sm">{streamer.rating.toFixed(1)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4" />
+                      <span className="text-sm">{streamer.location}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Booking Content - Make this section scrollable */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 space-y-4">
+              {/* Step 1: Basic Requirements */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
+                    <span className="text-white font-medium text-xs">1</span>
+                  </div>
+                  <h3 className="text-[15px] font-semibold text-gray-800">Persyaratan Dasar</h3>
+                </div>
+                
+                <div className="ml-8 space-y-5">
+                  {/* Shipping Option */}
+                  <div className="space-y-2.5">
+                    <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      Pengiriman Produk
+                      <span className="text-red-500">*</span>
+                      <div className="relative group">
+                        <Info className="w-3.5 h-3.5 text-gray-400" />
+                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-48 p-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                          Wajib diisi sebelum memilih tanggal
+                        </div>
+                      </div>
+                    </Label>
+                    <Select
+                      value={needsShipping || undefined}
+                      onValueChange={(value) => setNeedsShipping(value as ShippingOption)}
+                    >
+                      <SelectTrigger 
+                        id="shipping-needed" 
+                        className={cn(
+                          "w-full bg-white h-10 text-sm transition-all px-3",
+                          needsShipping === 'yes' 
+                            ? "bg-blue-50 border-blue-200 ring-1 ring-blue-100 text-blue-700 shadow-sm" 
+                            : needsShipping === 'no'
+                            ? "border-gray-200 text-gray-700 shadow-sm"
+                            : "text-gray-500 border-gray-300 border-dashed"
+                        )}
+                      >
+                        <SelectValue placeholder="Apakah Anda perlu mengirim produk ke streamer?" />
+                      </SelectTrigger>
+                      <SelectContent 
+                        position="popper" 
+                        side="bottom" 
+                        align="start" 
+                        sideOffset={8}
+                        className="z-[9999]"
+                      >
+                        <SelectItem value="yes" className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-blue-100 rounded-md flex-shrink-0">
+                              <Package className="w-3.5 h-3.5 text-blue-600" />
+                            </div>
+                            <span className="text-sm font-medium">Ya</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="no" className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-blue-100 rounded-md flex-shrink-0">
+                              <Clock className="w-3.5 h-3.5 text-blue-600" />
+                            </div>
+                            <span className="text-sm font-medium">Tidak</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* Shipping Notes */}
+                    <div className={cn(
+                      "text-sm text-gray-600 pl-1",
+                      needsShipping === 'yes' && "text-blue-700"
+                    )}>
+                      {needsShipping === 'yes' ? (
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mt-2">
+                          <div className="flex items-start gap-2">
+                            <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+                            <div className="space-y-1">
+                              <p className="font-medium">Pengiriman Diperlukan</p>
+                              <p className="text-sm text-blue-600">
+                                {clientLocation.toLowerCase() === streamer.location.toLowerCase()
+                                  ? "Pemesanan dapat dilakukan mulai besok untuk memastikan pengiriman produk"
+                                  : "Pemesanan dapat dilakukan minimal 3 hari dari sekarang untuk memastikan pengiriman produk"
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : needsShipping === 'no' ? (
+                        <div className="pl-1 mt-1.5">
+                          <p className="text-sm text-gray-500">Pemesanan dapat dilakukan mulai besok</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Platform Selection */}
+                  <div className="space-y-2.5">
+                    <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      Platform Streaming
+                      <span className="text-red-500">*</span>
+                      <div className="relative group">
+                        <Info className="w-3.5 h-3.5 text-gray-400" />
+                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-48 p-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                          Wajib diisi sebelum memilih tanggal
+                        </div>
+                      </div>
+                    </Label>
+                    <Select 
+                      value={platform || undefined}
+                      onValueChange={setPlatform} 
+                    >
+                      <SelectTrigger 
+                        id="booking-platform" 
+                        className={cn(
+                          "w-full bg-white h-10 text-sm transition-all px-3",
+                          platform 
+                            ? "bg-blue-50 border-blue-200 ring-1 ring-blue-100 text-blue-700 shadow-sm"
+                            : "text-gray-500 border-gray-300 border-dashed"
+                        )}
+                      >
+                        <SelectValue placeholder="Platform mana yang Anda pilih?" />
+                      </SelectTrigger>
+                      <SelectContent 
+                        position="popper" 
+                        side="bottom" 
+                        align="start" 
+                        sideOffset={8}
+                        className="z-[9999]"
+                      >
+                        <SelectItem value="Shopee" className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-orange-100 rounded-md flex-shrink-0">
+                              <Monitor className="w-3.5 h-3.5 text-orange-600" />
+                            </div>
+                            <span className="text-sm font-medium">Shopee Live</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="TikTok" className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-blue-100 rounded-md flex-shrink-0">
+                              <Monitor className="w-3.5 h-3.5 text-blue-600" />
+                            </div>
+                            <span className="text-sm font-medium">TikTok Live</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* Platform Notes */}
+                    {platform && (
+                      <div className="pl-1 mt-1.5">
+                        <p className="text-sm text-gray-500">
+                          {platform === 'Shopee' ? 'Pembelian langsung dengan tautan produk' : 'Jangkau audiens yang lebih luas'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Select Date */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                    <span className="text-white font-medium text-xs">2</span>
+                  </div>
+                  <h3 className="text-sm font-medium text-gray-900">Pilih Tanggal</h3>
+                </div>
+
+                {/* Weekly Calendar View */}
+                <div className="ml-7 mb-6">
+                  <div className={cn(
+                    "bg-white rounded-xl border transition-all duration-200",
+                    isRequirementsValid.isValid 
+                      ? "border-gray-200" 
+                      : "border-red-200 bg-red-50/30"
+                  )}>
+                    <div className="p-4">
+                      {!isRequirementsValid.isValid && (
+                        <div className="mb-3 px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+                          <p className="text-xs text-red-600">
+                            {isRequirementsValid.error}
+                          </p>
+                        </div>
+                      )}
+                      <BookingCalendar
+                        selectedDate={selectedDate}
+                        onDateSelect={(dateStr) => handleDateSelect(new Date(dateStr))}
+                        onTimeSelect={(time) => {
+                          if (selectedDate) {
+                            const [hours, minutes] = time.split(':').map(Number);
+                            const newDate = new Date(selectedDate);
+                            newDate.setHours(hours, minutes, 0, 0);
+                            setSelectedDate(newDate);
+                          }
+                        }}
+                        isRequirementsValid={isRequirementsValid.isValid}
+                        selectedDates={selectedDates}
+                        isDateSelectable={(date) => {
+                          const dateValidation = validateDateRestrictions(
+                            date,
+                            needsShipping as ShippingOption,
+                            clientLocation,
+                            streamer.location
+                          );
+                          return dateValidation.isValid;
+                        }}
+                        hasAvailableSchedule={hasAvailableSchedule}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Selection Section with enhanced styling */}
+                <div className="ml-8 mb-6">
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-medium text-gray-800">Pemilihan Cepat</h4>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 w-6 p-0 hover:bg-blue-50"
+                            >
+                              <Info className="h-4 w-4 text-blue-600" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent 
+                            className="w-80 p-3 text-xs text-gray-600 bg-white shadow-lg border border-gray-200 rounded-lg z-[99999]"
+                            side="top"
+                            align="start"
+                          >
+                            <div className="space-y-2">
+                              <p>
+                                Ini akan secara otomatis memilih semua jam yang tersedia untuk setiap hari berdasarkan jadwal streamer.
+                              </p>
+                              <div className="pt-2 border-t border-gray-100">
+                                <p className="font-medium text-blue-600">Persyaratan:</p>
+                                <ul className="mt-1 space-y-1">
+                                  <li className="flex items-center gap-2">
+                                    <div className={cn(
+                                      "w-4 h-4 rounded-full flex items-center justify-center text-[10px]",
+                                      needsShipping ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
+                                    )}>
+                                      {needsShipping ? "✓" : "!"}
+                                    </div>
+                                    <span>Pilih opsi pengiriman</span>
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                    <div className={cn(
+                                      "w-4 h-4 rounded-full flex items-center justify-center text-[10px]",
+                                      platform ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
+                                    )}>
+                                      {platform ? "✓" : "!"}
+                                    </div>
+                                    <span>Pilih platform streaming</span>
+                                  </li>
+                                </ul>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      {[
+                        { id: 'week', label: '1 Minggu', icon: Calendar },
+                        { id: 'twoWeeks', label: '2 Minggu', icon: Calendar },
+                        { id: 'month', label: '1 Bulan', icon: Calendar }
+                      ].map((option) => (
+                        <Button
+                          key={option.id}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleBulkSelection(option.id as 'week' | 'twoWeeks' | 'month')}
+                          className={cn(
+                            "flex-1 relative px-3 py-2 transition-all duration-300",
+                            "border rounded-lg shadow-sm group",
+                            !isRequirementsValid.isValid && "cursor-not-allowed opacity-50",
+                            activeBulkMode === option.id
+                              ? "bg-blue-50 border-blue-500 text-blue-700 shadow-blue-100"
+                              : isRequirementsValid.isValid
+                                ? "border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600"
+                                : "border-gray-200 text-gray-400"
+                          )}
+                          disabled={!isRequirementsValid.isValid}
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <option.icon className={cn(
+                              "h-4 w-4 transition-transform duration-300",
+                              activeBulkMode === option.id ? "scale-110" : "group-hover:scale-110"
+                            )} />
+                            <span>{option.label}</span>
+                          </div>
+                          {!isRequirementsValid.isValid && (
+                            <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-100 rounded-full flex items-center justify-center">
+                              <span className="text-[10px] text-red-600">!</span>
+                            </div>
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3: Select Time */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                      <span className="text-white font-medium text-xs">3</span>
+                    </div>
+                    <h3 className="text-sm font-medium text-gray-900">Pilih Waktu</h3>
+                  </div>
+
+                  <div className="ml-7">
+                    {selectedDates.size > 0 ? (
+                      <div className="bg-white rounded-lg border border-blue-200 overflow-hidden shadow-sm">
+                        <div 
+                          className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 cursor-pointer"
+                          onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-3.5 w-3.5 text-blue-600" />
+                            <span className="text-xs font-medium text-blue-900">
+                              {selectedDates.size} {selectedDates.size === 1 ? 'hari' : 'hari'} dipilih
+                            </span>
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[11px] font-medium px-2 py-0.5">
+                              {Array.from(selectedDates.values()).reduce((total, date) => total + date.totalHours, 0)} jam total
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDates(new Map());
+                                setActiveBulkMode(null);
+                              }}
+                              className="h-7 hover:bg-red-50 hover:text-red-600 text-gray-500 text-xs"
+                            >
+                              Hapus Semua
+                            </Button>
+                            <ChevronRight 
+                              className={cn(
+                                "h-3.5 w-3.5 text-blue-600 transition-transform duration-300",
+                                isSummaryExpanded ? "rotate-90" : ""
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {isSummaryExpanded && (
+                          <div className="divide-y divide-gray-100">
+                            {Array.from(selectedDates.entries()).map(([dateKey, dateInfo]) => (
+                              <div key={dateKey}>
+                                <div 
+                                  className="flex items-center justify-between p-3 hover:bg-gray-50/80 transition-colors cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedDates(prev => {
+                                      const next = new Map(prev);
+                                      const info = next.get(dateKey);
+                                      if (info) {
+                                        next.set(dateKey, {
+                                          ...info,
+                                          isEditing: !info.isEditing
+                                        });
+                                      }
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex flex-col">
+                                      <span className="text-xs font-medium text-gray-900">
+                                        {format(dateInfo.date, 'EEEE, d MMMM')}
+                                      </span>
+                                      <span className="text-[11px] text-gray-500">
+                                        {dateInfo.timeRanges?.map((range, index) => (
+                                          <span key={index}>
+                                            {index > 0 && ', '}
+                                            {range.start}–{range.end}
+                                          </span>
+                                        ))}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary" className="bg-blue-50 text-blue-700 text-[11px] px-2 py-0.5">
+                                      {dateInfo.totalHours} jam
+                                    </Badge>
+                                    <ChevronRight 
+                                      className={cn(
+                                        "h-3.5 w-3.5 text-gray-400 transition-transform duration-200",
+                                        dateInfo.isEditing && "rotate-90"
+                                      )}
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newDates = new Map(selectedDates);
+                                        newDates.delete(dateKey);
+                                        setSelectedDates(newDates);
+                                        if (newDates.size === 0) {
+                                          setActiveBulkMode(null);
+                                        }
+                                      }}
+                                      className="h-7 w-7 p-0 hover:bg-red-50 hover:text-red-600"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Time Slot Editor */}
+                                {dateInfo.isEditing && (
+                                  <div className="px-3 pb-3 bg-gray-50/80">
+                                    <div className="mb-2">
+                                      <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                                        <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                        <div className="space-y-1">
+                                          <p className="text-[11px] font-medium text-blue-900">Aturan Pemesanan:</p>
+                                          <ul className="text-[11px] text-blue-700 space-y-0.5">
+                                            <li>• Minimal 2 jam berurutan untuk setiap sesi</li>
+                                            <li>• Sesi terpisah harus berjarak minimal 2 jam</li>
+                                            <li>• Tidak dapat menghapus jam yang akan membuat sesi kurang dari 2 jam</li>
+                                          </ul>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                                      {(() => {
+                                        const daySchedule = activeSchedule?.[dateInfo.date.getDay()];
+                                        const availableHours: string[] = [];
+                                        
+                                        if (daySchedule?.slots) {
+                                          daySchedule.slots.forEach((slot: any) => {
+                                            const startHour = parseInt(slot.start);
+                                            const endHour = parseInt(slot.end);
+                                            
+                                            for (let hour = startHour; hour <= endHour; hour++) {  // Changed back to <= to include end hour for buttons
+                                              const hourString = `${hour.toString().padStart(2, '0')}:00`;
+                                              if (isSlotAvailable(dateInfo.date, hour) || dateInfo.hours.includes(hourString)) {
+                                                availableHours.push(hourString);
+                                              }
+                                            }
+                                          });
+                                        }
+
+                                        // This code renders the time slot buttons for booking a streamer
+                                        // It maps through the available hours and creates interactive buttons
+                                        return availableHours.sort().map(hour => {
+                                          // Check if this hour is already selected by the user
+                                          const isSelected = dateInfo.hours.includes(hour);
+                                          
+                                          // Convert hour string to number for comparisons
+                                          const hourNum = parseInt(hour);
+                                          
+                                          // Get all currently selected hours as numbers for checking continuity
+                                          const selectedHourNums = dateInfo.hours.map(h => parseInt(h));
+                                          
+                                          // Find the earliest and latest selected hours
+                                          const minHour = Math.min(...selectedHourNums);
+                                          const maxHour = Math.max(...selectedHourNums);
+                                          
+                                          // Disable time slots that would break the continuous booking rule:
+                                          // - Only enable if no hours are selected yet
+                                          // - Or if this hour is already selected
+                                          // - Or if this hour is immediately before/after existing selection
+                                          const isDisabled = dateInfo.hours.length > 0 && 
+                                            !isSelected && 
+                                            hourNum !== maxHour + 1 && 
+                                            hourNum !== minHour - 1;
+
+                                          return (
+                                            <Button
+                                              key={hour}
+                                              variant={isSelected ? "default" : "outline"}
+                                              size="sm"
+                                              disabled={isDisabled}
+                                              onClick={() => handleTimeSlotSelect(dateKey, hour)}
+                                              className={cn(
+                                                "h-8 px-2 text-[11px] font-medium",
+                                                isSelected && "bg-blue-600 text-white hover:bg-blue-700",
+                                                !isSelected && "hover:bg-blue-50 hover:text-blue-600",
+                                                isDisabled && "opacity-50 cursor-not-allowed"
+                                              )}
+                                            >
+                                              {format(parse(hour, 'HH:mm', new Date()), 'HH:mm')}
+                                            </Button>
+                                          );
+                                        });
+                                      })()}
+                                    </div>
+                                    {dateInfo.hours.length === 0 && (
+                                      <p className="text-[11px] text-gray-500 mt-2">
+                                        Pilih waktu mulai untuk memulai
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 px-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <Calendar className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                        <h4 className="text-sm font-medium text-gray-900 mb-1">Belum Ada Waktu yang Dipilih</h4>
+                        <p className="text-xs text-gray-500">
+                          Gunakan kalender atau tombol pemilihan cepat di atas untuk memilih tanggal dan waktu yang Anda inginkan.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Summary Footer */}
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  {(() => {
+                    const { totalHours, totalPrice } = getTotalHoursAndPrice(selectedDates, streamer.price);
+                    return (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">Total Durasi</p>
+                          <p className="text-lg font-semibold text-gray-900">{totalHours} jam</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Estimasi Total</p>
+                          <div>
+                            <p className="text-lg font-semibold text-gray-900">
+                              Rp {(totalPrice * 1.3).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-500">*harga belum termasuk pajak</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer with Proceed Button - Fixed at bottom */}
+          <div className="p-6 border-t border-gray-100 bg-white flex-shrink-0">
+            <Button
+              onClick={handleBooking}
+              disabled={!isMinimumBookingMet() || !platform}
+              className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium"
+            >
+              {!platform
+                ? 'Silakan pilih platform'
+                : !isMinimumBookingMet()
+                ? 'Pilih minimal 2 jam'
+                : 'Lanjut ke Detail Pemesanan'
+              }
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Profile Modal */}
+      {isProfileModalOpen && (
+        <Dialog
+          open={isProfileModalOpen}
+          onOpenChange={setIsProfileModalOpen}
+        >
+          <DialogContent 
+            className="max-w-2xl w-full h-[85vh] overflow-y-auto z-[9999] fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] p-6 dialog-content-mobile"
+          >
+            <DialogHeader className="bg-white pb-4 flex flex-row items-start justify-between">
+              <div>
+                <DialogTitle className="text-xl font-semibold text-gray-900">Streamer Profile</DialogTitle>
+                <DialogDescription className="text-sm text-gray-500 mt-1">
+                  View detailed information about this streamer
+                </DialogDescription>
+              </div>
+              <DialogClose className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <X className="h-5 w-5 text-gray-500" />
+              </DialogClose>
+            </DialogHeader>
+            
+            {isLoadingProfile ? (
+              <div className="space-y-4">
+                <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2" />
+              </div>
+            ) : extendedProfile ? (
+              <>
+                {/* Professional ID Card Layout */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100 shadow-sm mb-8">
+                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                    {/* Left Column - Photo and Basic Info */}
+                    <div className="flex flex-col items-center space-y-3">
+                      <div className="relative w-28 h-28 sm:w-32 sm:h-32">
+                        <Image
+                          src={streamer.image_url}
+                          alt={formatName(streamer.first_name, streamer.last_name)}
+                          fill
+                          className="rounded-lg object-cover border-2 border-white shadow-md"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                        <span className="text-sm font-medium">
+                          {extendedProfile.rating ? `${Number(extendedProfile.rating).toFixed(1)} / 5.0` : 'Not rated yet'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Right Column - Details */}
+                    <div className="flex-1 space-y-4">
+                      {/* Name and Title */}
+                      <div className="border-b border-blue-200 pb-3">
+                        <h2 className="text-xl font-semibold text-blue-900">
+                          {formatName(streamer.first_name, streamer.last_name)}
+                        </h2>
+                        <p className="text-sm text-blue-600 font-medium">Professional Livestreamer</p>
+                      </div>
+
+                      {/* Info Grid - Redesigned for better desktop view */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+                        {/* Age */}
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <User className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Age</p>
+                            <p className="text-sm">{extendedProfile.age ? `${extendedProfile.age} Years` : 'Not specified'}</p>
+                          </div>
+                        </div>
+
+                        {/* Gender */}
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <User className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Gender</p>
+                            <p className="text-sm">{extendedProfile.gender || 'Not specified'}</p>
+                          </div>
+                        </div>
+
+                        {/* Experience */}
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <Clock className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Experience</p>
+                            <p className="text-sm">{extendedProfile.experience || 'Not specified'}</p>
+                          </div>
+                        </div>
+
+                        {/* Location */}
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-blue-100 rounded-md">
+                            <MapPin className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-medium">Location</p>
+                            <p className="text-sm">{extendedProfile.location || 'Not specified'}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Platform Tags */}
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {(streamer.platforms || [streamer.platform]).map((platform) => (
+                          <div
+                            key={platform}
+                            className={`px-3 py-1 rounded-full text-white text-xs font-medium
+                              ${platform.toLowerCase() === 'shopee' 
+                                ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
+                                : 'bg-gradient-to-r from-blue-600 to-indigo-600'}`}
+                          >
+                            {platform}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bio Section */}
+                <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">About Me</h3>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                    {extendedProfile.fullBio || extendedProfile.bio || 'Belum ada deskripsi tersedia'}
+                  </p>
+                </div>
+
+                {/* Featured Content */}
+                {extendedProfile.video_url && (
+                  <div className="space-y-4 mb-8">
+                    <h3 className="text-lg font-semibold text-gray-900">Featured Content</h3>
+                    <div className="relative w-full max-w-[360px] mx-auto">
+                      <div className="relative pb-[177.78%]">  {/* 9:16 aspect ratio */}
+                        <iframe
+                          src={`https://www.youtube.com/embed/${getYouTubeVideoId(extendedProfile.video_url) || ''}`}
+                          className="absolute inset-0 w-full h-full rounded-xl"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Gallery Section */}
+                <div className="mb-8">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Gallery</h3>
+                  {isLoadingGallery ? (
+                    <div className="grid grid-cols-4 gap-2">
+                      {[1, 2, 3, 4].map((n) => (
+                        <div key={n} className="aspect-square bg-gray-200 rounded animate-pulse" />
+                      ))}
+                    </div>
+                  ) : extendedProfile?.gallery?.photos && extendedProfile.gallery.photos.length > 0 ? (
+                    <div className="grid grid-cols-4 gap-2">
+                      {extendedProfile.gallery.photos.map((photo) => (
+                        <div
+                          key={photo.id}
+                          className="aspect-square relative overflow-hidden rounded-lg shadow-sm"
+                        >
+                          <Image
+                            src={photo.photo_url}
+                            alt={`Gallery photo ${photo.order_number}`}
+                            fill
+                            className="object-cover hover:scale-105 transition-transform duration-300"
+                            sizes="(max-width: 600px) 25vw, 150px"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center">No gallery photos available</p>
+                  )}
+                </div>
+
+                {/* Testimonials Section */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Client Testimonials</h3>
+                  {isLoadingTestimonials ? (
+                    <div className="space-y-4">
+                      {[1, 2].map((n) => (
+                        <div key={n} className="h-20 bg-gray-200 rounded animate-pulse" />
+                      ))}
+                    </div>
+                  ) : extendedProfile.testimonials?.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {extendedProfile.testimonials.map((testimonial, index) => (
+                        <div key={index} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star 
+                                  key={star}
+                                  className={cn(
+                                    "w-3 h-3",
+                                    testimonial.rating >= star 
+                                      ? "text-yellow-400 fill-yellow-400" 
+                                      : "text-gray-300"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm font-medium text-blue-600">
+                              {testimonial.client_name}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 italic">"{testimonial.comment}"</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center">No testimonials yet</p>
+                  )}
+                </div>
+              </>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
 
 export function StreamerCardSkeleton() {
   return (
-    <div className={cn(
-      "relative rounded-lg overflow-hidden bg-white shadow-lg",
-      "animate-pulse content-optimized"
-    )}>
-      <div className="relative aspect-[4/3] bg-gray-200" />
-      <div className="p-4">
-        <div className="h-6 w-2/3 bg-gray-200 rounded" />
-        <div className="mt-2 h-8 w-1/3 bg-gray-200 rounded" />
-        <div className="mt-3 flex gap-2">
-          <div className="h-6 w-16 bg-gray-200 rounded-full" />
-          <div className="h-6 w-16 bg-gray-200 rounded-full" />
+    <div className="group relative bg-transparent w-full font-sans cursor-pointer">
+      <div className="relative w-full aspect-square sm:aspect-[4/5] rounded-xl overflow-hidden bg-gray-200 animate-pulse"></div>
+      <div className="p-3 sm:p-4 pt-2 sm:pt-3 bg-white/95 rounded-b-xl">
+        <div className="flex items-center justify-between gap-1 mb-1">
+          <div className="flex items-center gap-1.5">
+            <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
+            <div className="h-4 w-12 bg-gray-200 animate-pulse rounded"></div>
+          </div>
+        </div>
+        <div className="flex flex-col mb-1.5">
+          <div className="h-4 w-24 bg-gray-200 animate-pulse rounded"></div>
+          <div className="h-4 w-16 bg-gray-200 animate-pulse rounded mt-1"></div>
+        </div>
+        <div className="h-4 w-32 bg-gray-200 animate-pulse rounded mb-2"></div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
+          <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
+        </div>
+        <div className="flex gap-1.5">
+          <div className="h-8 w-full bg-gray-200 animate-pulse rounded"></div>
+          <div className="h-8 w-8 bg-gray-200 animate-pulse rounded"></div>
         </div>
       </div>
     </div>
