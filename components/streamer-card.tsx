@@ -1634,7 +1634,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           const endHour = parseInt(block[block.length - 1]);
           return {
             start: block[0],
-            end: `${(endHour + 1).toString().padStart(2, '0')}:00`,
+            end: `${(endHour).toString().padStart(2, '0')}:00`,
             duration: endHour - startHour // Remove the +1 to get actual duration
           };
         })
@@ -2307,7 +2307,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                                             const startHour = parseInt(slot.start);
                                             const endHour = parseInt(slot.end);
                                             
-                                            for (let hour = startHour; hour <= endHour; hour++) {  // Changed to <= to include end hour
+                                            for (let hour = startHour; hour <= endHour; hour++) {  // Changed back to <= to include end hour for buttons
                                               const hourString = `${hour.toString().padStart(2, '0')}:00`;
                                               if (isSlotAvailable(dateInfo.date, hour) || dateInfo.hours.includes(hourString)) {
                                                 availableHours.push(hourString);

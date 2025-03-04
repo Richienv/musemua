@@ -49,7 +49,7 @@ import { PlusIcon } from '@heroicons/react/24/outline'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Database } from '@/types/supabase'
 
-interface Voucher {
+interface BaseVoucher {
   id: string;
   code: string;
   description: string;
@@ -60,6 +60,8 @@ interface Voucher {
   expires_at: string;
   created_at: string;
 }
+
+interface Voucher extends BaseVoucher {}
 
 interface VoucherUsage {
   id: string;
@@ -114,7 +116,7 @@ interface StatusUsage {
   percentage: number;
 }
 
-interface VoucherWithAnalytics extends Voucher {
+interface VoucherWithAnalytics extends BaseVoucher {
   total_discount_amount: number;
   usage_count: number;
   usage_details: VoucherUsage[];
@@ -344,9 +346,42 @@ function AnalyticsDashboard({ analytics }: { analytics: VoucherAnalytics }) {
   );
 }
 
+// Add helper function to create default analytics
+const createDefaultVoucherWithAnalytics = (voucher: Voucher): VoucherWithAnalytics => ({
+  ...voucher,
+  total_discount_amount: 0,
+  usage_count: 0,
+  usage_details: [],
+  analytics: {
+    total_vouchers_created: voucher.total_quantity,
+    total_vouchers_used: 0,
+    total_discount_amount: 0,
+    usage_ratio: 0,
+    top_streamers: [],
+    monthly_usage: [],
+    usage_by_status: []
+  }
+});
+
+// Add type guard helper
+const isVoucherWithAnalytics = (voucher: any): voucher is VoucherWithAnalytics => {
+  return (
+    voucher &&
+    typeof voucher.total_discount_amount === 'number' &&
+    Array.isArray(voucher.usage_details) &&
+    typeof voucher.usage_count === 'number'
+  );
+};
+
+// Add safe formatting helper
+const formatCurrency = (amount: number | undefined): string => {
+  if (typeof amount !== 'number') return 'Rp 0';
+  return `Rp ${amount.toLocaleString()}`;
+};
+
 export default function VouchersPage() {
-  const [vouchers, setVouchers] = useState<VoucherWithAnalytics[]>([]);
-  const [filteredVouchers, setFilteredVouchers] = useState<VoucherWithAnalytics[]>([]);
+  const [vouchers, setVouchers] = useState<(Voucher | VoucherWithAnalytics)[]>([]);
+  const [filteredVouchers, setFilteredVouchers] = useState<(Voucher | VoucherWithAnalytics)[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -564,7 +599,9 @@ export default function VouchersPage() {
         throw new Error('No data returned after insertion');
       }
 
-      setVouchers(prev => [insertedData, ...prev]);
+      // Initialize the new voucher with analytics
+      const newVoucherWithAnalytics = createDefaultVoucherWithAnalytics(insertedData);
+      setVouchers(prev => [newVoucherWithAnalytics, ...prev]);
       toast.success('Voucher created successfully');
       form.reset();
     } catch (error) {
@@ -590,6 +627,16 @@ export default function VouchersPage() {
     onClose: () => void;
   }) {
     if (!isOpen) return null;
+
+    // Safe access helpers
+    const getUsageCount = () => voucher.usage_count || 0;
+    const getTotalQuantity = () => voucher.total_quantity || 0;
+    const getTotalDiscount = () => voucher.total_discount_amount || 0;
+    const getUsageRatio = () => {
+      const count = getUsageCount();
+      const total = getTotalQuantity();
+      return total > 0 ? Math.round((count / total) * 100) : 0;
+    };
 
     return (
       <div 
@@ -627,25 +674,25 @@ export default function VouchersPage() {
               <div className="bg-blue-50 rounded-xl p-4">
                 <p className="text-sm text-gray-600 mb-1">Total Usage</p>
                 <p className="text-2xl font-semibold text-blue-600">
-                  {voucher.usage_count}/{voucher.total_quantity}
+                  {getUsageCount()}/{getTotalQuantity()}
                 </p>
               </div>
               <div className="bg-green-50 rounded-xl p-4">
                 <p className="text-sm text-gray-600 mb-1">Total Discount Given</p>
                 <p className="text-2xl font-semibold text-green-600">
-                  Rp {voucher.total_discount_amount.toLocaleString()}
+                  {formatCurrency(getTotalDiscount())}
                 </p>
               </div>
               <div className="bg-purple-50 rounded-xl p-4">
                 <p className="text-sm text-gray-600 mb-1">Average Discount</p>
                 <p className="text-2xl font-semibold text-purple-600">
-                  Rp {voucher.usage_count ? Math.round(voucher.total_discount_amount / voucher.usage_count).toLocaleString() : 0}
+                  {formatCurrency(getUsageCount() ? Math.round(getTotalDiscount() / getUsageCount()) : 0)}
                 </p>
               </div>
               <div className="bg-orange-50 rounded-xl p-4">
                 <p className="text-sm text-gray-600 mb-1">Usage Rate</p>
                 <p className="text-2xl font-semibold text-orange-600">
-                  {Math.round((voucher.usage_count / voucher.total_quantity) * 100)}%
+                  {getUsageRatio()}%
                 </p>
               </div>
             </div>
@@ -667,7 +714,7 @@ export default function VouchersPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {voucher.usage_details.length > 0 ? (
+                    {voucher.usage_details && voucher.usage_details.length > 0 ? (
                       voucher.usage_details.map((usage) => (
                         <tr key={usage.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -677,13 +724,13 @@ export default function VouchersPage() {
                             {format(new Date(usage.used_at), 'dd MMM yyyy HH:mm')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            Rp {usage.original_price.toLocaleString()}
+                            {formatCurrency(usage.original_price)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
-                            Rp {usage.discount_applied.toLocaleString()}
+                            {formatCurrency(usage.discount_applied)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            Rp {usage.final_price.toLocaleString()}
+                            {formatCurrency(usage.final_price)}
                           </td>
                         </tr>
                       ))
@@ -1044,16 +1091,16 @@ export default function VouchersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredVouchers.map((voucher) => (
+                {filteredVouchers.map((voucher: Voucher | VoucherWithAnalytics) => (
                   <TableRow key={voucher.id} className="hover:bg-gray-50/50">
                     <TableCell className="font-medium">{voucher.code}</TableCell>
                     <TableCell className="text-gray-600">{voucher.description}</TableCell>
-                    <TableCell>Rp {voucher.discount_amount.toLocaleString()}</TableCell>
+                    <TableCell>{formatCurrency(voucher.discount_amount)}</TableCell>
                     <TableCell className="text-gray-600">
-                      {voucher.usage_count}/{voucher.total_quantity}
+                      {isVoucherWithAnalytics(voucher) ? `${voucher.usage_count}/${voucher.total_quantity}` : `0/${voucher.total_quantity}`}
                     </TableCell>
                     <TableCell className="text-green-600">
-                      Rp {voucher.total_discount_amount.toLocaleString()}
+                      {isVoucherWithAnalytics(voucher) ? formatCurrency(voucher.total_discount_amount) : 'Rp 0'}
                     </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1072,8 +1119,10 @@ export default function VouchersPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setSelectedVoucher(voucher);
-                          setIsAnalyticsModalOpen(true);
+                          if (isVoucherWithAnalytics(voucher)) {
+                            setSelectedVoucher(voucher);
+                            setIsAnalyticsModalOpen(true);
+                          }
                         }}
                         className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                       >

@@ -31,7 +31,7 @@ interface StreamerProfile {
   user_id: string;
   location: string;
   price: number;
-  full_address?: string;
+  full_address: string;
 }
 
 interface ClientProfile {
@@ -68,6 +68,7 @@ export default function MessagesPage() {
   const [isMobileChat, setIsMobileChat] = useState(false);
   const [userType, setUserType] = useState<'streamer' | 'client' | null>(null);
   const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
     const initializeChat = async () => {
@@ -102,7 +103,7 @@ export default function MessagesPage() {
             .select(`
               *,
               streamer:streamers (
-                id, first_name, last_name, image_url, user_id
+                id, first_name, last_name, image_url, user_id, location, price, full_address
               ),
               messages (
                 id, content, created_at, sender_id, conversation_id
@@ -116,7 +117,7 @@ export default function MessagesPage() {
           // First get the streamer's ID
           const { data: streamerData } = await supabase
             .from('streamers')
-            .select('id')
+            .select('id, full_address')
             .eq('user_id', user.id)
             .single();
 
@@ -520,6 +521,23 @@ export default function MessagesPage() {
     }
   };
 
+  const handleCopyAddress = async () => {
+    if (selectedConversation?.streamer?.full_address) {
+      try {
+        await navigator.clipboard.writeText(selectedConversation.streamer.full_address);
+        setIsCopied(true);
+        toast.success("Alamat berhasil disalin!");
+        
+        // Reset the copied state after 2 seconds
+        setTimeout(() => {
+          setIsCopied(false);
+        }, 2000);
+      } catch (err) {
+        toast.error("Gagal menyalin alamat");
+      }
+    }
+  };
+
   const DeliveryInfoCard = () => {
     return (
       <>
@@ -567,11 +585,8 @@ export default function MessagesPage() {
                   <FileText className="h-3.5 w-3.5 text-blue-600" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Booking ID:</span>
-                  <span className="text-sm font-medium text-gray-900">#B12345</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
-                    Accepted
-                  </span>
+                  <span className="text-sm text-gray-600">Streamer ID:</span>
+                  <span className="text-sm font-medium text-gray-900">#{selectedConversation?.streamer?.id}</span>
                 </div>
               </div>
 
@@ -582,22 +597,34 @@ export default function MessagesPage() {
                   <h4 className="font-medium">Alamat Pengiriman</h4>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                  <p className="font-medium text-gray-900">Studio Ponsel</p>
-                  <p className="text-gray-600 text-sm">Jl. Example Street No. 123</p>
-                  <p className="text-gray-600 text-sm">Apartment Tower A Unit 456</p>
-                  <p className="text-gray-600 text-sm">Jakarta Selatan, 12345</p>
-                  <p className="text-gray-600 text-sm">DKI Jakarta</p>
+                  {selectedConversation?.streamer?.full_address ? (
+                    <div className="text-gray-600 text-sm whitespace-pre-line">
+                      {selectedConversation.streamer.full_address}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm italic">Alamat tidak tersedia</p>
+                  )}
                 </div>
                 <button
-                  onClick={() => {
-                    const fullAddress = `Studio Ponsel\nJl. Example Street No. 123\nApartment Tower A Unit 456\nJakarta Selatan, 12345\nDKI Jakarta`;
-                    navigator.clipboard.writeText(fullAddress);
-                    toast.success("Alamat berhasil disalin!");
-                  }}
-                  className="w-full mt-4 py-2.5 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                  onClick={handleCopyAddress}
+                  disabled={!selectedConversation?.streamer?.full_address || isCopied}
+                  className={`w-full mt-4 py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-all duration-300 ${
+                    isCopied 
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  <Copy className="h-4 w-4" />
-                  Salin Alamat
+                  {isCopied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Alamat sudah disalin
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Salin Alamat
+                    </>
+                  )}
                 </button>
               </div>
             </div>

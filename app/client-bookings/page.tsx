@@ -37,6 +37,8 @@ interface Booking {
     platform: string;
     rating?: number;
     image_url: string;
+    location: string;
+    full_address: string;
   };
   items_received?: boolean;
   items_received_at?: string | null;
@@ -567,6 +569,7 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [relatedBookings, setRelatedBookings] = useState<Booking[]>([]);
   const [showRelatedBookings, setShowRelatedBookings] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   // Fetch related bookings on mount
   useEffect(() => {
@@ -745,6 +748,23 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
   const hasDiscount = discountAmount > 0;
 
   const DeliveryInfoCard = () => {
+    const handleCopyAddress = async () => {
+      if (selectedBooking?.streamer?.full_address) {
+        try {
+          await navigator.clipboard.writeText(selectedBooking.streamer.full_address);
+          setIsCopied(true);
+          toast.success("Alamat berhasil disalin!");
+          
+          // Reset the copied state after 2 seconds
+          setTimeout(() => {
+            setIsCopied(false);
+          }, 2000);
+        } catch (err) {
+          toast.error("Gagal menyalin alamat");
+        }
+      }
+    };
+
     return (
       <>
         {/* Dark overlay backdrop */}
@@ -762,7 +782,7 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
                 <div className="flex items-center gap-3">
                   <div className="relative w-10 h-10 rounded-lg overflow-hidden">
                     <Image
-                      src={booking.streamer.image_url || '/default-avatar.png'}
+                      src={selectedBooking?.streamer?.image_url || '/default-avatar.png'}
                       alt="Streamer"
                       fill
                       className="object-cover"
@@ -770,10 +790,10 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">
-                      {booking.streamer.first_name} {booking.streamer.last_name?.charAt(0)}.
+                      {selectedBooking?.streamer?.first_name} {selectedBooking?.streamer?.last_name?.charAt(0)}.
                     </h3>
                     <p className="text-sm text-gray-500">
-                      Rp {booking.price?.toLocaleString('id-ID')}/jam
+                      Rp {selectedBooking?.price?.toLocaleString('id-ID')}/jam
                     </p>
                   </div>
                 </div>
@@ -792,9 +812,9 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">Booking ID:</span>
-                  <span className="text-sm font-medium text-gray-900">#{booking.id}</span>
+                  <span className="text-sm font-medium text-gray-900">#{selectedBooking?.id}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
-                    Accepted
+                    {selectedBooking?.status}
                   </span>
                 </div>
               </div>
@@ -806,22 +826,34 @@ function BookingEntry({ booking, onRatingSubmit, onStatusUpdate }: BookingEntryP
                   <h4 className="font-medium">Alamat Pengiriman</h4>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                  <p className="font-medium text-gray-900">Studio Ponsel</p>
-                  <p className="text-gray-600 text-sm">Jl. Example Street No. 123</p>
-                  <p className="text-gray-600 text-sm">Apartment Tower A Unit 456</p>
-                  <p className="text-gray-600 text-sm">Jakarta Selatan, 12345</p>
-                  <p className="text-gray-600 text-sm">DKI Jakarta</p>
+                  {selectedBooking?.streamer?.full_address ? (
+                    <div className="text-gray-600 text-sm whitespace-pre-line">
+                      {selectedBooking.streamer.full_address}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm italic">Alamat tidak tersedia</p>
+                  )}
                 </div>
                 <button
-                  onClick={() => {
-                    const fullAddress = `Studio Ponsel\nJl. Example Street No. 123\nApartment Tower A Unit 456\nJakarta Selatan, 12345\nDKI Jakarta`;
-                    navigator.clipboard.writeText(fullAddress);
-                    toast.success("Alamat berhasil disalin!");
-                  }}
-                  className="w-full mt-4 py-2.5 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                  onClick={handleCopyAddress}
+                  disabled={!selectedBooking?.streamer?.full_address || isCopied}
+                  className={`w-full mt-4 py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-all duration-300 ${
+                    isCopied 
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  <Copy className="h-4 w-4" />
-                  Salin Alamat
+                  {isCopied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Alamat sudah disalin
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Salin Alamat
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -1101,7 +1133,10 @@ export default function ClientBookings(): JSX.Element {
               first_name,
               last_name,
               platform,
-              image_url
+              rating,
+              image_url,
+              location,
+              full_address
             ),
             voucher_usage (
               final_price,
@@ -1308,16 +1343,11 @@ export default function ClientBookings(): JSX.Element {
                       <h4 className="font-medium">Alamat Pengiriman</h4>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                      <p className="font-medium text-gray-900">Studio Ponsel</p>
-                      <p className="text-gray-600 text-sm">Jl. Example Street No. 123</p>
-                      <p className="text-gray-600 text-sm">Apartment Tower A Unit 456</p>
-                      <p className="text-gray-600 text-sm">Jakarta Selatan, 12345</p>
-                      <p className="text-gray-600 text-sm">DKI Jakarta</p>
+                      <p className="font-medium text-gray-900">{selectedBooking.streamer.full_address}</p>
                     </div>
                     <button
                       onClick={() => {
-                        const fullAddress = `Studio Ponsel\nJl. Example Street No. 123\nApartment Tower A Unit 456\nJakarta Selatan, 12345\nDKI Jakarta`;
-                        navigator.clipboard.writeText(fullAddress);
+                        navigator.clipboard.writeText(selectedBooking.streamer.full_address);
                         toast.success("Alamat berhasil disalin!");
                       }}
                       className="w-full mt-4 py-2.5 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
