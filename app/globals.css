@@ -40,6 +40,16 @@
     --z-notification: 1070;
     --z-tooltip: 1080;
     --z-toast: 1090;
+    --animation-duration-instant: 50ms;
+    --animation-duration-fast: 150ms;
+    --animation-duration-normal: 200ms;
+    --animation-duration-emphasis: 250ms;
+    --ease-bounce: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.155, 1.105, 0.295, 1.12);
+    --touch-target-size: 44px;
+    --minimum-tap-target: 32px;
   }
 
   .dark {
@@ -67,6 +77,82 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  .gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    perspective: 1000px;
+    -webkit-perspective: 1000px;
+    will-change: transform;
+  }
+
+  .content-optimized {
+    content-visibility: auto;
+    contain: content;
+    contain-intrinsic-size: 0 500px;
+  }
+
+  .touch-optimized {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+    min-height: var(--minimum-tap-target);
+    min-width: var(--minimum-tap-target);
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-response {
+      transition: transform var(--animation-duration-fast) var(--ease-out);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-response {
+      transition: none !important;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .animate-response {
+      transition-duration: var(--animation-duration-instant);
+    }
+    
+    .touch-target {
+      min-height: var(--touch-target-size);
+      min-width: var(--touch-target-size);
+    }
   }
 }
 
@@ -333,14 +419,6 @@ html {
   -webkit-perspective: 1000px;
 }
 
-.gpu-accelerated {
-  transform: translate3d(0, 0, 0);
-  -webkit-transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  will-change: transform;
-}
-
 /* Optimize image rendering */
 img {
   image-rendering: -webkit-optimize-contrast;
@@ -519,17 +597,6 @@ a:not(.no-transition),
 }
 
 /* Add custom animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
 }
@@ -582,14 +649,145 @@ a:not(.no-transition),
               0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
-
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Modal Animation System */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-50%, -48%, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+}
+
+@keyframes modal-out {
+  from {
+    opacity: 1;
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-50%, -48%, 0) scale(0.96);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Performance-Optimized Modal Classes */
+.modal-container {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  will-change: transform;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: var(--z-modal);
+  animation: overlay-in var(--animation-duration-normal) var(--ease-out);
+}
+
+.modal-overlay[data-state="closed"] {
+  animation: overlay-out var(--animation-duration-fast) var(--ease-out);
+}
+
+.modal-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate3d(-50%, -50%, 0);
+  min-width: min(calc(100% - 2rem), 32rem);
+  background: hsl(var(--background));
+  border-radius: var(--radius);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  z-index: calc(var(--z-modal) + 1);
+  animation: modal-in var(--animation-duration-normal) var(--ease-spring);
+  will-change: transform, opacity;
+}
+
+.modal-content[data-state="closed"] {
+  animation: modal-out var(--animation-duration-fast) var(--ease-out);
+}
+
+/* Scroll Performance Optimizations */
+.scroll-container {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  contain: content;
+  content-visibility: auto;
+}
+
+.scroll-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-container::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  transition: background-color var(--animation-duration-fast) var(--ease-out);
+}
+
+.scroll-container::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Mobile Optimizations */
+@media (max-width: 640px) {
+  .modal-content {
+    width: calc(100% - 2rem);
+    max-height: calc(100vh - 4rem);
+    margin: 0;
+  }
+
+  .scroll-container {
+    max-height: calc(100vh - 8rem);
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .modal-content,
+  .modal-overlay,
+  .scroll-container {
+    animation: none !important;
+    transition: none !important;
   }
 }
 
