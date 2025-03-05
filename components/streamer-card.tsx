@@ -683,6 +683,32 @@ const groupConsecutiveHours = (hours: string[]): TimeRange[] => {
   return ranges;
 };
 
+// Add this utility function to normalize platform data
+function normalizePlatforms(streamer: Streamer): string[] {
+  console.log('Normalizing platforms for streamer:', {
+    streamerId: streamer.id,
+    platformString: streamer.platform,
+    platformsArray: streamer.platforms
+  });
+
+  // If platforms array exists and has items, use it
+  if (streamer.platforms && streamer.platforms.length > 0) {
+    const normalized = streamer.platforms.map(p => p.trim().toLowerCase());
+    console.log('Using platforms array, normalized to:', normalized);
+    return normalized;
+  }
+
+  // Handle the "both" case explicitly
+  if (streamer.platform.toLowerCase().trim() === 'both') {
+    return ['tiktok', 'shopee'];
+  }
+
+  // Otherwise split the platform string
+  const normalized = streamer.platform.split(',').map(p => p.trim().toLowerCase());
+  console.log('Using platform string, normalized to:', normalized);
+  return normalized;
+}
+
 export function StreamerCard({ streamer }: { streamer: Streamer }) {
   const router = useRouter();
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -1673,7 +1699,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
   return (
     <>
       <div 
-        className="group relative bg-transparent w-full font-sans cursor-pointer transition-transform duration-200 hover:-translate-y-1"
+        className="group relative bg-transparent w-full font-sans cursor-pointer animate-gpu hover-lift"
         onClick={() => setIsProfileModalOpen(true)}
         onMouseEnter={handleCardHover}
       >
@@ -1682,7 +1708,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
           <img
             src={streamer.image_url}
             alt={formatName(streamer.first_name, streamer.last_name)}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            className="w-full h-full object-cover transition-optimized"
           />
           {/* Location overlay */}
           <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1.5 rounded-lg shadow-sm flex items-center gap-2">
@@ -1700,16 +1726,16 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
                 {formatName(streamer.first_name, streamer.last_name)}
               </h3>
               <div className="flex gap-1">
-                {(streamer.platforms || [streamer.platform]).map((platform, index) => (
+                {normalizePlatforms(streamer).map((platform) => (
                   <div
                     key={platform}
                     className={`px-2 py-0.5 rounded-full text-white text-[10px] font-medium
-                      ${platform.toLowerCase() === 'shopee' 
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
+                      ${platform === 'shopee'
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600'
                         : 'bg-gradient-to-r from-blue-900 to-black text-white'
                       }`}
                   >
-                    {platform}
+                    {platform.charAt(0).toUpperCase() + platform.slice(1)}
                   </div>
                 ))}
               </div>
@@ -1783,7 +1809,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             <Button 
               className="flex-1 text-xs py-2 text-white max-w-[85%] 
                 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] hover:to-[#581c87]
-                transition-all duration-200"
+                transition-optimized"
               onClick={(e) => {
                 e.stopPropagation();
                 openBookingModal();
@@ -1793,7 +1819,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             </Button>
             <Button
               variant="outline"
-              className="px-2.5 text-[#2563eb] border-[#2563eb] hover:bg-[#2563eb]/5 transition-colors duration-200"
+              className="px-2.5 text-[#2563eb] border-[#2563eb] hover:bg-[#2563eb]/5 transition-optimized"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsProfileModalOpen(false);
@@ -1827,7 +1853,7 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
             </div>
 
             {/* Close Button */}
-            <DialogClose className="absolute top-4 right-4 p-2 rounded-full bg-white/10 backdrop-blur-md hover:bg-white/20 transition-colors">
+            <DialogClose className="absolute top-4 right-4 p-2 rounded-full bg-white/10 backdrop-blur-md hover:bg-white/20 transition-optimized">
               <X className="h-4 w-4 text-white" />
             </DialogClose>
 

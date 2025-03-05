@@ -21,8 +21,7 @@ interface FilterState {
 
 const PLATFORMS = [
   { id: 'shopee', label: 'Shopee' },
-  { id: 'tiktok', label: 'TikTok' },
-  { id: 'both', label: 'Shopee & TikTok' }
+  { id: 'tiktok', label: 'TikTok' }
 ];
 const MAX_PRICE = 1000000;
 
@@ -46,20 +45,17 @@ export function FilterModal({ isOpen, onClose, onApplyFilters, initialFilters }:
   };
 
   const togglePlatform = (platformId: string) => {
-    setFilters(prev => {
-      // If selecting 'both', clear other selections
-      if (platformId === 'both') {
-        return {
-          ...prev,
-          platforms: prev.platforms.includes('both') ? [] : ['shopee', 'tiktok']
-        };
-      }
-      
-      // If selecting individual platform, remove 'both' if it exists
-      const newPlatforms = prev.platforms.includes(platformId)
-        ? prev.platforms.filter(p => p !== platformId && p !== 'both')
-        : [...prev.platforms.filter(p => p !== 'both'), platformId];
+    console.log('Platform toggle requested:', {
+      platformId,
+      currentPlatforms: filters.platforms
+    });
 
+    setFilters(prev => {
+      const newPlatforms = prev.platforms.includes(platformId)
+        ? prev.platforms.filter(p => p !== platformId)
+        : [...prev.platforms, platformId];
+
+      console.log('New platforms after toggle:', newPlatforms);
       return {
         ...prev,
         platforms: newPlatforms
@@ -68,9 +64,6 @@ export function FilterModal({ isOpen, onClose, onApplyFilters, initialFilters }:
   };
 
   const isPlatformSelected = (platformId: string) => {
-    if (platformId === 'both') {
-      return filters.platforms.includes('shopee') && filters.platforms.includes('tiktok');
-    }
     return filters.platforms.includes(platformId);
   };
 

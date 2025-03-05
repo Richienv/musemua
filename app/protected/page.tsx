@@ -212,14 +212,8 @@ export default function ProtectedPage() {
         // Split streamer's platforms into an array and normalize
         const streamerPlatforms = streamer.platform.toLowerCase().split(',').map((p: string) => p.trim());
         
-        // If "both" is selected (which means both shopee and tiktok are in platforms array)
-        if (activeFilters.platforms.includes('shopee') && activeFilters.platforms.includes('tiktok')) {
-          // Return true if streamer has both platforms
-          return streamerPlatforms.includes('shopee') && streamerPlatforms.includes('tiktok');
-        }
-        
-        // Otherwise, check if any of the selected platforms match
-        return activeFilters.platforms.some((p: string) => streamerPlatforms.includes(p.toLowerCase()));
+        // Check if any of the selected platforms match
+        return activeFilters.platforms.every(p => streamerPlatforms.includes(p.toLowerCase()));
       })();
 
     // Rating filter
@@ -275,7 +269,7 @@ export default function ProtectedPage() {
               </div>
             </Suspense>
 
-            {/* Category Filter - Moved below carousel */}
+            {/* Category Filter */}
             <Suspense fallback={
               <div className="h-20 bg-white border border-gray-100 rounded-xl animate-pulse mb-8" />
             }>
@@ -287,13 +281,13 @@ export default function ProtectedPage() {
                         <button
                           key={category.name}
                           onClick={() => setCategoryFilter(category.name === categoryFilter ? '' : category.name)}
-                          className="flex flex-col items-center min-w-[56px] group transition-all duration-200"
+                          className="flex flex-col items-center min-w-[56px] group interactive-element"
                         >
                           <div className={`p-2.5 rounded-lg ${
                             categoryFilter === category.name 
                               ? 'bg-black shadow-md' 
                               : 'bg-gray-50 hover:bg-gray-100'
-                            } transition-all duration-200`}
+                            } transition-optimized`}
                           >
                             <category.icon className={`w-5 h-5 ${
                               categoryFilter === category.name ? 'text-white' : 'text-gray-700'
@@ -318,7 +312,7 @@ export default function ProtectedPage() {
                       <button
                         onClick={() => setIsFilterModalOpen(true)}
                         className={cn(
-                          "flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors duration-200",
+                          "flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-optimized",
                           hasActiveFilters(activeFilters)
                             ? "border-blue-600 bg-blue-50 text-blue-600 hover:bg-blue-100"
                             : "border-gray-300 hover:border-gray-400"
@@ -331,7 +325,7 @@ export default function ProtectedPage() {
                           fill="none" 
                           xmlns="http://www.w3.org/2000/svg"
                           className={cn(
-                            "transition-colors",
+                            "transition-optimized",
                             hasActiveFilters(activeFilters) ? "stroke-blue-600" : "stroke-current"
                           )}
                         >
@@ -400,7 +394,7 @@ export default function ProtectedPage() {
                         setCategoryFilter('');
                         setFilter('');
                       }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      className="bg-blue-600 hover:bg-blue-700 text-white transition-optimized"
                     >
                       Bersihkan Semua Filter
                     </Button>

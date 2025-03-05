@@ -840,17 +840,31 @@ function SettingsContent() {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="platform">Platform</Label>
-                              <Select value={platform} onValueChange={setPlatform}>
-                                <SelectTrigger id="platform">
-                                  <SelectValue placeholder="Pilih platform" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="tiktok">TikTok</SelectItem>
-                                  <SelectItem value="shopee">Shopee</SelectItem>
-                                  <SelectItem value="both">TikTok & Shopee</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <Label>Platform</Label>
+                              <div className="flex gap-2">
+                                {['tiktok', 'shopee'].map((platformOption) => (
+                                  <button
+                                    key={platformOption}
+                                    onClick={() => {
+                                      const platforms = platform.split(',').filter(Boolean);
+                                      if (platforms.includes(platformOption)) {
+                                        setPlatform(platforms.filter(p => p !== platformOption).join(','));
+                                      } else {
+                                        setPlatform([...platforms, platformOption].join(','));
+                                      }
+                                    }}
+                                    className={`
+                                      h-10 px-6 rounded-lg border text-sm font-medium transition-all duration-200
+                                      ${platform.split(',').includes(platformOption)
+                                        ? 'border-blue-600 bg-blue-50 text-blue-600'
+                                        : 'border-gray-200 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600'
+                                      }
+                                    `}
+                                  >
+                                    {platformOption.charAt(0).toUpperCase() + platformOption.slice(1)}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                             <div className="space-y-2">
                               <Label>Kategori Konten (Pilih maksimal 3)</Label>
