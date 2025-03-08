@@ -1345,9 +1345,18 @@ export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardPro
     const selectedHourNums = dateInfo.hours.map(h => parseInt(h));
     const minHour = Math.min(...selectedHourNums);
     const maxHour = Math.max(...selectedHourNums);
+
+    // If the hour is adjacent to the current selection, allow it
+    if (hourNum === maxHour + 1 || hourNum === minHour - 1) return false;
+
+    // If the hour is between selected hours and there are selected hours on both sides, allow it
+    if (hourNum > minHour && hourNum < maxHour) {
+        const hasSelectedBefore = selectedHourNums.some(h => h < hourNum);
+        const hasSelectedAfter = selectedHourNums.some(h => h > hourNum);
+        if (hasSelectedBefore && hasSelectedAfter) return false;
+    }
     
-    // Only enable hours that would maintain continuity
-    return hourNum !== maxHour + 1 && hourNum !== minHour - 1;
+    return true;
   };
 
   const isDayOff = (date: Date) => {
@@ -2370,10 +2379,12 @@ export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardPro
                                           // - Only enable if no hours are selected yet
                                           // - Or if this hour is already selected
                                           // - Or if this hour is immediately before/after existing selection
+                                          // - Or if this hour is within the range of selected hours (to allow re-selection)
                                           const isDisabled = dateInfo.hours.length > 0 && 
                                             !isSelected && 
                                             hourNum !== maxHour + 1 && 
-                                            hourNum !== minHour - 1;
+                                            hourNum !== minHour - 1 &&
+                                            !(hourNum > minHour && hourNum < maxHour); // Allow re-selection of hours within the range
 
                                           return (
                                             <Button
