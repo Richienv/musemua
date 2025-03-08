@@ -709,7 +709,13 @@ function normalizePlatforms(streamer: Streamer): string[] {
   return normalized;
 }
 
-export function StreamerCard({ streamer }: { streamer: Streamer }) {
+interface StreamerCardProps {
+  streamer: Streamer;
+  isSelected?: boolean;
+  onSelect?: (streamer: Streamer) => void;
+}
+
+export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardProps) {
   const router = useRouter();
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -1700,7 +1706,9 @@ export function StreamerCard({ streamer }: { streamer: Streamer }) {
     <>
       <div 
         className="group relative bg-transparent w-full font-sans cursor-pointer animate-gpu hover-lift"
-        onClick={() => setIsProfileModalOpen(true)}
+        onClick={() => {
+          setIsProfileModalOpen(true);
+        }}
         onMouseEnter={handleCardHover}
       >
         {/* Image Container with Location Overlay */}

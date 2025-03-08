@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { usePathname, useRouter } from 'next/navigation';
 import { Bell, MessageSquare, Search, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 const NotificationsPopup = dynamic(() => import('@/components/notifications-popup').then(mod => mod.NotificationsPopup), { ssr: false });
 const ProfileButton = dynamic(() => import('@/components/profile-button').then(mod => mod.ProfileButton), { ssr: false });
@@ -107,85 +108,129 @@ export function Navbar({ onFilterChange }: NavbarProps) {
     const fetchUnreadMessages = async () => {
       if (!user) return;
 
-      // Get user type first
-      const { data: userData } = await supabase
-        .from('users')
-        .select('user_type')
-        .eq('id', user.id)
-        .single();
-
-      if (!userData) return;
-
-      if (userData.user_type === 'streamer') {
-        // Get streamer_id first
-        const { data: streamerData } = await supabase
-          .from('streamers')
-          .select('id')
-          .eq('user_id', user.id)
+      try {
+        // Get user type first
+        const { data: userData } = await supabase
+          .from('users')
+          .select('user_type')
+          .eq('id', user.id)
           .single();
 
-        if (streamerData) {
-          // Get conversations where streamer is participant
+        if (!userData) return;
+
+        let query = supabase
+          .from('messages')
+          .select('id, conversation_id', { count: 'exact' })
+          .eq('is_read', false)
+          .neq('sender_id', user.id);
+
+        if (userData.user_type === 'streamer') {
+          // Get streamer_id first
+          const { data: streamerData } = await supabase
+            .from('streamers')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+
+          if (streamerData) {
+            // Get conversations where streamer is participant
+            const { data: conversations } = await supabase
+              .from('conversations')
+              .select('id')
+              .eq('streamer_id', streamerData.id);
+
+            if (conversations?.length) {
+              query = query.in('conversation_id', conversations.map(c => c.id));
+            }
+          }
+        } else {
+          // For clients, get their conversations
           const { data: conversations } = await supabase
             .from('conversations')
             .select('id')
-            .eq('streamer_id', streamerData.id);
+            .eq('client_id', user.id);
 
-          if (conversations) {
-            // Get unread messages count for all conversations
-            const { data: unreadMessages } = await supabase
-              .from('messages')
-              .select('id')
-              .eq('is_read', false)
-              .neq('sender_id', user.id)
-              .in('conversation_id', conversations.map(c => c.id));
-
-            setUnreadMessages(unreadMessages?.length || 0);
+          if (conversations?.length) {
+            query = query.in('conversation_id', conversations.map(c => c.id));
           }
         }
-      } else {
-        // For clients, get their conversations
-        const { data: conversations } = await supabase
-          .from('conversations')
-          .select('id')
-          .eq('client_id', user.id);
 
-        if (conversations) {
-          // Get unread messages count for all conversations
-          const { data: unreadMessages } = await supabase
-            .from('messages')
-            .select('id')
-            .eq('is_read', false)
-            .neq('sender_id', user.id)
-            .in('conversation_id', conversations.map(c => c.id));
-
-          setUnreadMessages(unreadMessages?.length || 0);
-        }
+        const { count } = await query;
+        setUnreadMessages(count || 0);
+      } catch (error) {
+        console.error('Error fetching unread messages:', error);
       }
     };
 
+    // Initial fetch
     fetchUnreadMessages();
 
-    // Subscribe to new messages
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-        },
-        () => {
-          fetchUnreadMessages();
-        }
-      )
-      .subscribe();
+    let channel: RealtimeChannel;
+
+    const setupSubscription = async () => {
+      // Clean up any existing subscription
+      if (channel) {
+        await supabase.removeChannel(channel);
+      }
+
+      // Create new subscription
+      channel = supabase
+        .channel('notifications-channel') // Use same channel name as notifications component
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications'
+          },
+          (payload: any) => {
+            console.log('Notification received in navbar:', {
+              payload,
+              type: payload.new?.type,
+              isNewMessage: payload.new?.type === 'new_message',
+              currentCount: unreadMessages
+            });
+
+            if (payload.new?.type === 'new_message') {
+              console.log('New message notification received, updating count from', unreadMessages, 'to', unreadMessages + 1);
+              setUnreadMessages(prev => {
+                console.log('Previous unread count:', prev);
+                return prev + 1;
+              });
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'messages',
+            filter: `is_read=eq.true`
+          },
+          () => {
+            console.log('Messages marked as read, refreshing count');
+            fetchUnreadMessages();
+          }
+        );
+
+      // Subscribe and log status
+      const status = await channel.subscribe();
+      console.log('Navbar subscription status:', status);
+    };
+
+    // Setup subscription if we have a user
+    if (user) {
+      setupSubscription();
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      // Cleanup subscription
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, [user]);
+  }, [user, supabase, unreadMessages]); // Add proper dependencies
 
   const isStreamerDashboard = pathname === '/streamer-dashboard';
 

@@ -267,22 +267,9 @@ export function NotificationsPopup() {
           created_at,
           is_read,
           booking_id,
-          bookings (
-            id,
-            client_id,
-            streamer_id,
-            start_time,
-            end_time,
-            platform,
-            stream_link,
-            client_first_name,
-            client_last_name,
-            streamer:streamers (
-              first_name,
-              last_name
-            )
-          )
+          bookings (*)
         `)
+        .neq('type', 'new_message') // Filter out new_message notifications
         .order('created_at', { ascending: false });
 
       if (userData.user_type === 'streamer') {
@@ -294,14 +281,12 @@ export function NotificationsPopup() {
           .single();
 
         if (streamerData) {
-          // Direct query approach: Show notifications where either:
-          // 1. streamer_id matches their streamer ID (notifications for them as a streamer)
-          // 2. user_id matches their user ID (notifications for them as a user)
+          // Get conversations where streamer is participant
           notificationsQuery = notificationsQuery
             .or(`streamer_id.eq.${streamerData.id},user_id.eq.${user.id}`);
         }
       } else {
-        // For clients: Simply show notifications where user_id matches
+        // For clients, get their conversations
         notificationsQuery = notificationsQuery
           .eq('user_id', user.id);
       }
@@ -331,6 +316,7 @@ export function NotificationsPopup() {
       }) || [];
 
       setNotifications(processedNotifications);
+      // Only count non-message notifications for the bell icon
       setUnreadCount(processedNotifications.filter(n => !n.is_read).length);
 
     } catch (error) {
@@ -371,7 +357,7 @@ export function NotificationsPopup() {
     fetchNotifications();
 
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('notifications-channel')
       .on(
         'postgres_changes',
         {
@@ -379,13 +365,21 @@ export function NotificationsPopup() {
           schema: 'public',
           table: 'notifications',
         },
-        (payload) => {
-          console.log('New notification:', payload);
-          fetchNotifications();
+        async (payload) => {
+          console.log('New notification received:', payload);
+          
+          // Skip updating notifications UI if it's a new message notification
+          if (payload.new?.type === 'new_message') {
+            console.log('Skipping new message notification in notifications popup');
+            return;
+          }
+          
+          // Immediately update notifications UI for other notification types
+          await fetchNotifications();
         }
       )
       .subscribe((status) => {
-        console.log('Subscription status:', status);
+        console.log('Notifications subscription status:', status);
       });
 
     return () => {
