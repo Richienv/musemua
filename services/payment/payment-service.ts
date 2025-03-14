@@ -164,14 +164,26 @@ export async function createBookingAfterPayment(
         
         // Create the full ISO string by combining date and time
         const startTimeStr = `${booking.date}T${startTimePart}`;
-        const endTimeStr = `${booking.date}T${endTimePart}`;
+        let endTimeStr = `${booking.date}T${endTimePart}`;
         
         console.log('Combined start time string:', startTimeStr);
         console.log('Combined end time string:', endTimeStr);
         
-        // Parse the dates
+        // Parse the dates - first create with local browser time
         const startTime = new Date(startTimeStr);
-        const endTime = new Date(endTimeStr);
+        let endTime = new Date(endTimeStr);
+        
+        // Ensure end time is after start time (handle midnight crossing)
+        if (endTime < startTime && endTimePart.startsWith('00:')) {
+          // If end time is like "00:00" and earlier than start time, 
+          // assume it's midnight of the next day
+          const nextDay = new Date(booking.date);
+          nextDay.setDate(nextDay.getDate() + 1);
+          const nextDayStr = nextDay.toISOString().split('T')[0];
+          endTimeStr = `${nextDayStr}T${endTimePart}`;
+          endTime = new Date(endTimeStr);
+          console.log('Corrected end time string (next day):', endTimeStr);
+        }
         
         console.log('Parsed start time:');
         console.log('- ISO:', startTime.toISOString());
@@ -195,7 +207,7 @@ export async function createBookingAfterPayment(
         // Store the times in UTC format without any manual adjustments
         const bookingData = {
           client_id: metadata.userId,
-          streamer_id: parseInt(metadata.streamerId),
+          streamer_id: Number(metadata.streamerId) || 0,
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
           platform: metadata.platform,
@@ -236,19 +248,26 @@ export async function createBookingAfterPayment(
     console.log('Final booking inserts:', JSON.stringify(bookingInserts, null, 2));
 
     // Insert all bookings first
+    console.log('Attempting to insert bookings into database...');
+    
     const { data: newBookings, error: bookingError } = await supabase
       .from('bookings')
       .insert(bookingInserts)
       .select();
 
     if (bookingError) {
-      console.error('Booking creation error:', bookingError);
-      throw bookingError;
+      console.error('Booking creation error details:', {
+        code: bookingError.code,
+        message: bookingError.message,
+        details: bookingError.details,
+        hint: bookingError.hint
+      });
+      throw new Error(`Database error: ${bookingError.message}`);
     }
 
     if (!newBookings || newBookings.length === 0) {
       console.error('No bookings were created');
-      throw new Error('Failed to create bookings');
+      throw new Error('Failed to create bookings - no records returned');
     }
 
     console.log('Successfully created bookings:', JSON.stringify(newBookings, null, 2));
@@ -329,7 +348,7 @@ export async function createBookingAfterPayment(
       
       await createNotification({
         user_id: metadata.userId,
-        streamer_id: parseInt(metadata.streamerId),
+        streamer_id: Number(metadata.streamerId) || 0,
         message: `Payment confirmed for your booking on ${bookingDate}. Menunggu streamer menerima pesanan Anda.`,
         type: 'booking_payment',
         booking_id: booking.id,
@@ -337,7 +356,7 @@ export async function createBookingAfterPayment(
       });
 
       await createNotification({
-        streamer_id: parseInt(metadata.streamerId),
+        streamer_id: Number(metadata.streamerId) || 0,
         message: `New booking request from ${metadata.firstName} for ${bookingDate}. Payment confirmed.`,
         type: 'booking_payment',
         booking_id: booking.id,
