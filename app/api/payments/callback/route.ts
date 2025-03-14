@@ -17,6 +17,13 @@ interface PaymentCallbackBody {
 export async function POST(request: Request) {
   try {
     console.log('=== Payment Callback Start ===');
+    console.log('Server time:', new Date().toISOString());
+    console.log('Server timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    
+    // Log request headers
+    const headers = Object.fromEntries(request.headers.entries());
+    console.log('Request headers:', JSON.stringify(headers, null, 2));
+    
     const body: PaymentCallbackBody = await request.json();
     console.log('Raw callback body:', JSON.stringify(body, null, 2));
 
@@ -30,12 +37,36 @@ export async function POST(request: Request) {
     console.log('=== Payment Callback Data Validation ===');
     console.log('Payment result:', JSON.stringify(result, null, 2));
     console.log('Payment metadata:', JSON.stringify(metadata, null, 2));
-    console.log('Booking time ranges:', JSON.stringify(metadata.bookings.map(b => ({
-      date: b.date,
-      timeRanges: b.timeRanges,
-      startTime: b.startTime,
-      endTime: b.endTime
-    })), null, 2));
+    
+    if (metadata.bookings && metadata.bookings.length > 0) {
+      console.log('Client timezone from metadata:', metadata.timezone);
+      
+      // Log detailed booking time information for each booking
+      metadata.bookings.forEach((booking, index) => {
+        console.log(`Booking ${index + 1} details:`);
+        console.log(`Date: ${booking.date}`);
+        console.log(`Start time: ${booking.startTime}`);
+        console.log(`End time: ${booking.endTime}`);
+        
+        // Parse and log the dates in different formats to detect time zone issues
+        try {
+          const startDate = new Date(`${booking.date}T${booking.startTime}`);
+          const endDate = new Date(`${booking.date}T${booking.endTime}`);
+          
+          console.log('Parsed start date (ISO):', startDate.toISOString());
+          console.log('Parsed start date (UTC string):', startDate.toUTCString());
+          console.log('Parsed start date (local string):', startDate.toString());
+          
+          console.log('Parsed end date (ISO):', endDate.toISOString());
+          console.log('Parsed end date (UTC string):', endDate.toUTCString());
+          console.log('Parsed end date (local string):', endDate.toString());
+        } catch (error) {
+          console.error('Error parsing dates:', error);
+        }
+        
+        console.log('Time ranges:', JSON.stringify(booking.timeRanges, null, 2));
+      });
+    }
 
     try {
       const bookings = await createBookingAfterPayment(result, metadata);

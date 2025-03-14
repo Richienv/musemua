@@ -127,6 +127,8 @@ export async function createBookingAfterPayment(
   
   try {
     console.log('=== Debug: Creating Booking After Payment ===');
+    console.log('Server timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    console.log('Client timezone from metadata:', metadata.timezone);
     console.log('Raw Result:', JSON.stringify(result, null, 2));
     console.log('Raw Metadata:', JSON.stringify(metadata, null, 2));
     
@@ -152,10 +154,44 @@ export async function createBookingAfterPayment(
 
       // Create a booking for each time block
       return timeBlocks.map(block => {
+        // Extract time parts correctly, handling both full ISO strings and time-only strings
+        const startTimePart = block.start.includes('T') ? block.start.split('T')[1] : block.start;
+        const endTimePart = block.end.includes('T') ? block.end.split('T')[1] : block.end;
+        
+        console.log('Date from booking:', booking.date);
+        console.log('Start time part:', startTimePart);
+        console.log('End time part:', endTimePart);
+        
         // Create the full ISO string by combining date and time
-        const startTime = new Date(`${booking.date}T${block.start.split('T')[1] || block.start}`);
-        const endTime = new Date(`${booking.date}T${block.end.split('T')[1] || block.end}`);
-
+        const startTimeStr = `${booking.date}T${startTimePart}`;
+        const endTimeStr = `${booking.date}T${endTimePart}`;
+        
+        console.log('Combined start time string:', startTimeStr);
+        console.log('Combined end time string:', endTimeStr);
+        
+        // Parse the dates
+        const startTime = new Date(startTimeStr);
+        const endTime = new Date(endTimeStr);
+        
+        console.log('Parsed start time:');
+        console.log('- ISO:', startTime.toISOString());
+        console.log('- UTC:', startTime.toUTCString());
+        console.log('- Local:', startTime.toString());
+        console.log('- Hours (local):', startTime.getHours());
+        console.log('- Hours (UTC):', startTime.getUTCHours());
+        
+        console.log('Parsed end time:');
+        console.log('- ISO:', endTime.toISOString());
+        console.log('- UTC:', endTime.toUTCString());
+        console.log('- Local:', endTime.toString());
+        console.log('- Hours (local):', endTime.getHours());
+        console.log('- Hours (UTC):', endTime.getUTCHours());
+        
+        // Calculate duration
+        const durationMs = endTime.getTime() - startTime.getTime();
+        const durationHours = durationMs / (1000 * 60 * 60);
+        console.log('Calculated duration (hours):', durationHours);
+        
         // Store the times in UTC format without any manual adjustments
         const bookingData = {
           client_id: metadata.userId,
@@ -180,6 +216,17 @@ export async function createBookingAfterPayment(
         };
 
         console.log('Created booking data:', JSON.stringify(bookingData, null, 2));
+        // Log what time this booking will look like in the client's timezone
+        console.log('How this booking will appear to the client:');
+        try {
+          const clientStartTime = new Date(bookingData.start_time);
+          const clientEndTime = new Date(bookingData.end_time);
+          console.log(`Start: ${clientStartTime.toLocaleString('en-US', { timeZone: metadata.timezone })}`);
+          console.log(`End: ${clientEndTime.toLocaleString('en-US', { timeZone: metadata.timezone })}`);
+        } catch (error) {
+          console.error('Error calculating client-facing times:', error);
+        }
+        
         return bookingData;
       });
     }).flat();
