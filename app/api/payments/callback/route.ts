@@ -15,38 +15,40 @@ interface PaymentCallbackBody {
 }
 
 export async function POST(request: Request) {
-  const startTime = Date.now();
-  console.log(`[${startTime}] Payment callback received`);
-  
   try {
+    console.log('=== Payment Callback Start ===');
     const body: PaymentCallbackBody = await request.json();
-    
+    console.log('Raw callback body:', JSON.stringify(body, null, 2));
+
     const { result, metadata } = body;
 
     if (!result || !metadata) {
-      console.error(`[${Date.now()}] Missing required data in callback`);
+      console.error('Missing required data in callback:', { result, metadata });
       throw new Error('Missing required payment data');
     }
 
-    console.log(`[${Date.now()}] Payment data validated, processing ${metadata.bookings.length} bookings`);
+    console.log('=== Payment Callback Data Validation ===');
+    console.log('Payment result:', JSON.stringify(result, null, 2));
+    console.log('Payment metadata:', JSON.stringify(metadata, null, 2));
+    console.log('Booking time ranges:', JSON.stringify(metadata.bookings.map(b => ({
+      date: b.date,
+      timeRanges: b.timeRanges,
+      startTime: b.startTime,
+      endTime: b.endTime
+    })), null, 2));
 
     try {
-      // Start the booking creation process
       const bookings = await createBookingAfterPayment(result, metadata);
-      console.log(`[${Date.now()}] Bookings created successfully in ${Date.now() - startTime}ms`);
-      return NextResponse.json({
-        success: true,
-        bookings
-      });
+      console.log('Bookings created successfully:', JSON.stringify(bookings, null, 2));
+      return NextResponse.json(bookings);
     } catch (error) {
-      console.error(`[${Date.now()}] Error in createBookingAfterPayment after ${Date.now() - startTime}ms:`, error);
-      
+      console.error('Error in createBookingAfterPayment:', error);
       // Return a more detailed error response
       return new NextResponse(
         JSON.stringify({
           error: 'Failed to create booking',
           details: error instanceof Error ? error.message : 'Unknown error',
-          processingTime: `${Date.now() - startTime}ms`
+          stack: error instanceof Error ? error.stack : undefined
         }),
         { 
           status: 500,
@@ -55,12 +57,12 @@ export async function POST(request: Request) {
       );
     }
   } catch (error) {
-    console.error(`[${Date.now()}] Payment callback error after ${Date.now() - startTime}ms:`, error);
+    console.error('Payment callback error:', error);
     return new NextResponse(
       JSON.stringify({
         error: 'Payment callback failed',
         details: error instanceof Error ? error.message : 'Unknown error',
-        processingTime: `${Date.now() - startTime}ms`
+        stack: error instanceof Error ? error.stack : undefined
       }),
       { 
         status: 500,
