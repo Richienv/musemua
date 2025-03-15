@@ -280,6 +280,7 @@ export async function createBookingAfterPayment(
     for (const booking of newBookings) {
       const bookingDate = format(new Date(booking.start_time), 'dd MMMM HH:mm');
       
+      // Notification for client
       await createNotification({
         user_id: metadata.userId,
         streamer_id: parseInt(metadata.streamerId),
@@ -289,7 +290,21 @@ export async function createBookingAfterPayment(
         is_read: false
       });
 
+      // First fetch the streamer's user_id
+      const { data: streamerData, error: streamerError } = await supabase
+        .from('streamers')
+        .select('user_id')
+        .eq('id', metadata.streamerId)
+        .single();
+      
+      if (streamerError) {
+        console.error('Error fetching streamer user_id:', streamerError);
+        throw streamerError;
+      }
+
+      // Create notification for streamer with the streamer's user_id
       await createNotification({
+        user_id: streamerData.user_id, // Add the streamer's user_id here
         streamer_id: parseInt(metadata.streamerId),
         message: `New booking request from ${metadata.firstName} for ${bookingDate}. Payment confirmed.`,
         type: 'booking_payment',
