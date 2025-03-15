@@ -15,71 +15,38 @@ interface PaymentCallbackBody {
 }
 
 export async function POST(request: Request) {
+  const startTime = Date.now();
+  console.log(`[${startTime}] Payment callback received`);
+  
   try {
-    console.log('=== Payment Callback Start ===');
-    console.log('Server time:', new Date().toISOString());
-    console.log('Server timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
-    
-    // Log request headers
-    const headers = Object.fromEntries(request.headers.entries());
-    console.log('Request headers:', JSON.stringify(headers, null, 2));
-    
     const body: PaymentCallbackBody = await request.json();
-    console.log('Raw callback body:', JSON.stringify(body, null, 2));
-
+    
     const { result, metadata } = body;
 
     if (!result || !metadata) {
-      console.error('Missing required data in callback:', { result, metadata });
+      console.error(`[${Date.now()}] Missing required data in callback`);
       throw new Error('Missing required payment data');
     }
 
-    console.log('=== Payment Callback Data Validation ===');
-    console.log('Payment result:', JSON.stringify(result, null, 2));
-    console.log('Payment metadata:', JSON.stringify(metadata, null, 2));
-    
-    if (metadata.bookings && metadata.bookings.length > 0) {
-      console.log('Client timezone from metadata:', metadata.timezone);
-      
-      // Log detailed booking time information for each booking
-      metadata.bookings.forEach((booking, index) => {
-        console.log(`Booking ${index + 1} details:`);
-        console.log(`Date: ${booking.date}`);
-        console.log(`Start time: ${booking.startTime}`);
-        console.log(`End time: ${booking.endTime}`);
-        
-        // Parse and log the dates in different formats to detect time zone issues
-        try {
-          const startDate = new Date(`${booking.date}T${booking.startTime}`);
-          const endDate = new Date(`${booking.date}T${booking.endTime}`);
-          
-          console.log('Parsed start date (ISO):', startDate.toISOString());
-          console.log('Parsed start date (UTC string):', startDate.toUTCString());
-          console.log('Parsed start date (local string):', startDate.toString());
-          
-          console.log('Parsed end date (ISO):', endDate.toISOString());
-          console.log('Parsed end date (UTC string):', endDate.toUTCString());
-          console.log('Parsed end date (local string):', endDate.toString());
-        } catch (error) {
-          console.error('Error parsing dates:', error);
-        }
-        
-        console.log('Time ranges:', JSON.stringify(booking.timeRanges, null, 2));
-      });
-    }
+    console.log(`[${Date.now()}] Payment data validated, processing ${metadata.bookings.length} bookings`);
 
     try {
+      // Start the booking creation process
       const bookings = await createBookingAfterPayment(result, metadata);
-      console.log('Bookings created successfully:', JSON.stringify(bookings, null, 2));
-      return NextResponse.json(bookings);
+      console.log(`[${Date.now()}] Bookings created successfully in ${Date.now() - startTime}ms`);
+      return NextResponse.json({
+        success: true,
+        bookings
+      });
     } catch (error) {
-      console.error('Error in createBookingAfterPayment:', error);
+      console.error(`[${Date.now()}] Error in createBookingAfterPayment after ${Date.now() - startTime}ms:`, error);
+      
       // Return a more detailed error response
       return new NextResponse(
         JSON.stringify({
           error: 'Failed to create booking',
           details: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined
+          processingTime: `${Date.now() - startTime}ms`
         }),
         { 
           status: 500,
@@ -88,12 +55,12 @@ export async function POST(request: Request) {
       );
     }
   } catch (error) {
-    console.error('Payment callback error:', error);
+    console.error(`[${Date.now()}] Payment callback error after ${Date.now() - startTime}ms:`, error);
     return new NextResponse(
       JSON.stringify({
         error: 'Payment callback failed',
         details: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
+        processingTime: `${Date.now() - startTime}ms`
       }),
       { 
         status: 500,
