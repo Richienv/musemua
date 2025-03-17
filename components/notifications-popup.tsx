@@ -10,6 +10,7 @@ import { Bell, Check, CheckCheck, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/client";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { id } from 'date-fns/locale';
 import { type NotificationType, markAllNotificationsAsRead, markNotificationAsRead } from '@/services/notification-service';
 import { useRouter } from 'next/navigation';
@@ -334,11 +335,18 @@ export function NotificationsPopup() {
       const endTime = new Date(booking.end_time);
       const duration = calculateDuration(startTime, endTime);
       
+      // Get the stored timezone or default to browser timezone
+      const userTimezone = booking.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      // Format the dates in the user's timezone
+      const formattedStartTime = formatInTimeZone(startTime, userTimezone, "yyyy-MM-dd'T'HH:mm:ssXXX");
+      const formattedEndTime = formatInTimeZone(endTime, userTimezone, "yyyy-MM-dd'T'HH:mm:ssXXX");
+      
       const templateData = {
         streamer_name: `${booking.streamer?.first_name} ${booking.streamer?.last_name}`,
         client_name: `${booking.client_first_name} ${booking.client_last_name}`,
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
+        start_time: formattedStartTime,
+        end_time: formattedEndTime,
         platform: booking.platform,
         duration,
         message: notification.message,

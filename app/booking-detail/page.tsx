@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { format, parseISO, differenceInHours, addHours, isSameDay, startOfDay } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import toast from 'react-hot-toast';
 import { MapPin, Star, Shield, Clock, Calendar, Monitor, DollarSign, AlertTriangle, Phone, ChevronLeft, Info, Package, FileText } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -442,6 +443,9 @@ function BookingDetailContent() {
         throw new Error('Missing payment metadata or booking details');
       }
 
+      // Enhanced error handling for the payment callback
+      console.log('Sending payment callback with timezone:', paymentMetadata.timezone);
+      
       // Call the payment callback API
       const response = await fetch('/api/payments/callback', {
         method: 'POST',
@@ -464,10 +468,37 @@ function BookingDetailContent() {
         })
       });
 
+      // Enhanced error handling for the response
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Payment callback failed:', errorData);
-        throw new Error(errorData.details || errorData.error || 'Failed to process payment');
+        let errorText = '';
+        let errorData = null;
+        
+        try {
+          // First try to read as JSON
+          errorData = await response.json();
+          errorText = JSON.stringify(errorData);
+        } catch (e) {
+          // If JSON parsing fails, read as text
+          try {
+            errorText = await response.text();
+          } catch (textError) {
+            errorText = 'Failed to parse error response';
+          }
+        }
+        
+        console.error('Payment callback failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData || errorText
+        });
+        
+        throw new Error(
+          errorData && errorData.details 
+            ? errorData.details 
+            : (errorData && errorData.error 
+                ? errorData.error 
+                : `Failed to process payment: ${response.status} ${response.statusText}`)
+        );
       }
 
       const bookingData = await response.json();

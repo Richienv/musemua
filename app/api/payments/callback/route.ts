@@ -17,19 +17,47 @@ interface PaymentCallbackBody {
 export async function POST(request: Request) {
   try {
     console.log('=== Payment Callback Start ===');
-    const body: PaymentCallbackBody = await request.json();
+    
+    // Better error handling for the request body
+    let body: PaymentCallbackBody;
+    try {
+      body = await request.json();
+    } catch (error) {
+      console.error('Error parsing request body:', error);
+      return new NextResponse(
+        JSON.stringify({
+          error: 'Invalid request body',
+          details: 'Request body must be valid JSON'
+        }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
     console.log('Raw callback body:', JSON.stringify(body, null, 2));
 
     const { result, metadata } = body;
 
     if (!result || !metadata) {
       console.error('Missing required data in callback:', { result, metadata });
-      throw new Error('Missing required payment data');
+      return new NextResponse(
+        JSON.stringify({
+          error: 'Missing required data',
+          details: 'Both result and metadata are required'
+        }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     console.log('=== Payment Callback Data Validation ===');
     console.log('Payment result:', JSON.stringify(result, null, 2));
     console.log('Payment metadata:', JSON.stringify(metadata, null, 2));
+    console.log('User timezone:', metadata.timezone);
     console.log('Booking time ranges:', JSON.stringify(metadata.bookings.map(b => ({
       date: b.date,
       timeRanges: b.timeRanges,
@@ -43,7 +71,8 @@ export async function POST(request: Request) {
       return NextResponse.json(bookings);
     } catch (error) {
       console.error('Error in createBookingAfterPayment:', error);
-      // Return a more detailed error response
+      
+      // Return a more detailed error response with proper headers
       return new NextResponse(
         JSON.stringify({
           error: 'Failed to create booking',
@@ -58,6 +87,8 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error('Payment callback error:', error);
+    
+    // Return a more detailed error response with proper headers
     return new NextResponse(
       JSON.stringify({
         error: 'Payment callback failed',

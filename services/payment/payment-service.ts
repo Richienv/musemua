@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/client";
 import midtransClient from 'midtrans-client';
 import { createNotification, type NotificationType } from '@/services/notification-service';
 import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import crypto from 'crypto';
 
 // Initialize Snap client with proper error handling
@@ -147,6 +148,8 @@ export async function createBookingAfterPayment(
 
     // Create bookings array with proper time blocks
     log('Processing bookings');
+    log('User timezone from metadata:', metadata.timezone);
+    
     const bookingInserts = metadata.bookings.map(booking => {
       // If no timeRanges, create a single booking
       const timeBlocks = booking.timeRanges?.length ? booking.timeRanges : [{
@@ -157,16 +160,47 @@ export async function createBookingAfterPayment(
       
       // Create a booking for each time block
       return timeBlocks.map(block => {
-        // Create the full ISO string by combining date and time
-        const startTime = new Date(`${booking.date}T${block.start.split('T')[1] || block.start}`);
-        const endTime = new Date(`${booking.date}T${block.end.split('T')[1] || block.end}`);
+        // Create dates with proper timezone handling
+        const dateStr = booking.date;
+        const startTimeStr = block.start.split('T')[1] || block.start;
+        const endTimeStr = block.end.split('T')[1] || block.end;
+        
+        // Log time details for debugging
+        log(`Creating booking with date: ${dateStr}, start: ${startTimeStr}, end: ${endTimeStr}, timezone: ${metadata.timezone}`);
+        
+        // Create datetime strings for conversion
+        const startDateTimeStr = `${dateStr}T${startTimeStr}`;
+        const endDateTimeStr = `${dateStr}T${endTimeStr}`;
 
-        // Store the times in UTC format without any manual adjustments
+        // Parse the dates in user's timezone and convert to UTC for storage
+        const userTz = metadata.timezone || 'UTC';
+        
+        // Create Date objects but with timezone info preserved
+        log(`Creating dates with timezone handling: ${startDateTimeStr} in ${userTz}`);
+        
+        // Since JavaScript Date objects automatically convert to local timezone,
+        // we need to adjust the hours to ensure the correct UTC time is stored
+        const startDate = new Date(startDateTimeStr);
+        const endDate = new Date(endDateTimeStr);
+        
+        // Calculate timezone offset (in minutes)
+        const tzOffsetMinutes = startDate.getTimezoneOffset();
+        const userOffsetHours = getUserTimezoneOffset(userTz);
+        const adjustmentMinutes = userOffsetHours * 60 + tzOffsetMinutes;
+        
+        // Adjust dates by adding the combined offset
+        const startTimeUTC = new Date(startDate.getTime() - adjustmentMinutes * 60000);
+        const endTimeUTC = new Date(endDate.getTime() - adjustmentMinutes * 60000);
+        
+        log(`Time adjustment: Server offset=${tzOffsetMinutes}min, User offset=${userOffsetHours}h, Total=${adjustmentMinutes}min`);
+        log(`Adjusted times - Original: ${startDateTimeStr}, UTC: ${startTimeUTC.toISOString()}`);
+
+        // Create booking record with UTC times
         return {
           client_id: metadata.userId,
           streamer_id: parseInt(metadata.streamerId),
-          start_time: startTime.toISOString(),
-          end_time: endTime.toISOString(),
+          start_time: startTimeUTC.toISOString(),
+          end_time: endTimeUTC.toISOString(),
           platform: metadata.platform,
           status: 'pending',
           special_request: metadata.specialRequest || null,
@@ -337,6 +371,28 @@ export async function createBookingAfterPayment(
   }
 }
 
+// Helper function to get timezone offset in hours
+function getUserTimezoneOffset(timezone: string): number {
+  // Common timezone offsets (hours)
+  const timezoneOffsets: Record<string, number> = {
+    'UTC': 0,
+    'GMT': 0,
+    'Europe/London': 0,
+    'America/New_York': -5, // EST
+    'America/Chicago': -6, // CST
+    'America/Denver': -7, // MST
+    'America/Los_Angeles': -8, // PST
+    'Asia/Tokyo': 9,
+    'Asia/Shanghai': 8,
+    'Asia/Singapore': 8,
+    'Asia/Kolkata': 5.5,
+    'Australia/Sydney': 10,
+    'Pacific/Auckland': 12
+  };
+  
+  return timezoneOffsets[timezone] || 0; // Default to UTC if timezone not found
+}
+
 // Helper function to create notifications asynchronously
 async function createNotificationsAsync(
   bookings: any[], 
@@ -362,13 +418,18 @@ async function createNotificationsAsync(
     
     // Create notification objects for all bookings
     for (const booking of bookings) {
-      const bookingDate = format(new Date(booking.start_time), 'dd MMMM HH:mm');
+      // Format the booking time in the user's timezone
+      const bookingDateStr = formatInTimeZone(
+        new Date(booking.start_time),
+        metadata.timezone || 'UTC',
+        'dd MMMM HH:mm'
+      );
       
       // Notification for client
       notifications.push({
         user_id: metadata.userId,
         streamer_id: parseInt(metadata.streamerId),
-        message: `Payment confirmed for your booking on ${bookingDate}. Menunggu streamer menerima pesanan Anda.`,
+        message: `Payment confirmed for your booking on ${bookingDateStr}. Menunggu streamer menerima pesanan Anda.`,
         type: 'booking_payment',
         booking_id: booking.id,
         is_read: false,
@@ -380,7 +441,7 @@ async function createNotificationsAsync(
         notifications.push({
           user_id: streamerData.user_id,
           streamer_id: parseInt(metadata.streamerId),
-          message: `New booking request from ${metadata.firstName} for ${bookingDate}. Payment confirmed.`,
+          message: `New booking request from ${metadata.firstName} for ${bookingDateStr}. Payment confirmed.`,
           type: 'booking_payment',
           booking_id: booking.id,
           is_read: false,

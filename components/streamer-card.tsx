@@ -7,7 +7,8 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { createClient } from "@/utils/supabase/client";
-import { format, addDays, startOfWeek, addWeeks, isSameDay, endOfWeek, isAfter, isBefore, startOfDay, subWeeks, addHours, parseISO, differenceInHours, parse } from 'date-fns';
+import { format, addDays, startOfWeek, addWeeks, isSameDay, endOfWeek, isAfter, isBefore, startOfDay, subWeeks, addHours, parseISO, differenceInHours, parse, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { createOrGetConversation } from '@/services/message-service';
@@ -53,9 +54,24 @@ const calculatePriceWithPlatformFee = (basePrice: number): number => {
 
 // Add this utility function at the top of the file
 const convertToUTC = (date: Date, hour: number): Date => {
-  const d = new Date(date);
-  d.setHours(hour, 0, 0, 0);
-  return d;
+  // Create a new date with the specified hour
+  const adjustedDate = new Date(date);
+  adjustedDate.setHours(hour, 0, 0, 0);
+  
+  // Format with timezone awareness using date-fns-tz
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  console.log(`Converting ${adjustedDate.toISOString()} to UTC from timezone ${userTimezone}`);
+  
+  // Store original date for debugging
+  const originalTime = adjustedDate.toISOString();
+  
+  // The Date object automatically handles timezone conversion internally when 
+  // using toISOString(), so we don't need additional adjustment
+  
+  // For debugging
+  console.log(`Original time: ${originalTime}, UTC time: ${adjustedDate.toISOString()}`);
+  
+  return adjustedDate;
 };
 
 // Add TimeRange interface at the top with other interfaces
