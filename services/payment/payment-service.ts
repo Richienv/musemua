@@ -124,11 +124,21 @@ export async function createBookingAfterPayment(
   metadata: PaymentMetadata
 ): Promise<BookingResponse[]> {
   const supabase = createClient();
+  const startTime = Date.now();
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Helper function for conditional logging
+  const log = (message: string, data?: any) => {
+    console.log(`[${Date.now() - startTime}ms] ${message}`);
+    
+    // Detailed logging only in development environment
+    if (!isProduction && data) {
+      console.log(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+    }
+  };
   
   try {
-    console.log('=== Debug: Creating Booking After Payment ===');
-    console.log('Raw Result:', JSON.stringify(result, null, 2));
-    console.log('Raw Metadata:', JSON.stringify(metadata, null, 2));
+    log('Creating booking after payment');
     
     const transactionId = result.order_id || result.transaction_id;
     if (!transactionId) {
@@ -136,11 +146,8 @@ export async function createBookingAfterPayment(
     }
 
     // Create bookings array with proper time blocks
-    console.log('=== Processing Bookings ===');
+    log('Processing bookings');
     const bookingInserts = metadata.bookings.map(booking => {
-      console.log('Processing booking:', JSON.stringify(booking, null, 2));
-      console.log('Time ranges from metadata:', JSON.stringify(booking.timeRanges, null, 2));
-      
       // If no timeRanges, create a single booking
       const timeBlocks = booking.timeRanges?.length ? booking.timeRanges : [{
         start: booking.startTime.split('T')[1] || booking.startTime,
@@ -148,8 +155,6 @@ export async function createBookingAfterPayment(
         duration: booking.hours
       }];
       
-      console.log('Generated time blocks:', JSON.stringify(timeBlocks, null, 2));
-
       // Create a booking for each time block
       return timeBlocks.map(block => {
         // Create the full ISO string by combining date and time
@@ -157,7 +162,7 @@ export async function createBookingAfterPayment(
         const endTime = new Date(`${booking.date}T${block.end.split('T')[1] || block.end}`);
 
         // Store the times in UTC format without any manual adjustments
-        const bookingData = {
+        return {
           client_id: metadata.userId,
           streamer_id: parseInt(metadata.streamerId),
           start_time: startTime.toISOString(),
@@ -178,35 +183,53 @@ export async function createBookingAfterPayment(
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
-
-        console.log('Created booking data:', JSON.stringify(bookingData, null, 2));
-        return bookingData;
       });
     }).flat();
 
-    console.log('=== Final Booking Data ===');
-    console.log('Number of bookings to create:', bookingInserts.length);
-    console.log('Final booking inserts:', JSON.stringify(bookingInserts, null, 2));
+    log(`Total bookings to create: ${bookingInserts.length}`);
 
-    // Insert all bookings first
-    const { data: newBookings, error: bookingError } = await supabase
-      .from('bookings')
-      .insert(bookingInserts)
-      .select();
-
-    if (bookingError) {
-      console.error('Booking creation error:', bookingError);
-      throw bookingError;
+    // Process bookings in chunks of 10
+    const CHUNK_SIZE = 10;
+    const bookingChunks = [];
+    for (let i = 0; i < bookingInserts.length; i += CHUNK_SIZE) {
+      bookingChunks.push(bookingInserts.slice(i, i + CHUNK_SIZE));
     }
+    
+    log(`Split into ${bookingChunks.length} chunks of max ${CHUNK_SIZE} bookings each`);
 
-    if (!newBookings || newBookings.length === 0) {
-      console.error('No bookings were created');
-      throw new Error('Failed to create bookings');
+    // Insert bookings in chunks
+    const newBookings = [];
+    for (let i = 0; i < bookingChunks.length; i++) {
+      const chunk = bookingChunks[i];
+      log(`Processing chunk ${i+1}/${bookingChunks.length} (${chunk.length} bookings)`);
+      
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert(chunk)
+        .select();
+
+      if (error) {
+        log(`Error inserting chunk ${i+1}:`, error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        log(`No bookings returned for chunk ${i+1}`);
+        continue;
+      }
+      
+      log(`Successfully inserted ${data.length} bookings in chunk ${i+1}`);
+      newBookings.push(...data);
     }
-
-    console.log('Successfully created bookings:', JSON.stringify(newBookings, null, 2));
+    
+    if (newBookings.length === 0) {
+      throw new Error('Failed to create any bookings');
+    }
+    
+    log(`Successfully created ${newBookings.length} bookings in total`);
 
     // Create payment record with the first booking's ID
+    log('Creating payment record');
     const paymentInsert = {
       booking_id: newBookings[0].id,
       amount: metadata.finalPrice,
@@ -229,25 +252,40 @@ export async function createBookingAfterPayment(
       .single();
 
     if (paymentError || !newPayment) {
-      console.error('Payment record creation error:', paymentError);
+      log('Payment record creation error:', paymentError);
       throw paymentError || new Error('Failed to create payment record');
     }
 
-    console.log('Successfully created payment:', JSON.stringify(newPayment, null, 2));
+    log('Successfully created payment record');
 
     // Update all bookings with the payment's ID as the payment_group_id
-    const { error: updateError } = await supabase
-      .from('bookings')
-      .update({ payment_group_id: newPayment.id })
-      .in('id', newBookings.map(b => b.id));
+    // Process update in chunks as well if there are many bookings
+    const bookingIds = newBookings.map(b => b.id);
+    const idChunks = [];
+    for (let i = 0; i < bookingIds.length; i += CHUNK_SIZE) {
+      idChunks.push(bookingIds.slice(i, i + CHUNK_SIZE));
+    }
+    
+    log(`Updating ${bookingIds.length} bookings with payment group ID`);
+    
+    for (let i = 0; i < idChunks.length; i++) {
+      const chunk = idChunks[i];
+      log(`Updating payment group for ${chunk.length} bookings (chunk ${i+1}/${idChunks.length})`);
+      
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ payment_group_id: newPayment.id })
+        .in('id', chunk);
 
-    if (updateError) {
-      console.error('Error updating bookings with payment ID:', updateError);
-      throw updateError;
+      if (updateError) {
+        log(`Error updating chunk ${i+1} with payment ID:`, updateError);
+        throw updateError;
+      }
     }
 
     // Handle voucher if present
     if (metadata.voucher) {
+      log('Processing voucher usage');
       const { error: voucherError } = await supabase
         .from('voucher_usage')
         .insert({
@@ -261,7 +299,7 @@ export async function createBookingAfterPayment(
         });
 
       if (voucherError) {
-        console.error('Voucher usage tracking error:', voucherError);
+        log('Voucher usage tracking error:', voucherError);
         throw voucherError;
       }
 
@@ -271,48 +309,21 @@ export async function createBookingAfterPayment(
         });
 
       if (updateError) {
-        console.error('Error updating voucher quantity:', updateError);
+        log('Error updating voucher quantity:', updateError);
         throw updateError;
       }
+      
+      log('Voucher processed successfully');
     }
 
-    // Create notifications for each booking
-    for (const booking of newBookings) {
-      const bookingDate = format(new Date(booking.start_time), 'dd MMMM HH:mm');
-      
-      // Notification for client
-      await createNotification({
-        user_id: metadata.userId,
-        streamer_id: parseInt(metadata.streamerId),
-        message: `Payment confirmed for your booking on ${bookingDate}. Menunggu streamer menerima pesanan Anda.`,
-        type: 'booking_payment',
-        booking_id: booking.id,
-        is_read: false
-      });
-
-      // First fetch the streamer's user_id
-      const { data: streamerData, error: streamerError } = await supabase
-        .from('streamers')
-        .select('user_id')
-        .eq('id', metadata.streamerId)
-        .single();
-      
-      if (streamerError) {
-        console.error('Error fetching streamer user_id:', streamerError);
-        throw streamerError;
-      }
-
-      // Create notification for streamer with the streamer's user_id
-      await createNotification({
-        user_id: streamerData.user_id, // Add the streamer's user_id here
-        streamer_id: parseInt(metadata.streamerId),
-        message: `New booking request from ${metadata.firstName} for ${bookingDate}. Payment confirmed.`,
-        type: 'booking_payment',
-        booking_id: booking.id,
-        is_read: false
-      });
-    }
-
+    // Create notifications for each booking asynchronously
+    // We don't need to wait for notifications to complete
+    log('Creating notifications (asynchronous)');
+    createNotificationsAsync(newBookings, metadata, supabase);
+    
+    log(`Booking process completed successfully in ${Date.now() - startTime}ms`);
+    
+    // Return the booking information
     return newBookings.map(booking => ({
       id: booking.id,
       client_id: booking.client_id,
@@ -321,8 +332,78 @@ export async function createBookingAfterPayment(
     }));
 
   } catch (error) {
-    console.error('Error in createBookingAfterPayment:', error);
+    console.error(`Error in createBookingAfterPayment after ${Date.now() - startTime}ms:`, error);
     throw error;
+  }
+}
+
+// Helper function to create notifications asynchronously
+async function createNotificationsAsync(
+  bookings: any[], 
+  metadata: PaymentMetadata, 
+  supabase: any
+) {
+  try {
+    // First fetch the streamer's user_id (do this once)
+    const { data: streamerData, error: streamerError } = await supabase
+      .from('streamers')
+      .select('user_id')
+      .eq('id', metadata.streamerId)
+      .single();
+    
+    if (streamerError) {
+      console.error('Error fetching streamer user_id:', streamerError);
+      return; // Non-blocking, continue even if error
+    }
+
+    // Process notifications in batches
+    const NOTIFICATION_BATCH_SIZE = 10;
+    let notifications = [];
+    
+    // Create notification objects for all bookings
+    for (const booking of bookings) {
+      const bookingDate = format(new Date(booking.start_time), 'dd MMMM HH:mm');
+      
+      // Notification for client
+      notifications.push({
+        user_id: metadata.userId,
+        streamer_id: parseInt(metadata.streamerId),
+        message: `Payment confirmed for your booking on ${bookingDate}. Menunggu streamer menerima pesanan Anda.`,
+        type: 'booking_payment',
+        booking_id: booking.id,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+      
+      // Notification for streamer
+      if (streamerData?.user_id) {
+        notifications.push({
+          user_id: streamerData.user_id,
+          streamer_id: parseInt(metadata.streamerId),
+          message: `New booking request from ${metadata.firstName} for ${bookingDate}. Payment confirmed.`,
+          type: 'booking_payment',
+          booking_id: booking.id,
+          is_read: false,
+          created_at: new Date().toISOString()
+        });
+      }
+      
+      // Insert in batches if we've collected enough
+      if (notifications.length >= NOTIFICATION_BATCH_SIZE) {
+        await supabase.from('notifications').insert(notifications);
+        notifications = [];
+      }
+    }
+    
+    // Insert any remaining notifications
+    if (notifications.length > 0) {
+      await supabase.from('notifications').insert(notifications);
+    }
+    
+    console.log(`Created ${bookings.length * 2} notifications asynchronously`);
+  } catch (error) {
+    console.error('Error creating notifications (non-blocking):', error);
+    // Non-blocking - we don't want notification errors to affect booking creation
   }
 }
 
