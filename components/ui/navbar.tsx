@@ -11,8 +11,31 @@ import { Bell, MessageSquare, Search, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RealtimeChannel } from '@supabase/supabase-js';
 
-const NotificationsPopup = dynamic(() => import('@/components/notifications-popup').then(mod => mod.NotificationsPopup), { ssr: false });
-const ProfileButton = dynamic(() => import('@/components/profile-button').then(mod => mod.ProfileButton), { ssr: false });
+const NotificationsPopup = dynamic(
+  () => import('@/components/notifications-popup').then(mod => mod.NotificationsPopup), 
+  { 
+    ssr: false,
+    loading: () => (
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="relative w-12 sm:w-14 h-12 sm:h-14 hover:bg-gray-100 transition-colors animate-pulse"
+      >
+        <div className="h-6 sm:h-7 w-6 sm:w-7 bg-gray-200 rounded-full"></div>
+      </Button>
+    )
+  }
+);
+
+const ProfileButton = dynamic(
+  () => import('@/components/profile-button').then(mod => mod.ProfileButton), 
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse"></div>
+    )
+  }
+);
 
 interface NavbarProps {
   onFilterChange?: (value: string) => void;
@@ -37,10 +60,13 @@ export function Navbar({ onFilterChange }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
     const fetchUserData = async () => {
+      setIsLoadingUser(true);
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
 
@@ -97,7 +123,11 @@ export function Navbar({ onFilterChange }: NavbarProps) {
           }
         } catch (error) {
           console.error('Error fetching user data:', error);
+        } finally {
+          setIsLoadingUser(false);
         }
+      } else {
+        setIsLoadingUser(false);
       }
     };
 
@@ -107,7 +137,8 @@ export function Navbar({ onFilterChange }: NavbarProps) {
   useEffect(() => {
     const fetchUnreadMessages = async () => {
       if (!user) return;
-
+      
+      setIsLoadingMessages(true);
       try {
         // Get user type first
         const { data: userData } = await supabase
@@ -159,6 +190,8 @@ export function Navbar({ onFilterChange }: NavbarProps) {
         setUnreadMessages(count || 0);
       } catch (error) {
         console.error('Error fetching unread messages:', error);
+      } finally {
+        setIsLoadingMessages(false);
       }
     };
 
@@ -234,6 +267,17 @@ export function Navbar({ onFilterChange }: NavbarProps) {
 
   const isStreamerDashboard = pathname === '/streamer-dashboard';
 
+  // Message button skeleton component
+  const MessageButtonSkeleton = () => (
+    <Button 
+      variant="ghost" 
+      size="icon" 
+      className="relative w-12 sm:w-14 h-12 sm:h-14 hover:bg-gray-100 transition-colors animate-pulse"
+    >
+      <div className="h-6 sm:h-7 w-6 sm:w-7 bg-gray-200 rounded-full"></div>
+    </Button>
+  );
+
   return (
     <div className="relative bg-[#faf9f6] border-b border-black/5 w-full z-40">
       <nav className="w-full py-2 sm:py-4">
@@ -282,38 +326,68 @@ export function Navbar({ onFilterChange }: NavbarProps) {
             )}
 
             <div className="flex items-center gap-2 sm:gap-5">
-              {userData && (
+              {isLoadingUser ? (
+                // Show skeletons while loading
                 <>
-                  <Link href="/messages">
+                  <MessageButtonSkeleton />
+                  <div className="block scale-90 sm:scale-100">
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="relative w-12 sm:w-14 h-12 sm:h-14 hover:bg-gray-100 transition-colors"
+                      className="relative w-12 sm:w-14 h-12 sm:h-14 hover:bg-gray-100 transition-colors animate-pulse"
                     >
-                      <MessageCircle className="h-6 sm:h-7 w-6 sm:w-7" />
-                      {unreadMessages > 0 && (
-                        <span className="absolute top-2 right-2 sm:right-3 min-w-[20px] h-5 px-1 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
-                          {unreadMessages}
-                        </span>
-                      )}
+                      <div className="h-6 sm:h-7 w-6 sm:w-7 bg-gray-200 rounded-full"></div>
                     </Button>
+                  </div>
+                  <div className="hidden sm:block h-10 w-px bg-gray-200 mx-3"></div>
+                  <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse"></div>
+                </>
+              ) : userData ? (
+                <>
+                  <Link href="/messages">
+                    {isLoadingMessages ? (
+                      <MessageButtonSkeleton />
+                    ) : (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="relative w-12 sm:w-14 h-12 sm:h-14 hover:bg-gray-100 transition-colors"
+                      >
+                        <MessageCircle className="h-6 sm:h-7 w-6 sm:w-7" />
+                        {unreadMessages > 0 && (
+                          <span className="absolute top-2 right-2 sm:right-3 min-w-[20px] h-5 px-1 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
+                            {unreadMessages}
+                          </span>
+                        )}
+                      </Button>
+                    )}
                   </Link>
                   <div className="block scale-90 sm:scale-100">
                     <NotificationsPopup />
                   </div>
                   <div className="hidden sm:block h-10 w-px bg-gray-200 mx-3"></div>
                 </>
+              ) : null}
+              
+              {isLoadingUser ? (
+                <>
+                  <div className="hidden sm:block w-10 h-10 rounded-full bg-gray-200 animate-pulse"></div>
+                  <div className="block sm:hidden w-9 h-9 rounded-full bg-gray-200 animate-pulse scale-90"></div>
+                </>
+              ) : (
+                <>
+                  <div className="hidden sm:block">
+                    <ProfileButton user={userData} />
+                  </div>
+                  <div className="block sm:hidden">
+                    <ProfileButton 
+                      user={userData} 
+                      showNameOnMobile={false}
+                      className="scale-90 sm:scale-100"
+                    />
+                  </div>
+                </>
               )}
-              <div className="hidden sm:block">
-                <ProfileButton user={userData} />
-              </div>
-              <div className="block sm:hidden">
-                <ProfileButton 
-                  user={userData} 
-                  showNameOnMobile={false}
-                  className="scale-90 sm:scale-100"
-                />
-              </div>
             </div>
           </div>
         </div>

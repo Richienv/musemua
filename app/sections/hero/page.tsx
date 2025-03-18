@@ -51,6 +51,66 @@ function RatingStars({ rating }: { rating: number }) {
   );
 }
 
+// Skeleton component for streamer cards
+const StreamerCardSkeleton = () => (
+  <div className="relative flex-shrink-0 w-[calc((100vw-3rem)/1.5)] sm:w-[calc((100vw-8rem)/2)] md:w-[calc((100vw-8rem)/3)] min-w-[220px] sm:min-w-[280px] max-w-[400px] group">
+    {/* Card spotlight effect */}
+    <div className="absolute inset-0 -m-4 bg-gradient-to-t from-transparent via-[#4A90E2]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+    
+    {/* Image Container with Floating Effect */}
+    <div className="relative w-full aspect-[4/5] sm:aspect-[3/4] rounded-xl sm:rounded-2xl overflow-hidden shadow-lg sm:shadow-xl transition-all duration-500 group-hover:-translate-y-2 bg-gray-200 animate-pulse" />
+
+    {/* Floating Content Container */}
+    <div className="relative -mt-32 sm:-mt-40 md:-mt-48 mx-2 sm:mx-4 z-10">
+      <div className="backdrop-blur-md bg-white/10 rounded-lg sm:rounded-xl p-2.5 sm:p-4 border border-white/20 shadow-lg">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+          <div className="h-5 bg-white/20 rounded w-2/3 animate-pulse"></div>
+          <div className="h-5 bg-white/20 rounded-full w-1/4 animate-pulse"></div>
+        </div>
+
+        {/* Location and Rating */}
+        <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+          <div className="flex items-center gap-1 sm:gap-1.5 w-1/2">
+            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white/20 animate-pulse"></div>
+            <div className="h-3 bg-white/20 rounded w-full animate-pulse"></div>
+          </div>
+          <div className="flex items-center gap-1 w-1/3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="w-3 h-3 rounded-full bg-white/20 animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+
+        {/* Key Stats */}
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <div className="w-2.5 h-2.5 sm:w-4 sm:h-4 rounded-full bg-white/20 animate-pulse"></div>
+            <div>
+              <div className="h-2 bg-white/20 rounded w-12 mb-1 animate-pulse"></div>
+              <div className="h-3 bg-white/20 rounded w-8 animate-pulse"></div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <div className="w-2.5 h-2.5 sm:w-4 sm:h-4 rounded-full bg-white/20 animate-pulse"></div>
+            <div>
+              <div className="h-2 bg-white/20 rounded w-12 mb-1 animate-pulse"></div>
+              <div className="h-3 bg-white/20 rounded w-16 animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Specialties */}
+        <div className="mt-1.5 sm:mt-2 flex flex-wrap gap-1">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-4 bg-white/20 rounded w-12 animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const allCards = [
   { 
     label: "Livestreamer Aktif", 
@@ -113,39 +173,47 @@ export default function Hero() {
   const router = useRouter();
   const [streamers, setStreamers] = useState<Streamer[]>([]);
   const [duplicatedStreamers, setDuplicatedStreamers] = useState<Streamer[]>([]);
+  const [isLoadingStreamers, setIsLoadingStreamers] = useState(true);
 
   useEffect(() => {
     const fetchStreamers = async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('streamers')
-        .select('id, first_name, last_name, platform, location, price, image_url, rating')
-        .limit(10);
+      setIsLoadingStreamers(true);
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('streamers')
+          .select('id, first_name, last_name, platform, location, price, image_url, rating')
+          .limit(10);
 
-      if (error) {
-        console.error('Error fetching streamers:', error);
-        return;
+        if (error) {
+          console.error('Error fetching streamers:', error);
+          return;
+        }
+
+        // Static preview data for landing page
+        const previewData = [
+          { experience: "2+ years", total_sales: 58, total_hours: 120, specialties: ["Fashion", "Beauty", "Lifestyle"] },
+          { experience: "1+ year", total_sales: 32, total_hours: 85, specialties: ["Electronics", "Gaming", "Tech"] },
+          { experience: "3+ years", total_sales: 147, total_hours: 312, specialties: ["Food", "Cooking", "Home"] },
+          { experience: "2+ years", total_sales: 89, total_hours: 176, specialties: ["Sports", "Fitness", "Health"] },
+          { experience: "4+ years", total_sales: 234, total_hours: 528, specialties: ["Books", "Education", "Art"] },
+        ];
+
+        // Enrich data with static preview data
+        const enrichedData = (data || []).map((streamer, index) => ({
+          ...streamer,
+          first_name: `Streamer`,
+          last_name: String.fromCharCode(65 + (index % 26)),
+          rating: 4.5 + (Math.random() * 0.5), // Random rating between 4.5 and 5.0
+          ...previewData[index % previewData.length]
+        }));
+
+        setStreamers(enrichedData);
+      } catch (error) {
+        console.error('Error in fetchStreamers:', error);
+      } finally {
+        setIsLoadingStreamers(false);
       }
-
-      // Static preview data for landing page
-      const previewData = [
-        { experience: "2+ years", total_sales: 58, total_hours: 120, specialties: ["Fashion", "Beauty", "Lifestyle"] },
-        { experience: "1+ year", total_sales: 32, total_hours: 85, specialties: ["Electronics", "Gaming", "Tech"] },
-        { experience: "3+ years", total_sales: 147, total_hours: 312, specialties: ["Food", "Cooking", "Home"] },
-        { experience: "2+ years", total_sales: 89, total_hours: 176, specialties: ["Sports", "Fitness", "Health"] },
-        { experience: "4+ years", total_sales: 234, total_hours: 528, specialties: ["Books", "Education", "Art"] },
-      ];
-
-      // Enrich data with static preview data
-      const enrichedData = (data || []).map((streamer, index) => ({
-        ...streamer,
-        first_name: `Streamer`,
-        last_name: String.fromCharCode(65 + (index % 26)),
-        rating: 4.5 + (Math.random() * 0.5), // Random rating between 4.5 and 5.0
-        ...previewData[index % previewData.length]
-      }));
-
-      setStreamers(enrichedData);
     };
 
     fetchStreamers();
@@ -154,6 +222,13 @@ export default function Hero() {
   useEffect(() => {
     setDuplicatedStreamers([...streamers, ...streamers, ...streamers]);
   }, [streamers]);
+  
+  // Generate skeleton streamer cards
+  const generateSkeletonStreamers = (count: number) => {
+    return Array(count).fill(0).map((_, index) => (
+      <StreamerCardSkeleton key={`skeleton-${index}`} />
+    ));
+  };
   
   return (
     <section className="relative min-h-screen overflow-hidden bg-[#faf9f4] pt-24 sm:pt-32" aria-label="Platform Live Commerce #1 di Indonesia">
@@ -259,80 +334,83 @@ export default function Hero() {
                   }}
                   className="flex gap-3 sm:gap-6 md:gap-8 px-3 sm:px-6 md:px-8 lg:px-16 py-4 sm:py-6 md:py-8"
                 >
-                  {duplicatedStreamers.map((streamer, index) => (
-                    <div
-                      key={`${streamer.id}-${index}`}
-                      className="relative flex-shrink-0 w-[calc((100vw-3rem)/1.5)] sm:w-[calc((100vw-8rem)/2)] md:w-[calc((100vw-8rem)/3)] min-w-[220px] sm:min-w-[280px] max-w-[400px] group"
-                    >
-                      {/* Card spotlight effect */}
-                      <div className="absolute inset-0 -m-4 bg-gradient-to-t from-transparent via-[#4A90E2]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                      
-                      {/* Image Container with Floating Effect */}
-                      <div className="relative w-full aspect-[4/5] sm:aspect-[3/4] rounded-xl sm:rounded-2xl overflow-hidden shadow-lg sm:shadow-xl transition-all duration-500 group-hover:-translate-y-2">
-                        <Image
-                          src={streamer.image_url}
-                          alt={formatName(streamer.first_name, streamer.last_name, index)}
-                          fill
-                          className="object-cover"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/0" />
-                      </div>
+                  {isLoadingStreamers 
+                    ? generateSkeletonStreamers(15) // Display 15 skeleton cards while loading
+                    : duplicatedStreamers.map((streamer, index) => (
+                      <div
+                        key={`${streamer.id}-${index}`}
+                        className="relative flex-shrink-0 w-[calc((100vw-3rem)/1.5)] sm:w-[calc((100vw-8rem)/2)] md:w-[calc((100vw-8rem)/3)] min-w-[220px] sm:min-w-[280px] max-w-[400px] group"
+                      >
+                        {/* Card spotlight effect */}
+                        <div className="absolute inset-0 -m-4 bg-gradient-to-t from-transparent via-[#4A90E2]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        
+                        {/* Image Container with Floating Effect */}
+                        <div className="relative w-full aspect-[4/5] sm:aspect-[3/4] rounded-xl sm:rounded-2xl overflow-hidden shadow-lg sm:shadow-xl transition-all duration-500 group-hover:-translate-y-2">
+                          <Image
+                            src={streamer.image_url}
+                            alt={formatName(streamer.first_name, streamer.last_name, index)}
+                            fill
+                            className="object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/0" />
+                        </div>
 
-                      {/* Floating Content Container */}
-                      <div className="relative -mt-32 sm:-mt-40 md:-mt-48 mx-2 sm:mx-4 z-10">
-                        <div className="backdrop-blur-md bg-white/10 rounded-lg sm:rounded-xl p-2.5 sm:p-4 border border-white/20 shadow-lg">
-                          {/* Header */}
-                          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                            <h3 className="text-sm sm:text-lg font-medium text-white">
-                              {formatName(streamer.first_name, streamer.last_name, index)}
-                            </h3>
-                            <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium bg-white/10 text-white border border-white/20">
-                              {streamer.platform}
-                            </span>
-                          </div>
-
-                          {/* Location and Rating */}
-                          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                            <div className="flex items-center gap-1 sm:gap-1.5">
-                              <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-white/80" />
-                              <span className="text-[10px] sm:text-sm text-white/80">{streamer.location}</span>
-                            </div>
-                            <RatingStars rating={streamer.rating || 4.5} />
-                          </div>
-
-                          {/* Key Stats */}
-                          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                            <div className="flex items-center gap-1 sm:gap-2">
-                              <TrendingUp className="w-2.5 h-2.5 sm:w-4 sm:h-4 text-white/80" />
-                              <div>
-                                <p className="text-[8px] sm:text-xs text-white/60">Orders</p>
-                                <p className="text-[10px] sm:text-sm font-medium text-white">{streamer.total_sales}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 sm:gap-2">
-                              <Clock className="w-2.5 h-2.5 sm:w-4 sm:h-4 text-white/80" />
-                              <div>
-                                <p className="text-[8px] sm:text-xs text-white/60">Experience</p>
-                                <p className="text-[10px] sm:text-sm font-medium text-white">{streamer.experience}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Specialties */}
-                          <div className="mt-1.5 sm:mt-2 flex flex-wrap gap-1">
-                            {streamer.specialties?.slice(0, 3).map((specialty, i) => (
-                              <span
-                                key={i}
-                                className="px-1.5 sm:px-2 py-0.5 bg-white/10 rounded text-[8px] sm:text-xs text-white/80"
-                              >
-                                {specialty}
+                        {/* Floating Content Container */}
+                        <div className="relative -mt-32 sm:-mt-40 md:-mt-48 mx-2 sm:mx-4 z-10">
+                          <div className="backdrop-blur-md bg-white/10 rounded-lg sm:rounded-xl p-2.5 sm:p-4 border border-white/20 shadow-lg">
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                              <h3 className="text-sm sm:text-lg font-medium text-white">
+                                {formatName(streamer.first_name, streamer.last_name, index)}
+                              </h3>
+                              <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium bg-white/10 text-white border border-white/20">
+                                {streamer.platform}
                               </span>
-                            ))}
+                            </div>
+
+                            {/* Location and Rating */}
+                            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                              <div className="flex items-center gap-1 sm:gap-1.5">
+                                <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-white/80" />
+                                <span className="text-[10px] sm:text-sm text-white/80">{streamer.location}</span>
+                              </div>
+                              <RatingStars rating={streamer.rating || 4.5} />
+                            </div>
+
+                            {/* Key Stats */}
+                            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <TrendingUp className="w-2.5 h-2.5 sm:w-4 sm:h-4 text-white/80" />
+                                <div>
+                                  <p className="text-[8px] sm:text-xs text-white/60">Orders</p>
+                                  <p className="text-[10px] sm:text-sm font-medium text-white">{streamer.total_sales}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <Clock className="w-2.5 h-2.5 sm:w-4 sm:h-4 text-white/80" />
+                                <div>
+                                  <p className="text-[8px] sm:text-xs text-white/60">Experience</p>
+                                  <p className="text-[10px] sm:text-sm font-medium text-white">{streamer.experience}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Specialties */}
+                            <div className="mt-1.5 sm:mt-2 flex flex-wrap gap-1">
+                              {streamer.specialties?.slice(0, 3).map((specialty, i) => (
+                                <span
+                                  key={i}
+                                  className="px-1.5 sm:px-2 py-0.5 bg-white/10 rounded text-[8px] sm:text-xs text-white/80"
+                                >
+                                  {specialty}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  }
                 </motion.div>
 
                 {/* Gradient Overlays */}
