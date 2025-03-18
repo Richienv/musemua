@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, CheckCircle } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from "@/utils/supabase/client";
@@ -103,6 +103,9 @@ interface PaymentMetadata {
 
 type ShippingOption = 'yes' | 'no' | null;
 
+// Add a new type for processing steps
+type ProcessingStep = 'creating' | 'completed' | 'redirecting';
+
 const platformStyles = {
   shopee: 'bg-gradient-to-r from-orange-500 to-orange-600',
   tiktok: 'bg-gradient-to-r from-[#00f2ea] to-[#ff0050]',
@@ -149,6 +152,9 @@ function BookingDetailContent() {
   const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(null);
   const [needsShipping, setNeedsShipping] = useState<ShippingOption>(null);
   const [platform, setPlatform] = useState<string | null>(null);
+  const [isProcessingBooking, setIsProcessingBooking] = useState(false);
+  const [processingStep, setProcessingStep] = useState<ProcessingStep>('creating');
+  const [redirectCountdown, setRedirectCountdown] = useState(3);
 
   // Add helper function to calculate hours between times
   const calculateHoursBetween = (start: string, end: string): number => {
@@ -434,6 +440,10 @@ function BookingDetailContent() {
 
   const handlePaymentSuccess = async (result: any) => {
     try {
+      // Show immediate loading overlay
+      setIsProcessingBooking(true);
+      setProcessingStep('creating');
+      
       console.log('=== Payment Success Start ===');
       console.log('Result from Midtrans:', JSON.stringify(result, null, 2));
       console.log('Payment metadata:', JSON.stringify(paymentMetadata, null, 2));
@@ -504,21 +514,30 @@ function BookingDetailContent() {
       const bookingData = await response.json();
       console.log('Booking created:', JSON.stringify(bookingData, null, 2));
 
-      toast.success('Payment successful! Booking created.');
+      // Update to completed state with success message
+      setProcessingStep('completed');
       
-      // Add delay before redirect
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Start countdown for redirect
+      setProcessingStep('redirecting');
       
-      // Use window.location.href for more reliable redirect
-      window.location.href = '/client-bookings';
+      let countdown = 3;
+      const countdownInterval = setInterval(() => {
+        countdown--;
+        setRedirectCountdown(countdown);
+        
+        if (countdown <= 0) {
+          clearInterval(countdownInterval);
+          window.location.href = '/client-bookings';
+        }
+      }, 1000);
 
     } catch (error) {
       console.error('=== Payment Success Error ===');
       console.error('Error details:', error);
       toast.error(error instanceof Error ? error.message : 'Error occurred. Please check console for details.');
       
-      // Stay on page to see error
-      setIsLoading(false);
+      // Hide loading overlay on error
+      setIsProcessingBooking(false);
       setIsProcessing(false);
       setPaymentToken(null);
     }
@@ -634,12 +653,63 @@ function BookingDetailContent() {
     return `${booking.startTime} - ${booking.endTime} (${hours} hours)`;
   };
 
+  // Add function to get appropriate message for each processing step
+  const getProcessingMessage = (): string => {
+    switch (processingStep) {
+      case 'creating':
+        return "We're finalizing your booking...";
+      case 'completed':
+        return 'Your booking has been successfully created!';
+      case 'redirecting':
+        return `Redirecting to My Bookings in ${redirectCountdown}...`;
+      default:
+        return 'Processing your request...';
+    }
+  };
+
   if (!bookingDetails) {
     return <div className="container mx-auto p-4">Loading...</div>;
   }
 
   return (
     <div className="container mx-auto p-4 sm:p-6 max-w-6xl font-sans text-xs sm:text-sm mt-4 sm:mt-8">
+      {/* Payment Processing Overlay */}
+      {isProcessingBooking && (
+        <div className="fixed inset-0 bg-white/95 z-50 flex flex-col items-center justify-center">
+          <div className="text-center max-w-md mx-auto px-4">
+            {processingStep === 'creating' && (
+              <div className="relative h-16 w-16 mx-auto mb-6">
+                <div className="absolute top-0 h-16 w-16 rounded-full border-4 border-gray-100"></div>
+                <div className="absolute top-0 h-16 w-16 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
+              </div>
+            )}
+            
+            {processingStep === 'completed' && (
+              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-6" />
+            )}
+            
+            {processingStep === 'redirecting' && (
+              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-6" />
+            )}
+            
+            <h2 className="text-xl font-medium text-gray-900 mb-2">
+              {processingStep === 'creating' ? 'Processing Payment' : 'Payment Successful'}
+            </h2>
+            
+            <p className="text-gray-600 mb-6">{getProcessingMessage()}</p>
+            
+            {processingStep === 'redirecting' && (
+              <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1 overflow-hidden">
+                <div 
+                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
+                  style={{ width: `${((3 - redirectCountdown) / 3) * 100}%` }}
+                ></div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header Section */}
       <div className="flex items-center gap-3 sm:gap-6 mb-6 sm:mb-8">
         <button 
@@ -1018,4 +1088,26 @@ function BookingDetailContent() {
       )}
     </div>
   );
+}
+
+// Add CSS animation for progress
+const progressAnimation = `
+@keyframes progress {
+  0% { width: 5%; }
+  100% { width: 100%; }
+}
+
+.animate-progress {
+  animation: progress 5s ease-in-out;
+}
+`;
+
+// Add the animation to the document if it doesn't exist
+if (typeof document !== 'undefined') {
+  if (!document.getElementById('progress-animation')) {
+    const style = document.createElement('style');
+    style.id = 'progress-animation';
+    style.innerHTML = progressAnimation;
+    document.head.appendChild(style);
+  }
 }
