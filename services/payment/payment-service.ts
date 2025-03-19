@@ -172,28 +172,43 @@ export async function createBookingAfterPayment(
         const startDateTimeStr = `${dateStr}T${startTimeStr}`;
         const endDateTimeStr = `${dateStr}T${endTimeStr}`;
 
-        // Parse the dates in user's timezone and convert to UTC for storage
+        // Parse the dates in user's timezone
         const userTz = metadata.timezone || 'UTC';
         
-        // Create Date objects but with timezone info preserved
-        log(`Creating dates with timezone handling: ${startDateTimeStr} in ${userTz}`);
+        log(`Converting time with timezone: ${startDateTimeStr} in ${userTz}`);
         
-        // Since JavaScript Date objects automatically convert to local timezone,
-        // we need to adjust the hours to ensure the correct UTC time is stored
-        const startDate = new Date(startDateTimeStr);
-        const endDate = new Date(endDateTimeStr);
+        // IMPROVED: Create Date objects in the local timezone first
+        const localStartDate = new Date(startDateTimeStr);
+        const localEndDate = new Date(endDateTimeStr);
         
-        // Calculate timezone offset (in minutes)
-        const tzOffsetMinutes = startDate.getTimezoneOffset();
-        const userOffsetHours = getUserTimezoneOffset(userTz);
-        const adjustmentMinutes = userOffsetHours * 60 + tzOffsetMinutes;
+        log(`Local browser interpreted dates: Start=${localStartDate.toISOString()}, End=${localEndDate.toISOString()}`);
         
-        // Adjust dates by adding the combined offset
-        const startTimeUTC = new Date(startDate.getTime() - adjustmentMinutes * 60000);
-        const endTimeUTC = new Date(endDate.getTime() - adjustmentMinutes * 60000);
+        // IMPROVED: Get timezone offsets - both the user's timezone offset and the server's timezone offset
+        const userOffsetMinutes = getUserTimezoneOffsetMinutes(userTz);
+        const serverOffsetMinutes = new Date().getTimezoneOffset();
         
-        log(`Time adjustment: Server offset=${tzOffsetMinutes}min, User offset=${userOffsetHours}h, Total=${adjustmentMinutes}min`);
-        log(`Adjusted times - Original: ${startDateTimeStr}, UTC: ${startTimeUTC.toISOString()}`);
+        log(`Time offsets: User=${userOffsetMinutes}min, Server=${serverOffsetMinutes}min`);
+        
+        // FIXED: Calculate the correct adjustment to convert local time to UTC
+        // Note: getTimezoneOffset() returns minutes WEST of UTC, so positive means behind UTC
+        // But our getUserTimezoneOffsetMinutes returns minutes EAST of UTC, so positive means ahead of UTC
+        // So we need to SUBTRACT server offset and ADD user offset to get to UTC
+        const totalAdjustmentMinutes = userOffsetMinutes - serverOffsetMinutes;
+        
+        log(`Total adjustment: ${totalAdjustmentMinutes} minutes`);
+        
+        // Apply the adjustment to get proper UTC time
+        const startTimeUTC = new Date(localStartDate.getTime() + (totalAdjustmentMinutes * 60000));
+        const endTimeUTC = new Date(localEndDate.getTime() + (totalAdjustmentMinutes * 60000));
+        
+        log(`Adjusted times: 
+          Original local: ${localStartDate.toString()}
+          Converted UTC: ${startTimeUTC.toISOString()}
+          User timezone: ${userTz}
+          User offset: ${userOffsetMinutes} minutes
+          Server offset: ${serverOffsetMinutes} minutes
+          Adjustment: ${totalAdjustmentMinutes} minutes
+        `);
 
         // Create booking record with UTC times
         return {
@@ -371,26 +386,76 @@ export async function createBookingAfterPayment(
   }
 }
 
-// Helper function to get timezone offset in hours
-function getUserTimezoneOffset(timezone: string): number {
-  // Common timezone offsets (hours)
+// IMPROVED: Updated timezone offset helper function to include Indonesia and return minutes instead of hours
+function getUserTimezoneOffsetMinutes(timezone: string): number {
+  // Common timezone offsets (minutes)
   const timezoneOffsets: Record<string, number> = {
+    // UTC and GMT
     'UTC': 0,
     'GMT': 0,
+    
+    // Asia (including Indonesia)
+    'Asia/Jakarta': 7 * 60,     // Indonesia - Western Indonesian Time (WIB)
+    'Asia/Makassar': 8 * 60,    // Indonesia - Central Indonesian Time (WITA)
+    'Asia/Jayapura': 9 * 60,    // Indonesia - Eastern Indonesian Time (WIT)
+    'Asia/Singapore': 8 * 60,
+    'Asia/Kuala_Lumpur': 8 * 60,
+    'Asia/Bangkok': 7 * 60,
+    'Asia/Ho_Chi_Minh': 7 * 60,
+    'Asia/Manila': 8 * 60,
+    'Asia/Tokyo': 9 * 60,
+    'Asia/Seoul': 9 * 60,
+    'Asia/Shanghai': 8 * 60,
+    'Asia/Hong_Kong': 8 * 60,
+    'Asia/Taipei': 8 * 60,
+    'Asia/Kolkata': 5.5 * 60,
+    
+    // Europe
     'Europe/London': 0,
-    'America/New_York': -5, // EST
-    'America/Chicago': -6, // CST
-    'America/Denver': -7, // MST
-    'America/Los_Angeles': -8, // PST
-    'Asia/Tokyo': 9,
-    'Asia/Shanghai': 8,
-    'Asia/Singapore': 8,
-    'Asia/Kolkata': 5.5,
-    'Australia/Sydney': 10,
-    'Pacific/Auckland': 12
+    'Europe/Paris': 1 * 60,
+    'Europe/Berlin': 1 * 60,
+    'Europe/Rome': 1 * 60,
+    'Europe/Madrid': 1 * 60,
+    
+    // North America
+    'America/New_York': -5 * 60,    // EST
+    'America/Chicago': -6 * 60,     // CST
+    'America/Denver': -7 * 60,      // MST
+    'America/Los_Angeles': -8 * 60, // PST
+    
+    // Oceania
+    'Australia/Sydney': 10 * 60,
+    'Australia/Melbourne': 10 * 60,
+    'Australia/Brisbane': 10 * 60,
+    'Australia/Perth': 8 * 60,
+    'Pacific/Auckland': 12 * 60
   };
   
-  return timezoneOffsets[timezone] || 0; // Default to UTC if timezone not found
+  // Extract just the timezone ID if it contains multiple parts (like "Etc/GMT+7")
+  const timezoneId = timezone.split(' ')[0];
+  
+  // Try to match the timezone directly
+  if (timezoneOffsets[timezoneId] !== undefined) {
+    return timezoneOffsets[timezoneId];
+  }
+  
+  // Handle fallback for Indonesian timezones
+  if (timezoneId.includes('Indonesia') || timezoneId.includes('jakarta') || timezoneId.includes('Jakarta')) {
+    console.log('Detected Indonesian timezone, using Asia/Jakarta offset');
+    return 7 * 60; // Jakarta / WIB
+  }
+  
+  // Try to guess timezone by offset if provided in format like "GMT+7"
+  if (timezone.match(/GMT[+-]\d+/)) {
+    const offsetMatch = timezone.match(/GMT([+-]\d+)/);
+    if (offsetMatch && offsetMatch[1]) {
+      const offsetHours = parseInt(offsetMatch[1]);
+      return offsetHours * 60;
+    }
+  }
+  
+  console.warn(`Unknown timezone: ${timezone}, defaulting to UTC`);
+  return 0; // Default to UTC if timezone not found
 }
 
 // Helper function to create notifications asynchronously
