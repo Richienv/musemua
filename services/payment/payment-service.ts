@@ -183,31 +183,33 @@ export async function createBookingAfterPayment(
         
         log(`Local browser interpreted dates: Start=${localStartDate.toISOString()}, End=${localEndDate.toISOString()}`);
         
-        // IMPROVED: Get timezone offsets - both the user's timezone offset and the server's timezone offset
-        const userOffsetMinutes = getUserTimezoneOffsetMinutes(userTz);
-        const serverOffsetMinutes = new Date().getTimezoneOffset();
+        // IMPROVED: Get timezone offsets - both in the same convention (minutes EAST of UTC)
+        const userOffsetMinutes = getUserTimezoneOffsetMinutes(userTz); // Minutes EAST of UTC
+        const serverOffsetMinutes = new Date().getTimezoneOffset(); // Minutes WEST of UTC
+        const serverOffsetEast = -serverOffsetMinutes; // Convert to minutes EAST of UTC
         
-        log(`Time offsets: User=${userOffsetMinutes}min, Server=${serverOffsetMinutes}min`);
+        log(`Time offsets: User=${userOffsetMinutes}min EAST, Server=${serverOffsetEast}min EAST`);
         
-        // FIXED: Calculate the correct adjustment to convert local time to UTC
-        // Note: getTimezoneOffset() returns minutes WEST of UTC, so positive means behind UTC
-        // But our getUserTimezoneOffsetMinutes returns minutes EAST of UTC, so positive means ahead of UTC
-        // So we need to SUBTRACT server offset and ADD user offset to get to UTC
-        const totalAdjustmentMinutes = userOffsetMinutes - serverOffsetMinutes;
+        // FIXED: Calculate the correct adjustment with consistent sign convention
+        // Both offsets are now in minutes EAST of UTC
+        // The adjustment needed is the difference between user timezone and server timezone
+        const totalAdjustmentMinutes = userOffsetMinutes - serverOffsetEast;
         
         log(`Total adjustment: ${totalAdjustmentMinutes} minutes`);
         
-        // Apply the adjustment to get proper UTC time
-        const startTimeUTC = new Date(localStartDate.getTime() + (totalAdjustmentMinutes * 60000));
-        const endTimeUTC = new Date(localEndDate.getTime() + (totalAdjustmentMinutes * 60000));
+        // FIXED: Apply adjustment in the CORRECT direction
+        // We need to SUBTRACT the adjustment to get from local time to UTC time
+        const startTimeUTC = new Date(localStartDate.getTime() - (totalAdjustmentMinutes * 60000));
+        const endTimeUTC = new Date(localEndDate.getTime() - (totalAdjustmentMinutes * 60000));
         
         log(`Adjusted times: 
           Original local: ${localStartDate.toString()}
           Converted UTC: ${startTimeUTC.toISOString()}
           User timezone: ${userTz}
-          User offset: ${userOffsetMinutes} minutes
-          Server offset: ${serverOffsetMinutes} minutes
+          User offset: ${userOffsetMinutes} minutes EAST
+          Server offset: ${serverOffsetEast} minutes EAST
           Adjustment: ${totalAdjustmentMinutes} minutes
+          Direction: SUBTRACT (not add)
         `);
 
         // Create booking record with UTC times
@@ -443,6 +445,12 @@ function getUserTimezoneOffsetMinutes(timezone: string): number {
   if (timezoneId.includes('Indonesia') || timezoneId.includes('jakarta') || timezoneId.includes('Jakarta')) {
     console.log('Detected Indonesian timezone, using Asia/Jakarta offset');
     return 7 * 60; // Jakarta / WIB
+  }
+  
+  // Handle Balikpapan (WITA) specifically
+  if (timezoneId.includes('Balikpapan') || timezoneId.includes('WITA') || timezoneId.includes('Makassar')) {
+    console.log('Detected Balikpapan or WITA timezone, using Asia/Makassar offset');
+    return 8 * 60; // WITA
   }
   
   // Try to guess timezone by offset if provided in format like "GMT+7"
