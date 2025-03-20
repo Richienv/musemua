@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from "@/utils/supabase/client";
 import { format, differenceInHours, isBefore, startOfDay, isSameDay } from 'date-fns';
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X, XCircle, CheckCircle, Check, Radio, FileText, MapPin, Copy, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, DollarSign, Star, Info, RefreshCw, X, XCircle, CheckCircle, Check, Radio, FileText, MapPin, Copy, Calendar, ChevronDown } from 'lucide-react';
 import Image from 'next/image';
 import RatingModal from '@/components/rating-modal';
 import { useRouter } from 'next/navigation';
@@ -1238,10 +1238,47 @@ export default function ClientBookings(): JSX.Element {
     });
   }, [bookings, activeTab]);
 
-  // Update pagination to use filtered bookings
+  // Update the pagination to use filtered bookings
   const indexOfLastBooking = currentPage * bookingsPerPage;
   const indexOfFirstBooking = indexOfLastBooking - bookingsPerPage;
   const currentBookings = filteredBookings.slice(indexOfFirstBooking, indexOfLastBooking);
+
+  // Add grouping by date functionality
+  const groupedBookings = useMemo(() => {
+    const groups = filteredBookings.reduce((acc, booking) => {
+      const dateKey = format(new Date(booking.start_time), 'yyyy-MM-dd');
+      if (!acc[dateKey]) {
+        acc[dateKey] = {
+          date: new Date(booking.start_time),
+          bookings: []
+        };
+      }
+      acc[dateKey].bookings.push(booking);
+      return acc;
+    }, {} as Record<string, { date: Date; bookings: Booking[] }>);
+    
+    // Convert to array and sort by date
+    return Object.values(groups).sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [filteredBookings]);
+
+  // Only paginate the grouped bookings
+  const currentGroupedBookings = useMemo(() => {
+    const allGroups = [...groupedBookings];
+    const startIndex = (currentPage - 1) * 3; // Show 3 days per page
+    const endIndex = startIndex + 3;
+    return allGroups.slice(startIndex, endIndex);
+  }, [groupedBookings, currentPage]);
+
+  // Add state for collapsed day sections
+  const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
+
+  // Toggle collapse for a specific day
+  const toggleDayCollapse = (dateKey: string) => {
+    setCollapsedDays(prev => ({
+      ...prev,
+      [dateKey]: !prev[dateKey]
+    }));
+  };
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
@@ -1408,128 +1445,162 @@ export default function ClientBookings(): JSX.Element {
             ))}
           </div>
 
-          <div className="space-y-4">
-            {currentBookings.map((booking) => (
-              <div key={booking.id} className="bg-white rounded-xl border hover:shadow-md transition-shadow p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-4">
-                    <Image 
-                      src={booking.streamer.image_url || '/default-avatar.png'}
-                      alt={`${booking.streamer.first_name} ${booking.streamer.last_name}`}
-                      width={60}
-                      height={60}
-                      className="rounded-full"
-                    />
-                    <div>
-                      <h3 className="font-medium text-lg">{`${booking.streamer.first_name} ${booking.streamer.last_name}`}</h3>
-                      <p className="text-gray-600 text-sm">{booking.platform}</p>
-                    </div>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-sm flex items-center gap-1.5 ${getStatusColor(booking.status)}`}>
-                    {getStatusIcon(booking.status)}
-                    {booking.status}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="text-sm text-gray-600">Schedule</p>
-                      <p className="font-medium">
-                        {formatBookingDate(booking.start_time)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {formatBookingTime(booking.start_time, booking.timezone)} - {formatBookingTime(booking.end_time, booking.timezone)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Star className="w-5 h-5 text-yellow-400" />
-                    <div>
-                      <p className="text-sm text-gray-600">Streamer Rating</p>
-                      <p className="font-medium">{isNaN(parseFloat(booking.streamer.rating as unknown as string)) ? 'N/A' : parseFloat(booking.streamer.rating as unknown as string).toFixed(1)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="text-sm text-gray-600">Session Price</p>
-                      <div className="flex flex-col">
-                        {booking.voucher_usage?.[0]?.discount_applied ? (
-                          <>
-                            <span className="line-through text-gray-400 text-sm">
-                              Rp {booking.price.toLocaleString()}
-                            </span>
-                            <span className="font-medium text-green-600">
-                              Rp {(booking.voucher_usage[0].final_price).toLocaleString()}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="font-medium text-gray-900">
-                            Rp {booking.price.toLocaleString()}
-                          </span>
-                        )}
+          <div className="space-y-8">
+            {currentGroupedBookings.length > 0 ? (
+              currentGroupedBookings.map((group) => {
+                const dateKey = format(group.date, 'yyyy-MM-dd');
+                const isCollapsed = collapsedDays[dateKey];
+                
+                return (
+                  <div key={dateKey} className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                    {/* Day Header with expand/collapse */}
+                    <button 
+                      onClick={() => toggleDayCollapse(dateKey)}
+                      className="w-full text-left bg-gradient-to-r from-blue-50 to-indigo-50 p-4 flex items-center justify-between cursor-pointer border-b hover:from-blue-100 hover:to-indigo-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="bg-white rounded-full p-1.5 w-10 h-10 flex items-center justify-center shadow-sm">
+                          <Calendar className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">
+                            {format(group.date, 'EEEE, MMMM d, yyyy')}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {group.bookings.length} booking{group.bookings.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                      <div className={`transform transition-transform ${isCollapsed ? 'rotate-180' : ''}`}>
+                        <ChevronDown className="w-5 h-5 text-gray-500" />
+                      </div>
+                    </button>
+                    
+                    {/* Bookings for this day */}
+                    {!isCollapsed && (
+                      <div className="divide-y">
+                        {group.bookings.map((booking) => (
+                          <div key={booking.id} className="p-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex items-center gap-4">
+                                <Image 
+                                  src={booking.streamer.image_url || '/default-avatar.png'}
+                                  alt={`${booking.streamer.first_name} ${booking.streamer.last_name}`}
+                                  width={60}
+                                  height={60}
+                                  className="rounded-full"
+                                />
+                                <div>
+                                  <h3 className="font-medium text-lg">{`${booking.streamer.first_name} ${booking.streamer.last_name}`}</h3>
+                                  <p className="text-gray-600 text-sm">{booking.platform}</p>
+                                </div>
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-sm flex items-center gap-1.5 ${getStatusColor(booking.status)}`}>
+                                {getStatusIcon(booking.status)}
+                                {booking.status}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-5 h-5 text-blue-600" />
+                                <div>
+                                  <p className="text-sm text-gray-600">Schedule</p>
+                                  <p className="font-medium">
+                                    {formatBookingTime(booking.start_time, booking.timezone)} - {formatBookingTime(booking.end_time, booking.timezone)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Star className="w-5 h-5 text-yellow-400" />
+                                <div>
+                                  <p className="text-sm text-gray-600">Streamer Rating</p>
+                                  <p className="font-medium">{isNaN(parseFloat(booking.streamer.rating as unknown as string)) ? 'N/A' : parseFloat(booking.streamer.rating as unknown as string).toFixed(1)}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <DollarSign className="w-5 h-5 text-blue-600" />
+                                <div>
+                                  <p className="text-sm text-gray-600">Session Price</p>
+                                  <div className="flex flex-col">
+                                    {booking.voucher_usage?.[0]?.discount_applied ? (
+                                      <>
+                                        <span className="line-through text-gray-400 text-sm">
+                                          Rp {booking.price.toLocaleString()}
+                                        </span>
+                                        <span className="font-medium text-green-600">
+                                          Rp {(booking.voucher_usage[0].final_price).toLocaleString()}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span className="font-medium text-gray-900">
+                                        Rp {booking.price.toLocaleString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 justify-end">
+                              {booking.status.toLowerCase() === 'completed' && !booking.items_received && (
+                                <Button 
+                                  variant="default"
+                                  size="sm" 
+                                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                                  onClick={() => setIsRatingModalOpen(true)}
+                                >
+                                  Rate Session
+                                </Button>
+                              )}
+                              {booking.status.toLowerCase() === 'accepted' && (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                                  onClick={() => {
+                                    setSelectedBooking(booking);
+                                    setShowDeliveryInfo(true);
+                                  }}
+                                >
+                                  <MapPin className="h-4 w-4 mr-2" />
+                                  Lihat Alamat
+                                </Button>
+                              )}
+                              {booking.status === 'reschedule_requested' && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-500 border-red-500 hover:bg-red-50"
+                                    onClick={() => setIsCancelModalOpen(true)}
+                                  >
+                                    Cancel Request
+                                  </Button>
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    onClick={() => setIsRescheduleModalOpen(true)}
+                                  >
+                                    Modify Schedule
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-
-                <div className="flex gap-2 justify-end">
-                  {booking.status.toLowerCase() === 'completed' && !booking.items_received && (
-                    <Button 
-                      variant="default"
-                      size="sm" 
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                      onClick={() => setIsRatingModalOpen(true)}
-                    >
-                      Rate Session
-                    </Button>
-                  )}
-                  {booking.status.toLowerCase() === 'accepted' && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                      onClick={() => {
-                        setSelectedBooking(booking);
-                        setShowDeliveryInfo(true);
-                      }}
-                    >
-                      <MapPin className="h-4 w-4 mr-2" />
-                      Lihat Alamat
-                    </Button>
-                  )}
-                  {booking.status === 'reschedule_requested' && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-red-500 border-red-500 hover:bg-red-50"
-                        onClick={() => setIsCancelModalOpen(true)}
-                      >
-                        Cancel Request
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={() => setIsRescheduleModalOpen(true)}
-                      >
-                        Modify Schedule
-                      </Button>
-                    </>
-                  )}
-                </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500">No streaming sessions found for this category.</p>
               </div>
-            ))}
+            )}
           </div>
-
-          {filteredBookings.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No streaming sessions found for this category.</p>
-            </div>
-          )}
 
           <div className="mt-6 flex justify-between items-center">
             <Button
@@ -1541,11 +1612,11 @@ export default function ClientBookings(): JSX.Element {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <span className="text-sm font-medium">
-              Page {currentPage} of {Math.ceil(filteredBookings.length / bookingsPerPage)}
+              Page {currentPage} of {Math.max(1, Math.ceil(groupedBookings.length / 3))}
             </span>
             <Button
               onClick={() => paginate(currentPage + 1)}
-              disabled={indexOfLastBooking >= filteredBookings.length}
+              disabled={currentPage >= Math.ceil(groupedBookings.length / 3)}
               variant="outline"
               className="border-blue-200 hover:bg-blue-50"
             >

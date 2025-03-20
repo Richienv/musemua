@@ -852,31 +852,62 @@ export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardPro
 
   // Prefetch data for better UX
   const openBookingModal = () => {
-    // Prefetch schedule and bookings before opening modal
-    Promise.all([
-      fetchActiveSchedule(),
-      fetchAcceptedBookings()
-    ]).then(() => {
-      setIsBookingModalOpen(true);
+    // Refresh all booking data before opening modal
+    refreshBookingData();
+    
+    // Log today's date for reference when debugging
+    const today = new Date();
+    console.log('Opening booking modal on:', {
+      date: today.toLocaleDateString(),
+      year: today.getFullYear(),
+      month: today.getMonth() + 1,
+      day: today.getDate()
     });
+    
+    // Then open the modal
+    setIsBookingModalOpen(true);
   };
 
+  // Function to refresh all booking-related data
+  const refreshBookingData = useCallback(() => {
+    console.log('Manual refresh of booking data initiated for streamer:', streamer.id);
+    
+    // Create a timestamp to track when refresh completes
+    const refreshStartTime = Date.now();
+    
+    // Trigger all three data fetches with promises
+    Promise.all([
+      fetchActiveSchedule(),
+      fetchDaysOff(),
+      fetchAcceptedBookings()
+    ]).then(() => {
+      console.log(`Refresh completed in ${Date.now() - refreshStartTime}ms`);
+    }).catch(error => {
+      console.error('Error during data refresh:', error);
+    });
+  }, [streamer.id]);
+
+  // Use this in useEffect and also expose it as needed
   useEffect(() => {
-    fetchActiveSchedule();
-    fetchDaysOff();
-    fetchAcceptedBookings();
+    // Initial data load
+    refreshBookingData();
 
     const supabase = createClient();
     
-    // Subscribe to booking changes
+    // Subscribe to booking changes with improved logging
     const bookingSubscription = supabase
       .channel('public:bookings')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'bookings', filter: `streamer_id=eq.${streamer.id}` },
-        () => {
-          fetchActiveSchedule();
-          fetchDaysOff();
-          fetchAcceptedBookings();
+        (payload) => {
+          console.log('Booking change detected:', payload);
+          refreshBookingData();
+          
+          // If the booking calendar is open, refresh time options
+          if (isBookingModalOpen) {
+            const timeOptions = generateTimeOptions();
+            console.log('Refreshed time options after booking change:', timeOptions);
+          }
         }
       )
       .subscribe();
@@ -884,7 +915,7 @@ export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardPro
     return () => {
       supabase.removeChannel(bookingSubscription);
     };
-  }, [streamer.id]);
+  }, [streamer.id, isBookingModalOpen, refreshBookingData]);
 
   useEffect(() => {
     if (isProfileModalOpen && extendedProfile?.gallery?.photos?.[0]?.photo_url) {
@@ -1097,17 +1128,35 @@ export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardPro
 
   const fetchAcceptedBookings = async () => {
     const supabase = createClient();
+    console.log('Fetching bookings for streamer ID:', streamer.id);
+    
     const { data, error } = await supabase
       .from('bookings')
       .select('*')
       .eq('streamer_id', streamer.id)
-      .in('status', ['accepted', 'pending']);
+      .in('status', ['accepted', 'pending', 'confirmed', 'payment_pending', 'payment_complete', 'waiting_acceptance', 'pending_approval']);
 
     if (error) {
       console.error('Error fetching bookings:', error);
       toast.error('Failed to fetch bookings');
     } else {
-      console.log('Fetched bookings:', data); // Add this line for debugging
+      // Group bookings by date for clearer logging
+      const bookingsByDate = data?.reduce((acc, booking) => {
+        const date = new Date(booking.start_time);
+        const dateKey = `${date.getMonth()+1}/${date.getDate()}`;
+        if (!acc[dateKey]) acc[dateKey] = [];
+        acc[dateKey].push({
+          id: booking.id,
+          status: booking.status,
+          year: date.getFullYear(),
+          startHour: date.getHours(),
+          endHour: new Date(booking.end_time).getHours()
+        });
+        return acc;
+      }, {} as Record<string, any[]>);
+      
+      console.log('Fetched bookings by date:', bookingsByDate);
+      console.log('Raw fetched bookings:', data);
       setBookings(data || []);
     }
   };
@@ -1126,16 +1175,6 @@ export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardPro
       return false;
     }
 
-    const isInSchedule = daySchedule.slots.some((slot: any) => {
-      const start = parseInt(slot.start.split(':')[0]);
-      const end = parseInt(slot.end.split(':')[0]);
-      return hour >= start && hour <= end;  // Changed to <= to include end hour
-    });
-
-    if (!isInSchedule) {
-      return false;
-    }
-
     // Check if there's an accepted or pending booking for this slot
     const bookingExists = bookings.some(booking => {
       const bookingStartTime = new Date(booking.start_time);
@@ -1145,43 +1184,54 @@ export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardPro
       const targetTime = new Date(date);
       targetTime.setHours(hour, 0, 0, 0);
       
-      // Normalize all times to UTC for comparison
-      const targetUTC = Date.UTC(
-        targetTime.getFullYear(),
-        targetTime.getMonth(),
-        targetTime.getDate(),
-        hour
-      );
+      // FIXED: Use year-agnostic comparison focusing on month and day
+      const isSameMonthAndDay = 
+        targetTime.getMonth() === bookingStartTime.getMonth() && 
+        targetTime.getDate() === bookingStartTime.getDate();
       
-      const startUTC = Date.UTC(
-        bookingStartTime.getUTCFullYear(),
-        bookingStartTime.getUTCMonth(),
-        bookingStartTime.getUTCDate(),
-        bookingStartTime.getUTCHours()
-      );
+      // Only check hour if month and day match
+      const isHourOverlapping = 
+        hour >= bookingStartTime.getHours() && 
+        hour < bookingEndTime.getHours();
       
-      const endUTC = Date.UTC(
-        bookingEndTime.getUTCFullYear(),
-        bookingEndTime.getUTCMonth(),
-        bookingEndTime.getUTCDate(),
-        bookingEndTime.getUTCHours()
-      );
-
-      const isOverlapping = targetUTC >= startUTC && targetUTC < endUTC;
+      // A slot is considered overlapping if same month/day and hour overlaps
+      const isOverlapping = isSameMonthAndDay && isHourOverlapping;
 
       console.log('Booking overlap check:', {
-        targetTime: new Date(targetUTC).toISOString(),
-        bookingStart: new Date(startUTC).toISOString(),
-        bookingEnd: new Date(endUTC).toISOString(),
-        hour,
+        targetDate: `${targetTime.getMonth()+1}/${targetTime.getDate()}`,
+        bookingDate: `${bookingStartTime.getMonth()+1}/${bookingStartTime.getDate()}`,
+        targetYear: targetTime.getFullYear(),
+        bookingYear: bookingStartTime.getFullYear(),
+        targetHour: hour,
+        bookingStartHour: bookingStartTime.getHours(),
+        bookingEndHour: bookingEndTime.getHours(),
+        isSameMonthAndDay,
+        isHourOverlapping,
         isOverlapping,
-        status: booking.status
+        status: booking.status,
+        bookingId: booking.id
       });
 
+      // If there's any overlap with a booking (ignoring year), consider the slot unavailable
       return isOverlapping;
     });
 
-    const isAvailable = !bookingExists;
+    // Check if this is a day off for the streamer
+    const currentDate = new Date(date);
+    currentDate.setHours(0, 0, 0, 0);
+    const isDayOff = daysOff.some(dayOffDate => {
+      const dayOff = new Date(dayOffDate);
+      dayOff.setHours(0, 0, 0, 0);
+      return dayOff.getTime() === currentDate.getTime();
+    });
+
+    const isInSchedule = daySchedule.slots.some((slot: any) => {
+      const start = parseInt(slot.start.split(':')[0]);
+      const end = parseInt(slot.end.split(':')[0]);
+      return hour >= start && hour <= end;  // Changed to <= to include end hour
+    });
+
+    const isAvailable = !bookingExists && !isDayOff && isInSchedule;
     
     console.log('Final availability:', {
       hour,
@@ -1191,7 +1241,7 @@ export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardPro
     });
 
     return isAvailable;
-  }, [activeSchedule, bookings]);
+  }, [activeSchedule, bookings, daysOff]);
 
   // Update handleDateSelect to include required fields validation
   const handleDateSelect = (date: Date) => {
