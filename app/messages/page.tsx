@@ -243,7 +243,7 @@ export default function MessagesPage() {
               </p>
               <div className="mt-4">
                 <a
-                  href="https://wa.me/62821544902561"
+                  href="https://wa.me/62895700120901"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
@@ -274,7 +274,7 @@ export default function MessagesPage() {
           <p className="text-sm text-gray-700 mb-1">
             Kamu ingin mengirim barang ke livestreamer? Silakan hubungi admin kami.{" "}
             <a
-              href="https://wa.me/62821544902561"
+              href="https://wa.me/62895700120901"
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 hover:underline"

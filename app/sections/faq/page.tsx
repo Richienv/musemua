@@ -110,7 +110,7 @@ export default function FAQ() {
             <p className="text-xs sm:text-sm text-gray-600">
               Masih punya pertanyaan?{" "}
               <a
-                href="https://wa.me/6282154902561"
+                href="https://wa.me/62895700120901"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-700 font-medium"

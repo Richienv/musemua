@@ -1257,6 +1257,15 @@ export default function ClientBookings(): JSX.Element {
       return acc;
     }, {} as Record<string, { date: Date; bookings: Booking[] }>);
     
+    // Sort bookings by start time within each day group
+    Object.values(groups).forEach(group => {
+      group.bookings.sort((a, b) => {
+        const aTime = new Date(a.start_time).getTime();
+        const bTime = new Date(b.start_time).getTime();
+        return aTime - bTime; // Sort from earliest to latest
+      });
+    });
+    
     // Convert to array and sort by date
     return Object.values(groups).sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [filteredBookings]);

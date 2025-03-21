@@ -10,7 +10,7 @@ export function LocalBusinessStructuredData() {
           image: "https://salda.id/icon-salda.png",
           "@id": "https://salda.id",
           url: "https://salda.id",
-          telephone: "+62xxx",
+          telephone: "‪+62895700120901‬xxx",
           priceRange: "Rp500.000 - Rp5.000.000",
           address: {
             "@type": "PostalAddress",

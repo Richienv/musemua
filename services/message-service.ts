@@ -21,7 +21,7 @@ export interface Conversation {
 
 const FORBIDDEN_PATTERNS = [
   /\d{3,}/,  // 3 or more consecutive numbers
-  /(?:08|\+62|62)\d+/, // Indonesian phone numbers
+  /(?:08|\‪+62895700120901‬|62)\d+/, // Indonesian phone numbers
   /\d{2,}[\s-]?\d{2,}/ // Numbers with spaces or dashes
 ];
 

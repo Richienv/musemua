@@ -26,7 +26,7 @@ export function Navbar() {
 
           {/* Contact Button with WhatsApp Icon */}
           <a
-            href="https://wa.me/6282154902561"
+            href="https://wa.me/62895700120901"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white px-2.5 sm:px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md"

@@ -167,7 +167,7 @@ export default function BrandVerificationPage() {
                 </TableCell>
                 <TableCell>
                   <Button variant="outline" size="sm">
-                    View Documents
+                    Lihat Dokumen
                   </Button>
                 </TableCell>
                 <TableCell>
@@ -178,14 +178,14 @@ export default function BrandVerificationPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>View Details</DropdownMenuItem>
+                      <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                      <DropdownMenuItem>Lihat Detail</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-green-600">
-                        Approve Brand
+                        Setujui Brand
                       </DropdownMenuItem>
                       <DropdownMenuItem className="text-red-600">
-                        Reject Request
+                        Tolak Brand
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

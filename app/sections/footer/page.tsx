@@ -43,8 +43,8 @@ export default function Footer() {
                   </p>
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Support Chat:</span>{" "}
-                    <a href="https://wa.me/6282154902561" className="hover:text-gray-900">
-                      +62-821-5490-2561
+                    <a href="https://wa.me/62895700120901" className="hover:text-gray-900">
+                      62895700120901
                     </a>
                   </p>
                 </div>

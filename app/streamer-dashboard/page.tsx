@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { format, isToday, isThisWeek, isThisMonth, parseISO, differenceInHours, addHours, parse } from 'date-fns';
-import { Calendar, Clock, Monitor, DollarSign, MessageSquare, Link as LinkIcon, AlertTriangle, MapPin, Users, XCircle, Video, Settings, Loader2, Info, ExternalLink, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, Monitor, DollarSign, MessageSquare, Link as LinkIcon, AlertTriangle, MapPin, Users, XCircle, Video, Settings, Loader2, Info, ExternalLink, ChevronRight, CheckCircle, Radio, Package, CheckSquare, Circle, X } from 'lucide-react';
 import Link from 'next/link';
 import {
   Dialog,
@@ -633,10 +633,19 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
 
   // Remove duplicate handleStartLive function and keep other handlers
   const handleItemAcceptance = async (confirmed: boolean) => {
-    if (!confirmed) return;
+    if (!confirmed) {
+      setIsItemAcceptanceModalOpen(false);
+      return;
+    }
+    
+    console.log("Starting item acceptance confirmation for booking:", booking.id);
+    console.log("Initial booking state:", booking);
     
     try {
+      // API call to confirm item acceptance
       const result = await acceptItems(booking.id);
+      
+      console.log("API call result:", result);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to accept items');
@@ -645,19 +654,42 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
       // Update local state
       setHasAcceptedItems(true);
       setIsItemAcceptanceModalOpen(false);
-      setBookings(prev => prev.map(b => 
-        b.id === booking.id 
-          ? { ...b, items_received: true, items_received_at: new Date().toISOString() }
-          : b
-      ));
       
-      toast.success('Konfirmasi penerimaan barang berhasil');
+      // Log state before update
+      console.log("State before update:", setBookings);
+      
+      // Update bookings state
+      setBookings(prev => {
+        console.log("Previous bookings state:", prev);
+        const updated = prev.map(b => 
+          b.id === booking.id 
+            ? { ...b, items_received: true, items_received_at: new Date().toISOString() }
+            : b
+        );
+        console.log("Updated bookings state:", updated);
+        return updated;
+      });
+
+      // Create notification for the client
+      if (booking.client_id) {
+        await createItemReceivedNotification({
+          client_id: booking.client_id,
+          streamer_id: booking.streamer_id,
+          booking_id: booking.id,
+          streamer_name: `${booking.client_first_name}`
+        });
+      }
+
+      toast.success('Berhasil mengkonfirmasi penerimaan barang');
+      
+      console.log("Item acceptance confirmation completed successfully");
     } catch (error) {
       console.error('Error confirming item acceptance:', error);
       toast.error(error instanceof Error ? error.message : 'Gagal mengkonfirmasi penerimaan barang');
       
       // Reset loading state if needed
       setIsItemAcceptanceModalOpen(false);
+      console.log("Item acceptance confirmation failed with error");
     }
   };
 
@@ -722,11 +754,12 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
           </div>
           <div>
             <h3 className="font-medium text-gray-900">
-              {booking.client_first_name} {booking.client_last_name}
+              <span className="sm:hidden">{booking.client_first_name}</span>
+              <span className="hidden sm:inline">{booking.client_first_name} {booking.client_last_name}</span>
             </h3>
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 hidden sm:block">
                   {booking.platform} Livestreaming
                 </p>
               </div>
@@ -739,12 +772,14 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
               <div className="flex items-center gap-2 mt-1">
                 {booking.payment_group_id && (
                   <span className="text-xs sm:text-sm text-blue-600 font-medium">
-                    Group (3 sessions)
+                    <span className="sm:hidden">G{relatedBookings.length + 1}</span>
+                    <span className="hidden sm:inline">Group ({relatedBookings.length + 1} sessions)</span>
                   </span>
                 )}
                 {booking.voucher_usage && booking.voucher_usage.length > 0 && (
                   <div className="text-[10px] sm:text-xs bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-2 py-0.5 rounded-md">
-                    Voucher | Rp {booking.voucher_usage[0].discount_applied.toLocaleString()}
+                    <span className="sm:hidden">V | {Math.round(booking.voucher_usage[0].discount_applied / 1000)}K</span>
+                    <span className="hidden sm:inline">Voucher | Rp {booking.voucher_usage[0].discount_applied.toLocaleString()}</span>
                   </div>
                 )}
               </div>
@@ -752,7 +787,8 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
           </div>
         </div>
         <div className={`px-3 py-1.5 rounded-lg text-sm font-medium ${getStatusColor(booking.status)}`}>
-          {booking.status}
+          <span className="sm:hidden">{booking.status === 'completed' ? 'Selesai' : booking.status}</span>
+          <span className="hidden sm:inline">{booking.status}</span>
         </div>
       </div>
 
@@ -762,24 +798,28 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
           <div className="flex items-center gap-2 mb-1">
             <Clock className="h-4 w-4 text-gray-400" />
             <span className="text-sm text-gray-500">
-              {format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}
+              <span className="sm:hidden">{format(new Date(booking.start_time), 'HH:mm')}-{format(new Date(booking.end_time), 'HH:mm')}</span>
+              <span className="hidden sm:inline">{format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}</span>
             </span>
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-gray-400" />
             <span className="text-sm text-gray-500">
-              {format(new Date(booking.start_time), 'EEEE, d MMMM yyyy')}
+              <span className="sm:hidden">{format(new Date(booking.start_time), 'd MMM yyyy')}</span>
+              <span className="hidden sm:inline">{format(new Date(booking.start_time), 'EEEE, d MMMM yyyy')}</span>
             </span>
           </div>
         </div>
         <div className="text-right">
           <div className="text-base font-medium text-gray-900 flex flex-col items-end">
             <span className="text-gray-900">
-              Rp {booking.price.toLocaleString()}
+              <span className="sm:hidden">Rp {booking.price >= 1000 ? (booking.price / 1000).toFixed(0) + 'K' : booking.price}</span>
+              <span className="hidden sm:inline">Rp {booking.price.toLocaleString()}</span>
             </span>
           </div>
           <span className="text-xs text-gray-500">
-            {differenceInHours(new Date(booking.end_time), new Date(booking.start_time))} jam
+            <span className="sm:hidden">{differenceInHours(new Date(booking.end_time), new Date(booking.start_time))}h</span>
+            <span className="hidden sm:inline">{differenceInHours(new Date(booking.end_time), new Date(booking.start_time))} jam</span>
           </span>
         </div>
       </div>
@@ -793,7 +833,8 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
           >
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span>Bagian dari grup booking ({relatedBookings.length + 1} sesi)</span>
+              <span className="sm:hidden">Grup ({relatedBookings.length + 1})</span>
+              <span className="hidden sm:inline">Bagian dari grup booking ({relatedBookings.length + 1} sesi)</span>
             </div>
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -805,9 +846,19 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <MessageSquare className="h-4 w-4 text-blue-500" />
-            <span className="text-sm font-medium text-gray-700">Special Request</span>
+            <span className="text-sm font-medium text-gray-700">
+              <span className="sm:hidden">Request</span>
+              <span className="hidden sm:inline">Special Request</span>
+            </span>
           </div>
-          <p className="text-sm text-gray-600">{booking.special_request}</p>
+          <p className="text-sm text-gray-600">
+            <span className="sm:hidden">
+              {booking.special_request.length > 30 
+                ? booking.special_request.substring(0, 30) + '...' 
+                : booking.special_request}
+            </span>
+            <span className="hidden sm:inline">{booking.special_request}</span>
+          </p>
         </div>
       )}
 
@@ -816,10 +867,10 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
         {booking.status === 'live' ? (
           <button
             onClick={() => setIsLiveStreamModalOpen(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors text-sm"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-            View Live Stream
+            Akhiri Live Stream
           </button>
         ) : booking.status === 'accepted' && (
           !hasAcceptedItems ? (
@@ -827,24 +878,56 @@ function ScheduleCard({ booking, onStreamStart, onStreamEnd, setBookings }: Sche
               onClick={() => setIsItemAcceptanceModalOpen(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
             >
-              Confirm Items Received
+              Konfirmasi Penerimaan Barang
             </button>
           ) : (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsRescheduleModalOpen(true)}
-                className="text-sm text-gray-500 hover:text-blue-600 transition-colors"
+                className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
               >
+                <Calendar className="h-3.5 w-3.5 mr-1.5 inline-block" />
                 Reschedule
               </button>
               <button
                 onClick={() => setIsStartLiveModalOpen(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
               >
-                Start Live Stream
+                <Radio className="h-3.5 w-3.5" />
+                Mulai Live Stream
               </button>
             </div>
           )
+        )}
+        {booking.status === 'pending' && (
+          <div className="flex items-center gap-2">
+            <div className="flex-1 text-sm text-amber-600">
+              <Clock className="h-4 w-4 inline-block mr-1.5" />
+              Waiting for approval
+            </div>
+            <button
+              onClick={() => setIsPaymentGroupModalOpen(true)}
+              className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors text-sm"
+            >
+              Lihat Detail
+            </button>
+          </div>
+        )}
+        {booking.status === 'completed' && (
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-green-600">
+              <CheckCircle className="h-4 w-4 inline-block mr-1.5" />
+              <span className="sm:hidden">Selesai</span>
+              <span className="hidden sm:inline">Session Completed</span>
+            </div>
+            <button
+              onClick={() => setIsPaymentGroupModalOpen(true)}
+              className="px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors text-sm"
+            >
+              <span className="sm:hidden">Detail</span>
+              <span className="hidden sm:inline">Lihat Detail</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -895,13 +978,73 @@ function UpcomingSchedule({ bookings, onStreamStart, onStreamEnd, setBookings }:
   onStreamEnd: StreamHandler;
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
 }) {
-  const todayBookings = bookings.filter(booking => isToday(parseISO(booking.start_time)));
-  const thisWeekBookings = bookings.filter(booking => 
-    isThisWeek(parseISO(booking.start_time)) && !isToday(parseISO(booking.start_time))
-  );
-  const thisMonthBookings = bookings.filter(booking => 
-    isThisMonth(parseISO(booking.start_time)) && !isThisWeek(parseISO(booking.start_time))
-  );
+  const [statusFilter, setStatusFilter] = useState<string>('Diterima');
+
+  // Helper function for status indicator colors
+  const getStatusIndicatorColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'accepted':
+      case 'diterima':
+        return 'bg-green-500';
+      case 'item received':
+      case 'barang diterima':
+      case 'item_received':
+        return 'bg-blue-500';
+      case 'live started':
+      case 'live dimulai':
+      case 'live':
+        return 'bg-red-500';
+      case 'completed':
+      case 'selesai':
+        return 'bg-purple-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  // Filter bookings based on status
+  const filteredBookings = useMemo(() => {
+    console.log("Filtering bookings for status:", statusFilter);
+    console.log("Total bookings before filtering:", bookings.length);
+    
+    // Log bookings with items_received=true to debug
+    const itemsReceivedBookings = bookings.filter(b => 
+      b.status.toLowerCase() === 'accepted' && b.items_received === true
+    );
+    console.log("Bookings with items_received=true:", itemsReceivedBookings.length);
+    
+    // If item_received filter is selected, show only accepted bookings with items_received=true
+    if (statusFilter === 'Barang Diterima') {
+      const filtered = bookings.filter(booking => 
+        booking.status.toLowerCase() === 'accepted' && booking.items_received === true
+      );
+      console.log("Filtered for Barang Diterima:", filtered.length);
+      return filtered;
+    }
+    
+    // For other statuses, filter normally
+    return bookings.filter(booking => {
+      if (statusFilter === 'Live Dimulai') {
+        return booking.status.toLowerCase() === 'live';
+      }
+      
+      // Map Indonesian status to English database status
+      const statusMapping: Record<string, string> = {
+        'Diterima': 'accepted',
+        'Selesai': 'completed'
+      };
+      
+      const dbStatus = statusMapping[statusFilter] || statusFilter.toLowerCase();
+      
+      // For "Diterima" tab, explicitly exclude items_received=true bookings
+      if (statusFilter === 'Diterima') {
+        const result = booking.status.toLowerCase() === dbStatus && booking.items_received !== true;
+        return result;
+      }
+      
+      return booking.status.toLowerCase() === dbStatus;
+    });
+  }, [bookings, statusFilter]);
 
   // Update the ScheduleCard mapping to include type safety
   const renderScheduleCards = useCallback((bookings: Booking[]) => {
@@ -921,50 +1064,124 @@ function UpcomingSchedule({ bookings, onStreamStart, onStreamEnd, setBookings }:
     ));
   }, [onStreamStart, onStreamEnd, setBookings]);
 
+  // Count bookings by status for UI display
+  const statusCounts = useMemo(() => {
+    console.log("Calculating status counts for bookings:", bookings.length);
+    
+    const counts: Record<string, number> = {};
+    
+    // Count accepted bookings
+    const acceptedCount = bookings.filter(b => {
+      const isAccepted = b.status.toLowerCase() === 'accepted';
+      const hasNoItemsReceived = !b.items_received;
+      return isAccepted && hasNoItemsReceived;
+    }).length;
+    counts['Diterima'] = acceptedCount;
+    console.log("Diterima count (accepted without items_received):", acceptedCount);
+    
+    // Count accepted bookings with items received
+    const itemReceivedCount = bookings.filter(b => 
+      b.status.toLowerCase() === 'accepted' && b.items_received === true
+    ).length;
+    counts['Barang Diterima'] = itemReceivedCount;
+    console.log("Barang Diterima count (accepted with items_received):", itemReceivedCount);
+    
+    // Count live bookings
+    const liveCount = bookings.filter(b => b.status.toLowerCase() === 'live').length;
+    counts['Live Dimulai'] = liveCount;
+    console.log("Live Dimulai count:", liveCount);
+    
+    // Count completed bookings
+    const completedCount = bookings.filter(b => b.status.toLowerCase() === 'completed').length;
+    counts['Selesai'] = completedCount;
+    console.log("Selesai count:", completedCount);
+    
+    console.log("Final counts:", counts);
+    return counts;
+  }, [bookings]);
+
+  // List of statuses to display (ordered as requested)
+  const displayStatuses = ['Diterima', 'Barang Diterima', 'Live Dimulai', 'Selesai'];
+
   return (
-    <Tabs defaultValue="today" className="w-full">
-      <TabsList className="grid w-full grid-cols-3 bg-gray-50 p-1 rounded-lg mb-6">
-        <TabsTrigger 
-          value="today" 
-          className="text-sm data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
-        >
-          Today
-        </TabsTrigger>
-        <TabsTrigger 
-          value="week"
-          className="text-sm data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
-        >
-          This Week
-        </TabsTrigger>
-        <TabsTrigger 
-          value="month"
-          className="text-sm data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
-        >
-          This Month
-        </TabsTrigger>
-      </TabsList>
-      <TabsContent value="today" className="space-y-4">
-        {todayBookings.length > 0 ? renderScheduleCards(todayBookings) : (
-          <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
-            Tidak ada booking untuk hari ini.
-          </p>
+    <div className="w-full">
+      {/* Status-based filter tabs - Enhanced UI */}
+      <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden mb-6">
+        <div className="grid grid-cols-4 gap-1">
+          {displayStatuses.map((status) => {
+            // Determine icon for each status
+            let StatusIcon;
+            switch(status) {
+              case 'Diterima':
+                StatusIcon = CheckCircle;
+                break;
+              case 'Barang Diterima':
+                StatusIcon = Package;
+                break;
+              case 'Live Dimulai':
+                StatusIcon = Video;
+                break;
+              case 'Selesai':
+                StatusIcon = CheckSquare;
+                break;
+              default:
+                StatusIcon = Circle;
+            }
+            
+            return (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`relative flex flex-col items-center justify-center py-3 sm:py-4 transition-all ${
+                  statusFilter === status
+                    ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50 border-b-2 border-transparent'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 mb-1 relative group">
+                  <StatusIcon className={`h-6 w-6 sm:h-5 sm:w-5 ${
+                    statusFilter === status ? 'text-blue-600' : 'text-gray-500'
+                  }`} />
+                  <span className="font-medium text-xs sm:text-sm hidden sm:inline whitespace-nowrap">{status}</span>
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block pointer-events-none z-10 sm:hidden">
+                    <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                      {status}
+                    </div>
+                    <div className="w-2 h-2 bg-gray-900 transform rotate-45 mx-auto mt-[-4px]"></div>
+                  </div>
+                </div>
+                <span className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full ${
+                  statusFilter === status 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {statusCounts[status] || 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Bookings list */}
+      <div className="space-y-5">
+        {filteredBookings.length > 0 ? (
+          renderScheduleCards(filteredBookings)
+        ) : (
+          <div className="text-center py-10 px-6 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex flex-col items-center justify-center">
+              <Calendar className="h-10 w-10 text-gray-300 mb-3" />
+              <p className="text-gray-500 text-sm mb-1">
+                Tidak ada jadwal dengan status <span className="font-medium">{statusFilter}</span>
+              </p>
+              <p className="text-gray-400 text-xs">
+                Jadwal akan muncul di sini ketika ada perubahan status
+              </p>
+            </div>
+          </div>
         )}
-      </TabsContent>
-      <TabsContent value="week" className="space-y-4">
-        {thisWeekBookings.length > 0 ? renderScheduleCards(thisWeekBookings) : (
-          <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
-            Tidak ada booking untuk minggu ini.
-          </p>
-        )}
-      </TabsContent>
-      <TabsContent value="month" className="space-y-4">
-        {thisMonthBookings.length > 0 ? renderScheduleCards(thisMonthBookings) : (
-          <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
-            Tidak ada booking untuk bulan ini.
-          </p>
-        )}
-      </TabsContent>
-    </Tabs>
+      </div>
+    </div>
   );
 }
 
@@ -1148,9 +1365,10 @@ function BookingCard({ booking, onAccept, onReject }: BookingCardProps) {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-                <span className="text-xs sm:text-sm text-gray-500">
-                  {format(new Date(booking.start_time), 'EEEE, d MMMM yyyy')}
+                <Calendar className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-gray-500">
+                  <span className="sm:hidden">{format(new Date(booking.start_time), 'd MMM yyyy')}</span>
+                  <span className="hidden sm:inline">{format(new Date(booking.start_time), 'EEEE, d MMMM yyyy')}</span>
                 </span>
               </div>
             </div>
@@ -1341,120 +1559,140 @@ function LiveStreamModal({
   streamLink: string;
   onEndStream: () => void;
 }) {
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const [isConfirmed, setIsConfirmed] = useState(false);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isOpen) {
-      interval = setInterval(() => {
-        setElapsedTime(prev => prev + 1);
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isOpen]);
+  // Format the end time
+  const formattedEndTime = booking?.end_time ? 
+    new Date(booking.end_time).toLocaleTimeString('id-ID', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false
+    }) : '00:00';
 
-  const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  // Format the date
+  const formattedDate = booking?.end_time ? 
+    new Date(booking.end_time).toLocaleDateString('id-ID', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    }) : '';
+
+  // Format price with IDR currency
+  const formattedPrice = new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(booking?.price || 0);
 
   if (!isOpen) return null;
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center"
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-xl w-full max-w-lg mx-4 overflow-hidden shadow-xl"
+        className="bg-white rounded-2xl w-full max-w-md mx-4 overflow-hidden shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full">
-                <div className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
-                <span className="text-sm font-medium text-blue-600">LIVE</span>
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Live Streaming in Progress
-              </h2>
-            </div>
-            <button 
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <XCircle className="h-6 w-6" />
-            </button>
+        {/* Header - Simple and elegant */}
+        <div className="px-6 py-5 flex items-center justify-between border-b border-gray-100">
+          <div className="flex items-center gap-2.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
+            <h2 className="text-lg font-semibold text-gray-900">
+              Live Session Active
+            </h2>
           </div>
+          <button 
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        {/* Content */}
-        <div className="px-6 py-6 space-y-6">
-          {/* Timer */}
-          <div className="flex flex-col items-center">
-            <div className="text-4xl font-mono font-bold text-gray-900 tracking-wider tabular-nums">
-              {formatTime(elapsedTime)}
+        {/* Content - Clean and focused */}
+        <div className="px-6 py-6">
+          {/* Stream Details Card */}
+          <div className="bg-gray-50 rounded-xl p-5 space-y-4">
+            {/* Client Info */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-500">Client</span>
+              <span className="text-sm font-medium text-gray-900">
+                {booking.client_first_name} {booking.client_last_name}
+              </span>
             </div>
-            <p className="text-sm text-gray-500 mt-2">Elapsed Time</p>
-          </div>
-
-          {/* Stream Info */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                <Info className="h-4 w-4 text-blue-600" />
+            
+            {/* Platform */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-500">Platform</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-medium text-gray-900">{booking.platform}</span>
               </div>
-              <h4 className="text-base font-medium text-gray-900">
-                Stream Information
-              </h4>
             </div>
 
-            <div className="space-y-4 pl-11">
-              {/* Client Info */}
-              <div className="space-y-1">
-                <p className="text-sm text-gray-500">Client</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {booking.client_first_name} {booking.client_last_name}
-                </p>
+            {/* End Time */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-500">End Time</span>
+              <div className="flex flex-col items-end">
+                <span className="text-sm font-medium text-gray-900">{formattedEndTime}</span>
+                <span className="text-xs text-gray-500">{formattedDate}</span>
               </div>
+            </div>
 
-              {/* Platform */}
-              <div className="space-y-1">
-                <p className="text-sm text-gray-500">Platform</p>
-                <p className="text-sm font-medium text-gray-900">{booking.platform}</p>
-              </div>
-
-              {/* Stream Link */}
-              <div className="space-y-1">
-                <p className="text-sm text-gray-500">Stream Link</p>
+            {/* Price */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-500">Price</span>
+              <span className="text-sm font-medium text-green-600">{formattedPrice}</span>
+            </div>
+            
+            {/* Stream Link */}
+            <div className="pt-3 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-gray-500">Stream URL</span>
                 <a 
                   href={streamLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:text-blue-700 hover:underline break-all inline-flex items-center gap-1"
+                  className="text-sm text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-1"
                 >
-                  {streamLink}
+                  Open link
                   <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
+              <div className="bg-white border border-gray-200 rounded-lg py-2 px-3 break-all">
+                <code className="text-xs text-gray-800 font-mono">{streamLink}</code>
+              </div>
             </div>
+          </div>
+
+          {/* Confirmation Checkbox */}
+          <div className="mt-5">
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <div className="flex-shrink-0 mt-0.5">
+                <input 
+                  type="checkbox" 
+                  checked={isConfirmed} 
+                  onChange={(e) => setIsConfirmed(e.target.checked)}
+                  className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500 transition-colors cursor-pointer"
+                />
+              </div>
+              <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">
+                Saya konfirmasi bahwa saya telah menyelesaikan seluruh sesi live streaming sesuai dengan durasi dan layanan yang diminta oleh client
+              </span>
+            </label>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+        <div className="px-6 py-5">
           <button
             onClick={onEndStream}
-            className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+            disabled={!isConfirmed}
+            className={`w-full py-3 ${isConfirmed ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-300 cursor-not-allowed'} text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm ${isConfirmed ? 'hover:shadow' : ''}`}
           >
-            <Video className="h-4 w-4" />
-            End Stream
+            Akhiri Live
           </button>
         </div>
       </div>
@@ -1874,7 +2112,7 @@ function StartLiveModal({
         <div className="px-6 py-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">
-              Start Live Stream
+              Mulai Live Stream
             </h2>
             <button 
               onClick={onClose}
@@ -2095,40 +2333,118 @@ function PaymentGroupBookingModal({ isOpen, onClose, booking, relatedBookings, o
 // Add this new LoadingScreen component before the StreamerDashboard component
 function LoadingScreen() {
   return (
-    <div className="fixed inset-0 bg-[#faf9f6] flex items-center justify-center z-50">
-      <div className="text-center">
-        {/* Main Animation Container */}
-        <div className="relative w-32 h-32 mx-auto mb-8">
-          {/* Outer rotating circle */}
-          <div className="absolute inset-0 border-8 border-t-[#E23744] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-          
-          {/* Inner pulsing video icon */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-16 h-16 bg-[#E23744] rounded-2xl flex items-center justify-center animate-pulse">
-              <svg 
-                className="w-10 h-10 text-white" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" 
-                />
-              </svg>
+    <div className="min-h-screen bg-[#faf9f6]">
+      {/* Navbar Skeleton */}
+      <div className="w-full h-16 bg-white border-b border-gray-100 px-4 flex items-center justify-between">
+        <div className="w-32 h-8 bg-gray-200 animate-pulse rounded"></div>
+        <div className="flex space-x-4">
+          <div className="w-8 h-8 bg-gray-200 animate-pulse rounded-full"></div>
+          <div className="w-8 h-8 bg-gray-200 animate-pulse rounded-full"></div>
+        </div>
+      </div>
+      
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 md:py-8">
+        {/* ID Card Skeleton */}
+        <div className="w-full bg-white rounded-xl border border-gray-100 shadow-sm p-6 animate-pulse">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="w-32 h-32 md:w-40 md:h-40 bg-gray-200 rounded-xl"></div>
+            <div className="flex-1 space-y-4">
+              <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+              <div className="flex flex-wrap gap-4 pt-2">
+                <div className="h-16 w-32 bg-gray-200 rounded-lg"></div>
+                <div className="h-16 w-32 bg-gray-200 rounded-lg"></div>
+                <div className="h-16 w-32 bg-gray-200 rounded-lg"></div>
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Loading Text */}
-        <div className="space-y-3">
-          <h2 className="text-2xl font-bold text-gray-900">Loading your dashboard...</h2>
-          <div className="flex items-center justify-center gap-1">
-            <div className="w-2 h-2 bg-[#E23744] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-2 h-2 bg-[#E23744] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-2 h-2 bg-[#E23744] rounded-full animate-bounce"></div>
+        
+        {/* Schedule Section Skeleton */}
+        <div className="mt-8 space-y-8">
+          <div className="bg-white rounded-lg sm:rounded-xl border border-gray-100 overflow-hidden">
+            <div className="p-3 sm:p-4 md:p-6 border-b border-gray-100">
+              <div className="h-7 bg-gray-200 animate-pulse rounded w-1/3"></div>
+              <div className="h-4 bg-gray-200 animate-pulse rounded w-1/2 mt-3"></div>
+            </div>
+            <div className="p-3 sm:p-4 md:p-6">
+              {/* Tab Buttons Skeleton */}
+              <div className="flex space-x-3 mb-5">
+                <div className="h-10 bg-gray-200 animate-pulse rounded-lg w-24"></div>
+                <div className="h-10 bg-gray-200 animate-pulse rounded-lg w-24"></div>
+                <div className="h-10 bg-gray-200 animate-pulse rounded-lg w-24"></div>
+              </div>
+              
+              {/* Schedule Cards Skeleton */}
+              <div className="space-y-4 mt-6">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="border border-gray-100 rounded-xl p-4 shadow-sm bg-white animate-pulse">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="h-5 bg-gray-200 rounded w-1/4 mb-3"></div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
+                          <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-4">
+                          <div className="h-4 bg-gray-200 rounded"></div>
+                          <div className="h-4 bg-gray-200 rounded"></div>
+                          <div className="h-4 bg-gray-200 rounded"></div>
+                          <div className="h-4 bg-gray-200 rounded"></div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col md:flex-row gap-3 md:items-center">
+                        <div className="h-10 bg-gray-200 rounded-lg w-32"></div>
+                        <div className="h-10 bg-gray-200 rounded-lg w-32"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* Booking Management Section Skeleton */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <div className="p-6 border-b border-gray-100">
+              <div className="h-7 bg-gray-200 animate-pulse rounded w-1/3"></div>
+            </div>
+            <div className="p-6">
+              {/* Tab Buttons Skeleton */}
+              <div className="flex p-1 bg-gray-50 rounded-xl mb-6">
+                <div className="flex-1 h-10 bg-gray-200 animate-pulse rounded-lg mr-2"></div>
+                <div className="flex-1 h-10 bg-gray-200 animate-pulse rounded-lg"></div>
+              </div>
+              
+              {/* Booking Cards Skeleton */}
+              <div className="space-y-4">
+                {[...Array(2)].map((_, i) => (
+                  <div key={i} className="border border-gray-100 rounded-lg p-4 animate-pulse">
+                    <div className="flex flex-col md:flex-row justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
+                          <div>
+                            <div className="h-4 bg-gray-200 rounded w-32 mb-1"></div>
+                            <div className="h-3 bg-gray-200 rounded w-24"></div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          <div className="h-4 bg-gray-200 rounded"></div>
+                          <div className="h-4 bg-gray-200 rounded"></div>
+                          <div className="h-4 bg-gray-200 rounded"></div>
+                          <div className="h-4 bg-gray-200 rounded"></div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="h-10 bg-gray-200 rounded-lg w-24"></div>
+                        <div className="h-10 bg-gray-200 rounded-lg w-24"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2146,6 +2462,8 @@ export default function StreamerDashboard() {
   const router = useRouter();
   const [streamerStats, setStreamerStats] = useState<StreamerStats | null>(null);
   const [galleryPhotos, setGalleryPhotos] = useState<StreamerGalleryPhoto[]>([]);
+  // Add state for status filter
+  const [scheduleFilter, setScheduleFilter] = useState<string>('Semua');
 
   // Define fetchData first
   const fetchData = useCallback(async () => {
@@ -2210,8 +2528,8 @@ export default function StreamerDashboard() {
 
           // Filter bookings based on status
           const upcomingBookings = (allBookings || []).filter(booking => 
-            // Only show accepted and live bookings in upcoming schedule
-            booking.status === 'accepted' || booking.status === 'live'
+            // Include all statuses that are relevant for the schedule view
+            ['accepted', 'live', 'pending', 'completed'].includes(booking.status.toLowerCase())
           );
 
           // Set pending bookings (including those that just completed payment)
@@ -2349,20 +2667,30 @@ export default function StreamerDashboard() {
     };
   }, [fetchData]);
 
-  const getStatusColor = (status: string) => {
+  // Helper function for status indicator colors in the tab interface
+  const getStatusIndicatorColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        return 'bg-yellow-500';
       case 'accepted':
-        return 'bg-green-100 text-green-800 border-green-300';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-green-500';
       case 'live':
-        return 'bg-green-100 text-green-800 border-green-300';
-      case 'rejected':
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'bg-red-500';
+      case 'completed':
+        return 'bg-blue-500';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+        return 'bg-gray-500';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'accepted': return 'bg-green-100 text-green-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'live': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -2485,51 +2813,15 @@ export default function StreamerDashboard() {
           <div className="bg-white rounded-lg sm:rounded-xl border border-gray-100">
             <div className="p-3 sm:p-4 md:p-6 border-b border-gray-100">
               <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Jadwal Live Mendatang</h2>
+              <p className="text-gray-500 text-sm mt-1">Kelola semua sesi live streaming yang telah dijadwalkan</p>
             </div>
             <div className="p-3 sm:p-4 md:p-6">
-              <Tabs defaultValue="today" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-gray-50 p-1 rounded-lg mb-6">
-                  <TabsTrigger 
-                    value="today" 
-                    className="text-xs sm:text-sm data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
-                  >
-                    Hari Ini
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="week"
-                    className="text-xs sm:text-sm data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
-                  >
-                    Minggu Ini
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="month"
-                    className="text-xs sm:text-sm data-[state=active]:text-[#E23744] data-[state=active]:border-b-2 data-[state=active]:border-[#E23744]"
-                  >
-                    Bulan Ini
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="today" className="space-y-4">
-                  {todayBookings.length > 0 ? renderScheduleCards(todayBookings) : (
-                    <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
-                      Tidak ada booking untuk hari ini.
-                    </p>
-                  )}
-                </TabsContent>
-                <TabsContent value="week" className="space-y-4">
-                  {thisWeekBookings.length > 0 ? renderScheduleCards(thisWeekBookings) : (
-                    <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
-                      Tidak ada booking untuk minggu ini.
-                    </p>
-                  )}
-                </TabsContent>
-                <TabsContent value="month" className="space-y-4">
-                  {thisMonthBookings.length > 0 ? renderScheduleCards(thisMonthBookings) : (
-                    <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-lg text-sm">
-                      Tidak ada booking untuk bulan ini.
-                    </p>
-                  )}
-                </TabsContent>
-              </Tabs>
+              <UpcomingSchedule 
+                bookings={bookings} 
+                onStreamStart={handleStreamStart}
+                onStreamEnd={handleStreamEnd}
+                setBookings={setBookings}
+              />
             </div>
           </div>
 
