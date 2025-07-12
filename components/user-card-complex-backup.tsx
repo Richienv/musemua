@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { cn } from '@/lib/utils';
-import { MockUser, getStatusColor, getStatusText } from '@/data/mock-users';
+import { MockUser, getStatusColor, getStatusText, getUserCategory } from '@/data/mock-users';
 import { UserPlus, MessageCircle, Star, MapPin } from 'lucide-react';
 
 interface UserCardProps {
@@ -117,7 +117,7 @@ export function UserCard({ user, onConnect, onMessage }: UserCardProps) {
           )}>
             <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
             <span className="text-white text-xs font-medium">
-              {user.rating.toFixed(1)}
+              {((user as any).rating || 4.5).toFixed(1)}
             </span>
           </div>
         </div>
@@ -135,7 +135,7 @@ export function UserCard({ user, onConnect, onMessage }: UserCardProps) {
               "bg-white/10 transition-all duration-300"
             )}>
               <span className="text-white text-sm font-medium">
-                {user.category}
+                {getUserCategory(user)}
               </span>
             </div>
 
@@ -147,7 +147,7 @@ export function UserCard({ user, onConnect, onMessage }: UserCardProps) {
 
             {/* Platform Tags */}
             <div className="flex gap-1.5">
-              {user.platform.map((platform) => (
+              {((user as any).platform || ['Instagram']).map((platform: string) => (
                 <Badge
                   key={platform}
                   variant="secondary"

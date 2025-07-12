@@ -442,10 +442,9 @@ export const getConversionRate = (user: MockUser): number => {
   return Math.round((user.projectsCompleted / user.clientsReached) * 100);
 };
 
-// Expertise categories for filtering - Limited to 7 for single row
+// Simplified expertise categories - Only MUA and MUSE
 export const expertiseTypes = [
-  "MUA Ahli", "MUA Bersertifikat", "MUA Profesional", "MUA Pemula", 
-  "Konsultan Kecantikan", "Ahli Kecantikan Kreatif", "Spesialis Kecantikan Senior"
+  "MUA", "MUSE"
 ];
 
 // Price ranges for filtering
@@ -534,6 +533,17 @@ export const getUserLevel = (user: MockUser): string => {
   }
 };
 
+// Helper function to get user category (MUA or MUSE)
+export const getUserCategory = (user: MockUser): string => {
+  if (user.expertise.includes('MUA')) {
+    return 'MUA';
+  } else if (user.characteristics) {
+    return 'MUSE';
+  } else {
+    return 'MUA'; // Default to MUA if no characteristics (assuming MUA)
+  }
+};
+
 // Filter users by multiple criteria
 export const filterUsers = (filters: {
   expertise?: string;
@@ -553,9 +563,9 @@ export const filterUsers = (filters: {
       if (!matchesSearch) return false;
     }
 
-    // Expertise filter
+    // Expertise filter - now using MUA/MUSE categories
     if (filters.expertise && filters.expertise !== 'Semua Expertise') {
-      if (user.expertise !== filters.expertise) return false;
+      if (getUserCategory(user) !== filters.expertise) return false;
     }
 
     // Price range filter  

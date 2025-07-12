@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { usePathname, useRouter } from 'next/navigation';
 import { Search } from "lucide-react";
+import { MockAuth, MockAuthUser } from '@/utils/mock-auth';
 
 interface NavbarProps {
   onFilterChange?: (value: string) => void;

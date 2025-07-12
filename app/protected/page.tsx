@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Import mock data and auth
-import { mockUsers, getUsersByExpertise, searchUsers, expertiseTypes, priceRanges, levelTypes, locationTypes, filterUsers, MockUser } from '@/data/mock-users';
+import { mockUsers, getUsersByExpertise, searchUsers, expertiseTypes, priceRanges, levelTypes, locationTypes, filterUsers, MockUser, getUserCategory } from '@/data/mock-users';
 import { MockAuth } from '@/utils/mock-auth';
 
 // Dynamically import components
@@ -33,33 +33,15 @@ const Slider = dynamic(() => import("react-slick"), {
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
-// Expertise icons mapping
+// Simplified expertise icons mapping
 const expertiseIcons = {
-  'MUA Ahli': Palette,
-  'MUA Bersertifikat': Brush,
-  'MUA Profesional': Palette,
-  'MUA Pemula': Brush,
-  'Konsultan Kecantikan': Eye,
-  'Ahli Kecantikan Kreatif': Sparkles,
-  'Spesialis Kecantikan Senior': Star,
-  'Stylist Kecantikan Ahli': Heart,
-  'Direktur Kreatif': Monitor,
-  'Direktur Seni': Monitor,
-  'Spesialis Fotografi': Camera
+  'MUA': Palette,
+  'MUSE': Camera
 };
 
 const expertiseColors = {
-  'MUA Ahli': 'bg-rose-500',
-  'MUA Bersertifikat': 'bg-pink-400',
-  'MUA Profesional': 'bg-rose-600',
-  'MUA Pemula': 'bg-pink-300',
-  'Konsultan Kecantikan': 'bg-purple-400',
-  'Ahli Kecantikan Kreatif': 'bg-fuchsia-500',
-  'Spesialis Kecantikan Senior': 'bg-amber-500',
-  'Stylist Kecantikan Ahli': 'bg-red-500',
-  'Direktur Kreatif': 'bg-indigo-500',
-  'Direktur Seni': 'bg-indigo-600',
-  'Spesialis Fotografi': 'bg-emerald-500'
+  'MUA': 'bg-rose-500',
+  'MUSE': 'bg-purple-500'
 };
 
 const carouselImages = [
@@ -162,21 +144,32 @@ export default function ProtectedPage() {
       <main className="w-full px-6 sm:px-8 lg:px-12 py-8 mt-[80px] bg-white">
         <div className="max-w-[1600px] mx-auto">
 
-          {/* Filter Bar - Minimal */}
-          <div className="mb-12">
-            <div className="flex flex-wrap items-center justify-center gap-8 text-sm font-medium">
+          {/* Filter Bar - Vogue Style */}
+          <div className="mb-16">
+            <div className="flex items-center justify-center gap-12 text-sm font-light tracking-widest">
+              <button
+                onClick={() => setExpertiseFilter('Semua Expertise')}
+                className={cn(
+                  "transition-all duration-300 hover:text-black pb-2",
+                  expertiseFilter === 'Semua Expertise'
+                    ? "text-black border-b border-black" 
+                    : "text-gray-400"
+                )}
+              >
+                ALL
+              </button>
               {expertiseTypes.map((expertise) => (
                 <button
                   key={expertise}
                   onClick={() => setExpertiseFilter(expertise === expertiseFilter ? 'Semua Expertise' : expertise)}
                   className={cn(
-                    "transition-colors hover:text-gray-900",
+                    "transition-all duration-300 hover:text-black pb-2",
                     expertiseFilter === expertise 
-                      ? "text-black border-b-2 border-black pb-1" 
-                      : "text-gray-500"
+                      ? "text-black border-b border-black" 
+                      : "text-gray-400"
                   )}
                 >
-                  {expertise.toUpperCase()}
+                  {expertise}
                 </button>
               ))}
             </div>

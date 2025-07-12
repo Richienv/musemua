@@ -17,11 +17,11 @@ export default function MUAPortfolioPage() {
   const [user, setUser] = useState<MockUser | null>(null);
 
   useEffect(() => {
-    if (params.id) {
+    if (params?.id) {
       const userData = getUserById(Number(params.id));
       setUser(userData || null);
     }
-  }, [params.id]);
+  }, [params?.id]);
 
   if (!user) {
     return (
@@ -51,68 +51,61 @@ export default function MUAPortfolioPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex min-h-[70vh]">
             {/* Left Side - Model Information */}
-            <div className="w-1/2 p-12 flex flex-col justify-center">
-              <h1 className="text-6xl font-bold mb-8 tracking-tight">
+            <div className="w-1/2 p-12 flex flex-col justify-center bg-gray-50">
+              <h1 className="text-7xl font-light mb-16 tracking-wider text-black leading-none">
                 {user.displayName.toUpperCase()}
               </h1>
               
               {user.characteristics ? (
-                <div className="space-y-3 text-lg">
-                  <div className="flex justify-between">
-                    <span className="font-medium">HEIGHT</span>
-                    <span>{user.characteristics.height}</span>
+                <div className="space-y-8">
+                  {/* Physical Measurements */}
+                  <div className="border-l-2 border-black pl-6">
+                    <h3 className="text-xs font-bold tracking-widest text-gray-600 mb-6 uppercase">Measurements</h3>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Height</span>
+                        <span className="text-lg font-light">{user.characteristics.height}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Bust</span>
+                        <span className="text-lg font-light">{user.characteristics.bust}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Waist</span>
+                        <span className="text-lg font-light">{user.characteristics.waist}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Hips</span>
+                        <span className="text-lg font-light">{user.characteristics.hips}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Shoes</span>
+                        <span className="text-lg font-light">{user.characteristics.shoes}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Suit</span>
+                        <span className="text-lg font-light">{user.characteristics.suit}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">BUST</span>
-                    <span>{user.characteristics.bust}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">WAIST</span>
-                    <span>{user.characteristics.waist}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">HIPS</span>
-                    <span>{user.characteristics.hips}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">SHOES</span>
-                    <span>{user.characteristics.shoes}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">SUIT</span>
-                    <span>{user.characteristics.suit}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">HAIR</span>
-                    <span>{user.characteristics.hairColor}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">EYES</span>
-                    <span>{user.characteristics.eyeColor}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">ETHNICITY</span>
-                    <span>{user.characteristics.ethnicity}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">EYE TYPE</span>
-                    <span>{user.characteristics.eyeType}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">NOSE TYPE</span>
-                    <span>{user.characteristics.noseType}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">LIP TYPE</span>
-                    <span>{user.characteristics.lipType}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">BROW TYPE</span>
-                    <span>{user.characteristics.browType}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">EYELID TYPE</span>
-                    <span>{user.characteristics.eyelidType}</span>
+
+                  {/* Features */}
+                  <div className="border-l-2 border-black pl-6">
+                    <h3 className="text-xs font-bold tracking-widest text-gray-600 mb-6 uppercase">Features</h3>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Hair</span>
+                        <span className="text-lg font-light capitalize">{user.characteristics.hairColor}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Eyes</span>
+                        <span className="text-lg font-light capitalize">{user.characteristics.eyeColor}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Ethnicity</span>
+                        <span className="text-lg font-light capitalize">{user.characteristics.ethnicity}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -124,7 +117,7 @@ export default function MUAPortfolioPage() {
             </div>
 
             {/* Right Side - Model Portrait */}
-            <div className="w-1/2 relative border-l border-gray-200">
+            <div className="w-1/2 relative">
               <div className="relative h-full">
                 <Image
                   src={user.imageUrl}
@@ -135,12 +128,13 @@ export default function MUAPortfolioPage() {
                 />
                 
                 {/* Navigation arrows */}
-                <button className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/20 hover:bg-black/40 text-white rounded-full flex items-center justify-center transition-colors">
+                <button className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white text-black rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-sm">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <button className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/20 hover:bg-black/40 text-white rounded-full flex items-center justify-center transition-colors">
+                <button className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white text-black rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-sm">
                   <ChevronRight className="w-5 h-5" />
                 </button>
+
               </div>
             </div>
           </div>
@@ -170,8 +164,13 @@ export default function MUAPortfolioPage() {
         {/* Portfolio Section */}
         <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-6">
-            <h2 className="text-4xl font-bold text-center mb-16 tracking-tight">PORTFOLIO</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="flex items-center justify-between mb-16">
+              <h2 className="text-4xl font-light tracking-wider text-black">PORTFOLIO</h2>
+              <Button variant="outline" className="border-black text-black hover:bg-black hover:text-white px-8 py-3 rounded-none font-light tracking-wide">
+                View More
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div key={i} className="group cursor-pointer">
                   <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden">
@@ -179,10 +178,10 @@ export default function MUAPortfolioPage() {
                       src={`https://images.unsplash.com/photo-${1500000000000 + i}?w=600&h=800&fit=crop&crop=face`}
                       alt={`Portfolio ${i}`}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     />
                     {/* Brand overlay */}
-                    <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-1 text-sm font-medium">
+                    <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm px-4 py-2 text-xs font-light tracking-widest border border-white/30">
                       {['CHANEL', 'DIOR', 'VERSACE', 'PRADA', 'GUCCI', 'ARMANI'][i - 1]}
                     </div>
                   </div>
@@ -192,25 +191,20 @@ export default function MUAPortfolioPage() {
           </div>
         </section>
 
-        {/* Polaroid Section */}
+        {/* Behind The Scenes Section */}
         <section className="py-20 bg-gray-50">
           <div className="max-w-7xl mx-auto px-6">
-            <h2 className="text-4xl font-bold text-center mb-16 tracking-tight">POLAROID</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <h2 className="text-4xl font-light text-center mb-16 tracking-wider text-black">BEHIND THE SCENES</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
                 <div key={i} className="group cursor-pointer">
-                  <div className="relative aspect-square bg-white p-3 shadow-md transform rotate-1 group-hover:rotate-0 transition-transform duration-300">
-                    <div className="relative w-full h-full bg-gray-100">
-                      <Image
-                        src={`https://images.unsplash.com/photo-${1600000000000 + i}?w=300&h=300&fit=crop&crop=face`}
-                        alt={`Polaroid ${i}`}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="text-center mt-2 text-xs text-gray-600 font-handwriting">
-                      {user.displayName} #{i}
-                    </div>
+                  <div className="relative aspect-square bg-gray-100 overflow-hidden">
+                    <Image
+                      src={`https://images.unsplash.com/photo-${1600000000000 + i}?w=300&h=300&fit=crop&crop=face`}
+                      alt={`Behind the scenes ${i}`}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                    />
                   </div>
                 </div>
               ))}
@@ -228,7 +222,7 @@ export default function MUAPortfolioPage() {
             </div>
             
             <div className="grid grid-cols-3 md:grid-cols-6 gap-1 mb-8">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => (
                 <div key={i} className="aspect-square bg-gray-100 relative group cursor-pointer">
                   <Image
                     src={`https://images.unsplash.com/photo-${1550000000000 + i}?w=300&h=300&fit=crop&crop=center`}
@@ -241,15 +235,16 @@ export default function MUAPortfolioPage() {
                   </div>
                 </div>
               ))}
+              {/* More Button as Last Square */}
+              <div className="aspect-square bg-white relative group cursor-pointer border border-gray-200 hover:border-black transition-colors">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-2xl font-light tracking-widest text-black group-hover:text-gray-600 transition-colors">
+                    MORE
+                  </span>
+                </div>
+              </div>
             </div>
             
-            <div className="text-center">
-              <Button className="bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:from-pink-600 hover:to-purple-700 px-8 py-3">
-                <Instagram className="w-5 h-5 mr-2" />
-                Visit Instagram
-                <ExternalLink className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
           </div>
         </section>
 

@@ -7,6 +7,22 @@ import { cn } from '@/lib/utils';
 import { MockUser, getStatusColor, getConversionRate } from '@/data/mock-users';
 import { MapPin, Users, TrendingUp, Sparkles, Instagram } from 'lucide-react';
 
+// City name to 3-char code mapping
+const cityCodeMap: { [key: string]: string } = {
+  'Jakarta': 'JKT',
+  'Bandung': 'BDG',
+  'Surabaya': 'SBY',
+  'Yogyakarta': 'YGY',
+  'Bali': 'DPS',
+  'Medan': 'MDN',
+  'Semarang': 'SMG',
+  'Malang': 'MLG',
+  'Makassar': 'MKS',
+  'Palembang': 'PLM',
+  'Denpasar': 'DPS',
+  'Batam': 'BTM'
+};
+
 interface UserCardProps {
   user: MockUser;
   onCollaborate?: (user: MockUser) => void;
@@ -62,33 +78,47 @@ export function UserCard({ user, onCollaborate }: UserCardProps) {
       </div>
 
 
-      {/* Model Info Overlay - Minimal Bottom Gradient */}
-      <div className="absolute bottom-0 left-0 right-0 z-10">
-        <div className="bg-gradient-to-t from-black/70 via-black/30 to-transparent p-3">
+      {/* Enhanced Gradient Overlay for Better Readability */}
+      <div className="absolute inset-0 z-10">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+      </div>
+
+      {/* Model Info Overlay - Clean Style */}
+      <div className="absolute bottom-0 left-0 right-0 z-20 p-4">
+        <div className="bg-black/40 rounded-lg p-3 border border-white/20 shadow-lg">
           <div className="text-white">
-            <h3 className="font-bold text-sm leading-tight mb-1">
-              {user.displayName.toUpperCase()}
+            <h3 className="font-light text-lg leading-tight mb-2 tracking-wide">
+              {(() => {
+                const nameParts = user.displayName.split(' ');
+                const firstName = nameParts[0]?.toUpperCase() || '';
+                const lastInitial = nameParts[1]?.charAt(0)?.toUpperCase() || '';
+                return lastInitial ? `${firstName} ${lastInitial}.` : firstName;
+              })()}
             </h3>
             
-            <div className="text-xs text-white/90 mb-2">
-              {user.expertise} • {user.location}
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs text-white/90 font-light tracking-wider">
+                {user.expertise.includes('MUA') ? 'MUA' : 'MUSE'} • {cityCodeMap[user.location] || user.location?.slice(0, 3)?.toUpperCase() || 'LOC'}
+              </div>
+              
+              {/* Instagram followers - prominent display */}
+              <div className="flex items-center gap-1 text-white/90">
+                <Instagram className="w-3 h-3" />
+                <span className="text-xs font-medium">{user.instagramFollowers}</span>
+              </div>
             </div>
             
-            {/* Stats */}
-            <div className="flex items-center gap-2 text-white/80">
+            {/* Stats - Minimalist */}
+            <div className="flex items-center gap-4 text-white/80">
               <div className="flex items-center gap-1">
                 <Users className="w-3 h-3" />
-                <span className="text-xs">{user.clientsReached}</span>
+                <span className="text-xs font-light">{user.clientsReached}</span>
               </div>
               
               <div className="flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
-                <span className="text-xs">{conversionRate}%</span>
-              </div>
-              
-              <div className="flex items-center gap-1">
-                <Instagram className="w-3 h-3" />
-                <span className="text-xs">{user.instagramFollowers}</span>
+                <span className="text-xs font-light">{conversionRate}%</span>
               </div>
             </div>
           </div>
@@ -96,12 +126,13 @@ export function UserCard({ user, onCollaborate }: UserCardProps) {
       </div>
 
 
-      {/* Status Indicator (Small dot in top right) */}
-      <div className="absolute top-4 right-4 z-10">
+      {/* Status Indicator - Elegant */}
+      <div className="absolute top-4 right-4 z-30">
         <div className={cn(
-          "w-3 h-3 rounded-full border-2 border-white/50",
+          "w-2 h-2 rounded-full border border-white/80",
           getStatusColor(user.status),
-          "shadow-lg animate-pulse"
+          "shadow-lg",
+          user.status === 'online' && "animate-pulse"
         )} />
       </div>
 
