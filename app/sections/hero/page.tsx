@@ -6,25 +6,25 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
-// Mock testimonial data
+// Mock testimonial data for MUA collaboration platform
 const testimonials = [
   {
     id: 1,
-    name: "Sarah M.",
+    name: "Bella R.",
     avatar: "/images/profile1.jpg",
-    text: "Amazing platform! Increased my sales by 300% with professional MUAs."
+    text: "This platform literally changed my whole brand game! 🔥"
   },
   {
     id: 2, 
-    name: "David L.",
+    name: "Zara K.",
     avatar: "/images/profile2.jpg",
-    text: "The expertise and results speak for themselves. Highly recommended!"
+    text: "Finally found my MUA soulmate through MUSE! No cap 💯"
   },
   {
     id: 3,
-    name: "Maya K.",
+    name: "Alex T.",
     avatar: "/images/profile3.jpg", 
-    text: "Professional service, incredible talent, outstanding results every time."
+    text: "The glow up is REAL! Every collab hits different here ✨"
   }
 ];
 
@@ -32,72 +32,30 @@ export default function Hero() {
   const router = useRouter();
 
   return (
-    <section className="relative min-h-screen bg-gradient-to-br from-gray-100 via-gray-50 to-white">
+    <section className="relative min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <header className="flex items-center justify-between py-6">
-          {/* Left Navigation */}
-          <div className="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-700">
-            <Link href="#" className="hover:text-gray-900 transition-colors">SHOP</Link>
-            <Link href="#" className="hover:text-gray-900 transition-colors">MEN</Link>
-            <Link href="#" className="hover:text-gray-900 transition-colors">WOMEN</Link>
-            <Link href="#" className="hover:text-gray-900 transition-colors">TRENDING</Link>
-          </div>
-
-          {/* Center Logo */}
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-wider">MUSE</h1>
-          </div>
-
-          {/* Right Navigation */}
-          <div className="hidden md:flex items-center space-x-6 text-sm font-medium text-gray-700">
-            <Link href="#" className="hover:text-gray-900 transition-colors">SEASONAL</Link>
-            <Link href="#" className="hover:text-gray-900 transition-colors">ACCESSORIES</Link>
-            <Link href="/sign-in" className="bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors">
-              SIGN IN / UP
-            </Link>
-            <div className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-bold">
-              0
-            </div>
-          </div>
-        </header>
-
         {/* Main Content */}
-        <div className="relative flex flex-col items-center justify-center min-h-[80vh] text-center">
+        <div className="relative flex flex-col items-center justify-center min-h-screen text-center pt-32">
           {/* Main Heading */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="mb-8"
+            className="mb-6"
           >
-            <h2 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight mb-8">
-              GEAR UP EVERY SEASON
+            <h2 className="text-5xl sm:text-6xl lg:text-8xl font-light text-black leading-tight tracking-wider">
+              ELEVATE YOUR
               <br />
-              EVERY WORK
+              <span className="font-bold">
+                ARTISTRY
+              </span>
             </h2>
-            
-            {/* Action Buttons */}
-            <div className="flex items-center justify-center gap-4 mb-16">
-              <Link 
-                href="/sign-in"
-                className="bg-black text-white px-8 py-3 rounded-full font-medium hover:bg-gray-800 transition-all duration-300"
-              >
-                SHOP NOW
-              </Link>
-              <Link 
-                href="/protected"
-                className="border border-gray-300 text-gray-700 px-8 py-3 rounded-full font-medium hover:border-gray-400 hover:bg-gray-50 transition-all duration-300"
-              >
-                EXPLORE ALL
-              </Link>
-            </div>
           </motion.div>
 
-          {/* Main Hero Image - Centered and Large */}
-          <div className="flex justify-center mt-8 mb-12">
+          {/* Main Hero Image - Clean and Elegant */}
+          <div className="flex justify-center mt-4 mb-8">
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1, delay: 0.4 }}
               className="relative"
@@ -107,7 +65,7 @@ export default function Hero() {
                   src="/images/landingpage-main-headshot.png"
                   alt="Professional MUA Expert"
                   fill
-                  className="object-cover rounded-2xl transition-transform duration-700 hover:scale-105"
+                  className="object-contain"
                   priority
                   sizes="(max-width: 640px) 320px, (max-width: 1024px) 384px, 500px"
                 />
@@ -115,36 +73,49 @@ export default function Hero() {
             </motion.div>
           </div>
 
-          {/* Testimonials Section - Below Image */}
+          {/* Description and CTA Section */}
           <div className="flex justify-center">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.6 }}
-              className="space-y-6 max-w-sm text-center"
+              className="space-y-12 max-w-3xl text-center"
             >
-              {/* Profile Avatars */}
-              <div className="flex -space-x-2 justify-center">
-                {testimonials.slice(0, 3).map((testimonial, index) => (
-                  <motion.div
-                    key={testimonial.id}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4, delay: 0.8 + index * 0.1 }}
-                    className="relative"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 border-2 border-white shadow-sm flex items-center justify-center text-gray-600 font-medium text-sm">
-                      {testimonial.name.charAt(0)}
-                    </div>
-                  </motion.div>
-                ))}
+              {/* Main Description */}
+              <div className="space-y-6">
+                <p className="text-xl sm:text-2xl text-black leading-relaxed font-light tracking-wide">
+                  Where visionary creators meet exceptional makeup artists.
+                </p>
+                <p className="text-base text-gray-600 leading-relaxed font-light max-w-2xl mx-auto">
+                  Curated collaborations for editorial campaigns, luxury brand partnerships, 
+                  and artistic projects that define the future of beauty.
+                </p>
               </div>
 
-              {/* Testimonial Text */}
-              <div className="space-y-3">
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  Stay cozy without compromising your range of motion. Our women's winter range is perfect for those chilly outdoor workouts.
-                </p>
+              {/* Single Action Button */}
+              <div className="pt-8">
+                <Link 
+                  href="/protected"
+                  className="inline-block bg-black text-white px-12 py-4 text-sm font-medium tracking-widest uppercase hover:bg-gray-800 transition-all duration-300"
+                >
+                  DISCOVER TALENT
+                </Link>
+              </div>
+
+              {/* Elegant Stats */}
+              <div className="flex items-center justify-center gap-16 pt-16 border-t border-gray-100">
+                <div className="text-center">
+                  <div className="text-3xl font-light text-black mb-2">500+</div>
+                  <div className="text-xs font-medium tracking-widest text-gray-500 uppercase">Curated Artists</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-light text-black mb-2">1K+</div>
+                  <div className="text-xs font-medium tracking-widest text-gray-500 uppercase">Projects Completed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-light text-black mb-2">48H</div>
+                  <div className="text-xs font-medium tracking-widest text-gray-500 uppercase">Response Time</div>
+                </div>
               </div>
             </motion.div>
           </div>

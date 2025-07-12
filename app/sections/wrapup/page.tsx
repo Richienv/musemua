@@ -6,28 +6,28 @@ import { Star } from "lucide-react";
 
 const testimonials = [
   {
-    name: "Chynta Claudia",
-    occupation: "Jiniso",
+    name: "Isabella Chen",
+    occupation: "Creative Director, LUXE Magazine",
     rating: 5,
-    testimonial: "Selama Jiniso menggunakan jasa host service TRO, penjualan di Shopee Live Jiniso ada peningkatan, dari host dan managementnya pun juga bisa menyesuaikan dengan sistem dan rules yang jiniso berikan.",
+    testimonial: "MUSE connected us with an incredible makeup artist for our cover shoot. The level of artistry and professionalism was unmatched. Every detail was executed flawlessly.",
   },
   {
-    name: "Andjani",
-    occupation: "Mondelez", 
+    name: "Alexandra Rodriguez",
+    occupation: "Brand Director, Atelier Beauty", 
     rating: 5,
-    testimonial: "I want to give a huge shoutout to TRO for their exceptional work on our live streaming and short video for the past 2 years. The production quality was top-notch, and the technical support was always prompt and effective. They selected perfect host for our brand, and the content created was engaging and spot-on!",
+    testimonial: "Working with MUSE artists has elevated our campaign visuals to editorial-level excellence. The platform makes finding and collaborating with top-tier talent effortless and professional.",
   },
   {
-    name: "Maggie",
-    occupation: "Herbal Essences | Pantene | Rejoice",
+    name: "Sophie Williams",
+    occupation: "Fashion Photographer",
     rating: 5,
-    testimonial: "It's a very great experience working with TRO Team. A very speedy & proactive team - allowing brands to improve my brands' livestream performance while investing on their team. Thankyou TRO!",
+    testimonial: "The makeup artists on MUSE understand fashion photography at the highest level. Their expertise in camera-ready application and artistic vision consistently exceeds expectations.",
   },
   {
-    name: "Lala",
-    occupation: "Shopee Team",
+    name: "Marcus Thompson",
+    occupation: "Music Video Director",
     rating: 5,
-    testimonial: "Tro helpful bgt for the accounts i hold sampe ak rekomen-rekomen ke brandku yg lain dan juga brand-brand personal tmn tmn aku yg mau coba live streaming.",
+    testimonial: "MUSE artists bring concepts to life with incredible skill and creativity. The booking process is seamless, and the results are always stunning and professional.",
   }
 ];
 
@@ -62,11 +62,11 @@ export default function Wrapup() {
         <div className="max-w-[1200px] mx-auto">
           {/* Section Header */}
           <div className="text-center mb-8 md:mb-16">
-            <h2 className="text-[1.5rem] sm:text-[2rem] md:text-[3.25rem] leading-tight font-serif mb-4 md:mb-6 text-gray-900">
-              Apa kata mereka
+            <h2 className="text-[1.5rem] sm:text-[2rem] md:text-[3.25rem] leading-tight font-light mb-4 md:mb-6 text-black tracking-wider">
+              TRUSTED BY CREATIVES
             </h2>
-            <p className="text-sm md:text-lg text-gray-600">
-              Kita udah ngebantu mereka. Sekarang kita ingin ngebantu kamu.
+            <p className="text-sm md:text-lg text-gray-600 font-light">
+              Exceptional artists. Exceptional results. Exceptional experiences.
             </p>
           </div>
         </div>

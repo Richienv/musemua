@@ -14,36 +14,36 @@ export default function FAQ() {
 
   const faqs: FAQItem[] = [
     {
-      question: "Apa itu Salda dan bagaimana cara kerjanya?",
-      answer: "Salda adalah platform live commerce yang menghubungkan brand dengan livestreamer profesional. Platform kami menyediakan fitur lengkap untuk mengelola sesi live streaming, mulai dari penjadwalan, pembayaran, hingga analitik performa penjualan."
+      question: "What is MUSE and how does it work?",
+      answer: "MUSE is the premier platform connecting exceptional makeup artists with visionary creators. Our curated network facilitates professional collaborations for editorial campaigns, brand partnerships, and artistic projects through a seamless booking and communication system."
     },
     {
-      question: "Berapa biaya untuk menggunakan layanan Salda?",
-      answer: "Biaya layanan Salda bervariasi tergantung paket yang dipilih. Kami menerapkan sistem komisi berdasarkan performa penjualan, sehingga Anda hanya membayar ketika berhasil melakukan penjualan. Hubungi tim kami untuk informasi pricing yang lebih detail."
+      question: "How are makeup artists vetted on MUSE?",
+      answer: "Every artist undergoes a rigorous vetting process including portfolio review, professional background verification, and artistic skill assessment. We only accept top-tier professionals with proven editorial experience and exceptional artistic capabilities."
     },
     {
-      question: "Bagaimana proses verifikasi livestreamer di Salda?",
-      answer: "Setiap livestreamer di Salda melalui proses verifikasi ketat yang mencakup: pengecekan pengalaman, portfolio penjualan, kemampuan komunikasi, dan pemahaman produk. Kami juga memberikan pelatihan khusus untuk memastikan kualitas layanan terbaik."
+      question: "What types of projects can I find artists for?",
+      answer: "Our platform supports a wide range of creative projects including fashion editorials, brand campaigns, product launches, music videos, red carpet events, photoshoots, and artistic collaborations. Each artist specializes in different styles and project types."
     },
     {
-      question: "Platform e-commerce apa saja yang didukung oleh Salda?",
-      answer: "Saat ini Salda mendukung integrasi dengan platform e-commerce major seperti Shopee dan TikTok Shop. Kami terus menambah dukungan untuk platform lainnya untuk memberikan fleksibilitas maksimal bagi pengguna kami."
+      question: "How does pricing work on MUSE?",
+      answer: "Pricing varies based on project scope, artist experience, and timeline. Artists set their own rates, which typically include consultation, application time, and materials. You'll receive detailed proposals with transparent pricing for your specific project requirements."
     },
     {
-      question: "Apakah ada jaminan keamanan transaksi di Salda?",
-      answer: "Ya, Salda menggunakan sistem escrow dan enkripsi data untuk menjamin keamanan setiap transaksi. Dana akan ditahan dalam sistem escrow hingga sesi live streaming selesai dan kedua belah pihak menyetujui penyelesaian transaksi."
+      question: "Is there payment protection for collaborations?",
+      answer: "Yes, MUSE provides secure payment processing with milestone-based releases. Funds are held in escrow until project milestones are completed, ensuring protection for both creators and artists throughout the collaboration process."
     },
     {
-      question: "Bagaimana sistem pembayaran di Salda bekerja?",
-      answer: "Salda menggunakan sistem pembayaran yang aman dan transparan. Pembayaran dapat dilakukan melalui berbagai metode seperti transfer bank, e-wallet, dan kartu kredit. Pencairan dana dilakukan secara otomatis sesuai jadwal yang telah ditentukan."
+      question: "What happens if I need to reschedule or cancel?",
+      answer: "Our flexible booking system allows for reasonable rescheduling with advance notice. Cancellation policies vary by artist and project scope. We work to find mutually beneficial solutions while respecting everyone's time and commitments."
     },
     {
-      question: "Apakah Salda menyediakan laporan analitik performa?",
-      answer: "Ya, Salda menyediakan dashboard analitik komprehensif yang mencakup metrik penting seperti jumlah viewer, engagement rate, conversion rate, dan total penjualan. Laporan dapat diakses real-time dan dapat di-export untuk analisis lebih lanjut."
+      question: "Can I work with the same artist for multiple projects?",
+      answer: "Absolutely. Many of our most successful collaborations develop into ongoing creative partnerships. You can easily rebook artists you've worked with and build lasting professional relationships within our community."
     },
     {
-      question: "Bagaimana jika terjadi kendala teknis saat live streaming?",
-      answer: "Tim support teknis Salda tersedia 24/7 untuk membantu mengatasi kendala teknis. Kami juga menyediakan backup system dan panduan troubleshooting untuk memastikan kelancaran setiap sesi live streaming."
+      question: "What support is available during collaborations?",
+      answer: "Our dedicated support team provides assistance throughout your collaboration journey, from initial consultation to project completion. We offer 24/7 support for urgent matters and comprehensive resources to ensure successful outcomes."
     }
   ];
 
@@ -53,14 +53,14 @@ export default function FAQ() {
         <div className="max-w-[1000px] mx-auto">
           {/* Section Header */}
           <div className="text-center mb-8 sm:mb-12 md:mb-16">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif mb-4 sm:mb-6 tracking-[-0.02em]">
-              Pertanyaan yang Sering{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1e40af] to-[#6b21a8]">
-                Ditanyakan
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-light mb-4 sm:mb-6 tracking-wider text-black">
+              FREQUENTLY ASKED{" "}
+              <span className="font-bold">
+                QUESTIONS
               </span>
             </h2>
-            <p className="text-xs sm:text-sm md:text-base text-gray-600 leading-relaxed font-light max-w-2xl mx-auto">
-              Temukan jawaban untuk pertanyaan umum seputar layanan Salda dan cara kerjanya
+            <p className="text-xs sm:text-sm md:text-base text-gray-600 leading-relaxed font-light max-w-3xl mx-auto">
+              Everything you need to know about collaborating with world-class makeup artists through MUSE
             </p>
           </div>
 
@@ -108,14 +108,12 @@ export default function FAQ() {
           {/* Support Link */}
           <div className="text-center mt-8 sm:mt-10 md:mt-12">
             <p className="text-xs sm:text-sm text-gray-600">
-              Masih punya pertanyaan?{" "}
+              Still have questions?{" "}
               <a
-                href="https://wa.me/62895700120901"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                href="mailto:support@muse.com"
+                className="text-black hover:text-gray-700 font-medium transition-colors"
               >
-                Hubungi tim support kami
+                Contact our concierge team
               </a>
             </p>
           </div>

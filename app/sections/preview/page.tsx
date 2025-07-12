@@ -16,22 +16,24 @@ export default function Preview() {
             transition={{ duration: 0.6 }}
             className="text-center mb-12 sm:mb-16 md:mb-24"
           >
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif mb-4 sm:mb-6 md:mb-8 tracking-tight">
-              Meet Salda
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light mb-4 sm:mb-6 md:mb-8 tracking-wider text-black">
+              MEET MUSE
             </h2>
-            <div className="max-w-2xl mx-auto px-3 sm:px-4">
+            <div className="max-w-3xl mx-auto px-3 sm:px-4">
               <p className="text-sm sm:text-base md:text-lg text-gray-600 leading-relaxed sm:leading-relaxed md:leading-relaxed font-light">
-                Salda adalah platform yang menyediakan jasa host live streaming terpercaya untuk jualan di TikTok dan Shopee Live. Dibuat oleh <span className="font-medium">TROLIVE</span>, Salda memudahkan Anda mencari host berpengalaman dengan sistem booking per jam.
+                The premier platform connecting exceptional makeup artists with visionary creators. 
+                Where artistry meets opportunity, and every collaboration sets new standards in beauty.
               </p>
               <p className="text-sm sm:text-base md:text-lg text-gray-600 leading-relaxed sm:leading-relaxed md:leading-relaxed font-light mt-3 sm:mt-4">
-                Semua host sudah terlatih dan terbukti bisa meningkatkan penjualan online Anda. Tanpa ribet, tanpa kontrak panjang, langsung bisa mulai dari 1 jam saja!
+                Our curated network of elite MUAs transforms creative visions into stunning reality, 
+                one project at a time.
               </p>
             </div>
           </motion.div>
 
           {/* Service Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-            {/* Card 1 - Pembayaran Digital */}
+            {/* Card 1 - Secure Payments */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -41,21 +43,22 @@ export default function Preview() {
             >
               <div className="aspect-[4/3] sm:aspect-square relative p-4 sm:p-6">
                 <Image
-                  src="/images/va.png"
-                  alt="Pembayaran Digital"
+                  src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=400&fit=crop&crop=center"
+                  alt="Secure Payments"
                   fill
-                  className="object-contain transform group-hover:scale-105 transition-transform duration-300"
+                  className="object-cover rounded-lg transform group-hover:scale-105 transition-transform duration-300"
                 />
               </div>
               <div className="px-4 sm:px-6 pb-6 sm:pb-8 pt-3 sm:pt-4 text-center">
-                <h3 className="text-base sm:text-lg md:text-xl font-serif mb-2 sm:mb-3">Pembayaran Digital, Mudah & Aman</h3>
+                <h3 className="text-base sm:text-lg md:text-xl font-light mb-2 sm:mb-3 tracking-wide">SECURE PAYMENTS</h3>
                 <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed font-light">
-                  Pembayaran dilakukan di dalam aplikasi dengan sistem yang memberikan history dan bukti untuk menjaga keamanan transaksi. Bekerja sama dengan bank untuk memudahkan pembayaran dan support jika ada kendala.
+                  Seamless, protected transactions with complete payment history and bank-level security. 
+                  Focus on your art while we handle the business.
                 </p>
               </div>
             </motion.div>
 
-            {/* Card 2 - Host Profesional */}
+            {/* Card 2 - Elite Artists */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -65,21 +68,22 @@ export default function Preview() {
             >
               <div className="aspect-[4/3] sm:aspect-square relative p-4 sm:p-6">
                 <Image
-                  src="/images/hs.png"
-                  alt="Host Profesional"
+                  src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&h=400&fit=crop&crop=center"
+                  alt="Elite Artists"
                   fill
-                  className="object-contain transform group-hover:scale-105 transition-transform duration-300"
+                  className="object-cover rounded-lg transform group-hover:scale-105 transition-transform duration-300"
                 />
               </div>
               <div className="px-4 sm:px-6 pb-6 sm:pb-8 pt-3 sm:pt-4 text-center">
-                <h3 className="text-base sm:text-lg md:text-xl font-serif mb-2 sm:mb-3">Host Professional & Terjangkau</h3>
+                <h3 className="text-base sm:text-lg md:text-xl font-light mb-2 sm:mb-3 tracking-wide">ELITE ARTISTS</h3>
                 <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed font-light">
-                  Host yang dipilih sudah terbukti membawa ROI positif bagi brand sebelumnya dan dilatih untuk mempresentasikan produk dengan tujuan meningkatkan penjualan. Tersedia berbagai varian harga dan kategori streamer.
+                  Handpicked professionals with proven editorial experience and exceptional portfolios. 
+                  Every artist brings unique expertise to elevate your creative vision.
                 </p>
               </div>
             </motion.div>
 
-            {/* Card 3 - Customer Support */}
+            {/* Card 3 - Concierge Support */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -89,21 +93,22 @@ export default function Preview() {
             >
               <div className="aspect-[4/3] sm:aspect-square relative p-4 sm:p-6">
                 <Image
-                  src="/images/cs.png"
-                  alt="Customer Support"
+                  src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop&crop=center"
+                  alt="Concierge Support"
                   fill
-                  className="object-contain transform group-hover:scale-105 transition-transform duration-300"
+                  className="object-cover rounded-lg transform group-hover:scale-105 transition-transform duration-300"
                 />
               </div>
               <div className="px-4 sm:px-6 pb-6 sm:pb-8 pt-3 sm:pt-4 text-center">
-                <h3 className="text-base sm:text-lg md:text-xl font-serif mb-2 sm:mb-3">Support 24/7 yang Responsif</h3>
+                <h3 className="text-base sm:text-lg md:text-xl font-light mb-2 sm:mb-3 tracking-wide">CONCIERGE SUPPORT</h3>
                 <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed font-light">
-                  Customer support yang selalu siap untuk menjawab semua pertanyaan atau masalah yang terjadi selama menggunakan platform untuk menjaga kenyamanan saat menggunakan aplikasi.
+                  Dedicated support throughout your collaboration journey. From initial consultation 
+                  to project completion, we ensure every detail exceeds expectations.
                 </p>
               </div>
             </motion.div>
 
-            {/* Card 4 - Fleksibel Tanpa Kontrak */}
+            {/* Card 4 - Flexible Collaboration */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -113,16 +118,17 @@ export default function Preview() {
             >
               <div className="aspect-[4/3] sm:aspect-square relative p-4 sm:p-6">
                 <Image
-                  src="/images/nc.png"
-                  alt="Fleksibel Tanpa Kontrak"
+                  src="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=400&h=400&fit=crop&crop=center"
+                  alt="Flexible Collaboration"
                   fill
-                  className="object-contain transform group-hover:scale-105 transition-transform duration-300"
+                  className="object-cover rounded-lg transform group-hover:scale-105 transition-transform duration-300"
                 />
               </div>
               <div className="px-4 sm:px-6 pb-6 sm:pb-8 pt-3 sm:pt-4 text-center">
-                <h3 className="text-base sm:text-lg md:text-xl font-serif mb-2 sm:mb-3">Fleksibel Tanpa Kontrak</h3>
+                <h3 className="text-base sm:text-lg md:text-xl font-light mb-2 sm:mb-3 tracking-wide">FLEXIBLE COLLABORATION</h3>
                 <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed font-light">
-                  Brand bisa langsung berkomunikasi dan mengatur booking untuk membantu menjual produk mereka melalui platform SALDA dengan tujuan meningkatkan dan mempermudah kolaborasi antara brand dan host!
+                  Direct communication and seamless project coordination. From single sessions to ongoing partnerships, 
+                  we adapt to your creative timeline and vision.
                 </p>
               </div>
             </motion.div>

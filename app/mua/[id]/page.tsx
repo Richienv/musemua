@@ -9,12 +9,16 @@ import { Input } from "@/components/ui/input";
 import { cn } from '@/lib/utils';
 import { getUserById, MockUser } from '@/data/mock-users';
 import { Navbar } from "@/components/ui/navbar";
+import { CollaborationRequestModal } from "@/components/collaboration-request-modal";
+import { CollaborationSuccessModal } from "@/components/collaboration-success-modal";
 
 
 export default function MUAPortfolioPage() {
   const params = useParams();
   const router = useRouter();
   const [user, setUser] = useState<MockUser | null>(null);
+  const [isCollaborationModalOpen, setIsCollaborationModalOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
   useEffect(() => {
     if (params?.id) {
@@ -172,6 +176,47 @@ export default function MUAPortfolioPage() {
           </div>
         </section>
 
+        {/* Collaboration Request Section */}
+        <section className="py-20 bg-black text-white">
+          <div className="max-w-4xl mx-auto px-6 text-center">
+            <h2 className="text-5xl font-light mb-8 tracking-wider">COLLABORATE WITH {user.displayName.toUpperCase()}</h2>
+            <p className="text-lg font-light text-gray-300 mb-12 leading-relaxed max-w-2xl mx-auto">
+              Ready to create something extraordinary? Let's discuss your next project and bring your vision to life with professional expertise.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+              <Button 
+                onClick={() => setIsCollaborationModalOpen(true)}
+                className="bg-white text-black hover:bg-gray-100 px-12 py-4 text-sm font-medium tracking-widest uppercase transition-all duration-300 rounded-none"
+              >
+                Request Collaboration
+              </Button>
+              <Button 
+                variant="outline"
+                className="border-white text-white hover:bg-white hover:text-black px-12 py-4 text-sm font-medium tracking-widest uppercase transition-all duration-300 rounded-none"
+              >
+                View Availability
+              </Button>
+            </div>
+            
+            {/* Stats Row */}
+            <div className="flex items-center justify-center gap-16 mt-16 pt-16 border-t border-gray-800">
+              <div className="text-center">
+                <div className="text-3xl font-light mb-2">{user.projectsCompleted}+</div>
+                <div className="text-xs font-medium tracking-widest text-gray-400 uppercase">Projects Completed</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-light mb-2">{user.clientsReached}+</div>
+                <div className="text-xs font-medium tracking-widest text-gray-400 uppercase">Clients Served</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-light mb-2">48H</div>
+                <div className="text-xs font-medium tracking-widest text-gray-400 uppercase">Response Time</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Behind The Scenes Section */}
         <section className="py-20 bg-gray-50">
           <div className="max-w-7xl mx-auto px-6">
@@ -254,6 +299,26 @@ export default function MUAPortfolioPage() {
           </div>
         </footer>
       </div>
+
+      {/* Collaboration Request Modal */}
+      {user && (
+        <>
+          <CollaborationRequestModal
+            isOpen={isCollaborationModalOpen}
+            onClose={() => setIsCollaborationModalOpen(false)}
+            muaName={user.displayName}
+            muaImage={user.imageUrl}
+            onSuccess={() => setIsSuccessModalOpen(true)}
+          />
+          
+          <CollaborationSuccessModal
+            isOpen={isSuccessModalOpen}
+            onClose={() => setIsSuccessModalOpen(false)}
+            muaName={user.displayName}
+            muaImage={user.imageUrl}
+          />
+        </>
+      )}
     </div>
   );
 }

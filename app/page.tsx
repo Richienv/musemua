@@ -27,8 +27,8 @@ export default function Home() {
 
   return (
     <main className="flex flex-col min-h-screen bg-white w-full">
-      <Navbar />
       <Hero />
+      <Navbar />
       <Preview />
       <About />
       <Wrapup />

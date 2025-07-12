@@ -32,6 +32,7 @@ import { BookingCalendar, type BookingCalendarProps } from "@/components/booking
 import { Textarea } from "@/components/ui/textarea";
 import { createNotification, createStreamNotifications, createItemReceivedNotification, type NotificationType } from "@/services/notification-service";
 import { cn } from "@/lib/utils";
+import { getCollaborationRequestsByMUA, getRequestStatusColor, getRequestStatusLabel, getUrgencyColor, getUrgencyIcon, type CollaborationRequest } from "@/data/mock-collaboration-requests";
 
 interface UserData {
   user_type: string;
@@ -2330,6 +2331,214 @@ function PaymentGroupBookingModal({ isOpen, onClose, booking, relatedBookings, o
   );
 }
 
+// Add this new CollaborationRequestCard component
+function CollaborationRequestCard({ request, onClick }: { request: CollaborationRequest; onClick: () => void }) {
+  return (
+    <div 
+      onClick={onClick}
+      className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden">
+            {request.clientAvatar ? (
+              <Image
+                src={request.clientAvatar}
+                alt={request.clientName}
+                width={48}
+                height={48}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-600">
+                {request.clientName[0]?.toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900">{request.clientName}</h3>
+            <p className="text-sm text-gray-500">{request.clientCompany || request.clientEmail}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getRequestStatusColor(request.status)}`}>
+            {getRequestStatusLabel(request.status)}
+          </span>
+          <span className={`text-sm ${getUrgencyColor(request.urgency)}`}>
+            {getUrgencyIcon(request.urgency)}
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <h4 className="font-medium text-gray-900">{request.projectType}</h4>
+          <p className="text-sm text-gray-600 line-clamp-2">{request.description}</p>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4 text-sm text-gray-500">
+            <span>{request.budgetRange}</span>
+            <span>•</span>
+            <span>{request.timeline}</span>
+          </div>
+          <div className="text-xs text-gray-400">
+            {new Date(request.createdAt).toLocaleDateString()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Add this new CollaborationRequestDetailModal component
+function CollaborationRequestDetailModal({ 
+  request, 
+  isOpen, 
+  onClose,
+  onStatusUpdate
+}: { 
+  request: CollaborationRequest | null; 
+  isOpen: boolean; 
+  onClose: () => void;
+  onStatusUpdate: (requestId: string, newStatus: CollaborationRequest['status']) => void;
+}) {
+  if (!request) return null;
+
+  const handleStatusUpdate = (newStatus: CollaborationRequest['status']) => {
+    onStatusUpdate(request.id, newStatus);
+    onClose();
+  };
+
+  return (
+    <div className={`fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 ${isOpen ? '' : 'hidden'}`}>
+      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Collaboration Request</h2>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Client Info */}
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden">
+              {request.clientAvatar ? (
+                <Image
+                  src={request.clientAvatar}
+                  alt={request.clientName}
+                  width={64}
+                  height={64}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-600 text-xl">
+                  {request.clientName[0]?.toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">{request.clientName}</h3>
+              <p className="text-gray-600">{request.clientCompany || 'Individual Client'}</p>
+              <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                <span>{request.clientEmail}</span>
+                <span>{request.clientPhone}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Project Details */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-3">Project Details</h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-500">Type:</span>
+                <span className="ml-2 font-medium">{request.projectType}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Budget:</span>
+                <span className="ml-2 font-medium">{request.budgetRange}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Timeline:</span>
+                <span className="ml-2 font-medium">{request.timeline}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Urgency:</span>
+                <span className={`ml-2 font-medium ${getUrgencyColor(request.urgency)}`}>
+                  {getUrgencyIcon(request.urgency)} {request.urgency}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <h4 className="font-medium text-gray-900 mb-2">Project Description</h4>
+            <p className="text-gray-600 leading-relaxed">{request.description}</p>
+          </div>
+
+          {/* Requirements */}
+          {request.requirements && (
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Special Requirements</h4>
+              <p className="text-gray-600 leading-relaxed">{request.requirements}</p>
+            </div>
+          )}
+
+          {/* Status and Actions */}
+          <div className="bg-blue-50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <span className="text-sm text-gray-600">Current Status:</span>
+                <span className={`ml-2 px-3 py-1 rounded-full text-xs font-medium border ${getRequestStatusColor(request.status)}`}>
+                  {getRequestStatusLabel(request.status)}
+                </span>
+              </div>
+              <div className="text-sm text-gray-500">
+                Response needed by: {new Date(request.responseDeadline).toLocaleDateString()}
+              </div>
+            </div>
+
+            {request.status === 'pending' && (
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={() => handleStatusUpdate('declined')}
+                  variant="outline"
+                  className="border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  Decline
+                </Button>
+                <Button
+                  onClick={() => handleStatusUpdate('counter_offered')}
+                  variant="outline"
+                  className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                >
+                  Counter Offer
+                </Button>
+                <Button
+                  onClick={() => handleStatusUpdate('accepted')}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Accept Request
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Add this new LoadingScreen component before the StreamerDashboard component
 function LoadingScreen() {
   return (
@@ -2464,6 +2673,9 @@ export default function StreamerDashboard() {
   const [galleryPhotos, setGalleryPhotos] = useState<StreamerGalleryPhoto[]>([]);
   // Add state for status filter
   const [scheduleFilter, setScheduleFilter] = useState<string>('Semua');
+  const [collaborationRequests, setCollaborationRequests] = useState<CollaborationRequest[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<CollaborationRequest | null>(null);
+  const [isRequestDetailModalOpen, setIsRequestDetailModalOpen] = useState(false);
 
   // Define fetchData first
   const fetchData = useCallback(async () => {
@@ -2502,6 +2714,10 @@ export default function StreamerDashboard() {
             user_id: user.id,
             streamer_id: streamerData.id
           });
+
+          // Fetch collaboration requests for this MUA
+          const requests = getCollaborationRequestsByMUA(streamerData.id);
+          setCollaborationRequests(requests);
 
           // Fetch all bookings with different statuses and include voucher usage
           const { data: allBookings, error: bookingsError } = await supabase
@@ -2767,6 +2983,23 @@ export default function StreamerDashboard() {
     }
   };
 
+  const handleCollaborationRequestStatusUpdate = (requestId: string, newStatus: CollaborationRequest['status']) => {
+    setCollaborationRequests(prev => 
+      prev.map(req => 
+        req.id === requestId 
+          ? { ...req, status: newStatus, updatedAt: new Date().toISOString() }
+          : req
+      )
+    );
+    
+    toast.success(`Request ${newStatus === 'accepted' ? 'accepted' : newStatus === 'declined' ? 'declined' : 'updated'} successfully`);
+  };
+
+  const handleRequestClick = (request: CollaborationRequest) => {
+    setSelectedRequest(request);
+    setIsRequestDetailModalOpen(true);
+  };
+
   // Replace the simple loading div with our new LoadingScreen component
   if (isLoading) {
     return <LoadingScreen />;
@@ -2887,6 +3120,48 @@ export default function StreamerDashboard() {
               </Tabs>
             </div>
           </div>
+
+          {/* Collaboration Requests Section */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-2xl font-bold text-gray-900">Collaboration Requests</h2>
+              <p className="text-gray-500 text-sm mt-1">Manage incoming collaboration requests from potential clients</p>
+            </div>
+            <div className="p-6">
+              {collaborationRequests.length > 0 ? (
+                <div className="space-y-4">
+                  {collaborationRequests
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .map((request) => (
+                      <CollaborationRequestCard
+                        key={request.id}
+                        request={request}
+                        onClick={() => handleRequestClick(request)}
+                      />
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Collaboration Requests</h3>
+                  <p className="text-gray-500 text-sm max-w-md mx-auto">
+                    When clients are interested in collaborating with you, their requests will appear here. 
+                    Make sure your profile is complete to attract more collaboration opportunities.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Collaboration Request Detail Modal */}
+          <CollaborationRequestDetailModal
+            request={selectedRequest}
+            isOpen={isRequestDetailModalOpen}
+            onClose={() => setIsRequestDetailModalOpen(false)}
+            onStatusUpdate={handleCollaborationRequestStatusUpdate}
+          />
         </div>
       </div>
     </div>

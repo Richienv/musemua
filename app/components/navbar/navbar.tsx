@@ -1,45 +1,38 @@
 "use client";
 
-import Image from "next/image";
+import Link from "next/link";
 
 export function Navbar() {
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-[#faf9f6] z-50 border-b border-gray-100">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Logo with TROLIVE text */}
+    <nav className="fixed top-0 left-0 right-0 bg-white z-50 border-b border-gray-100">
+      <div className="container mx-auto px-6">
+        <div className="flex items-center justify-between h-20">
+          {/* Logo */}
           <div className="flex items-center">
-            <div className="relative">
-              <Image
-                src="/images/salda-logoB.png"
-                alt="Salda"
-                width={160}
-                height={53}
-                className="h-8 w-auto md:h-10"
-                priority
-              />
-              <span className="absolute -bottom-1 right-0 text-[10px] text-gray-800 tracking-wide font-light">
-                by TROLIVE
-              </span>
-            </div>
+            <Link href="/" className="text-2xl font-bold tracking-wider text-black">
+              MUSE
+            </Link>
           </div>
 
-          {/* Contact Button with WhatsApp Icon */}
-          <a
-            href="https://wa.me/62895700120901"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white px-2.5 sm:px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md"
-          >
-            <Image
-              src="/whatsapp-icon.png"
-              alt="WhatsApp"
-              width={20}
-              height={20}
-              className="w-5 h-5"
-            />
-            <span className="hidden sm:inline">Contact Us</span>
-          </a>
+          {/* Navigation Links */}
+          <div className="hidden md:flex items-center space-x-8">
+            <Link href="/protected" className="text-sm font-medium text-gray-700 hover:text-black transition-colors tracking-wide uppercase">
+              Artists
+            </Link>
+            <Link href="#about" className="text-sm font-medium text-gray-700 hover:text-black transition-colors tracking-wide uppercase">
+              How it Works
+            </Link>
+            <Link href="mailto:hello@muse.com" className="bg-black text-white px-6 py-2 text-sm font-medium tracking-wide uppercase hover:bg-gray-800 transition-colors">
+              Contact
+            </Link>
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden">
+            <Link href="/protected" className="bg-black text-white px-4 py-2 text-sm font-medium tracking-wide uppercase">
+              Browse
+            </Link>
+          </div>
         </div>
       </div>
     </nav>

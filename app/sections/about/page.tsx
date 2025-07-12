@@ -11,44 +11,44 @@ interface TutorialSlide {
 
 const tutorialSlides: TutorialSlide[] = [
   {
-    image: "/images/1b.png",
-    title: "Minta Akses",
-    description: "Pastikan kamu sudah membuat akun dan mendapatkan akses dari tim Trolive. Jika belum, silakan klik tombol ini untuk mengirim pesan permintaan akses."
+    image: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=600&fit=crop&crop=center",
+    title: "DISCOVER TALENT",
+    description: "Browse our curated selection of elite makeup artists. Each profile showcases their unique style, portfolio, and artistic expertise."
   },
   {
-    image: "/images/2b.png", 
-    title: "Masuk & Jelajahi",
-    description: "Masuk dengan akun kamu dan lihat-lihat platform untuk membiasakan diri dengan semua fitur yang tersedia."
+    image: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&h=600&fit=crop&crop=center", 
+    title: "VIEW PORTFOLIOS",
+    description: "Explore detailed portfolios featuring editorial work, brand campaigns, and artistic collaborations to find your perfect match."
   },
   {
-    image: "/images/3b.png",
-    title: "Pesan Host",
-    description: "Lihat host yang kamu suka dan klik \"book livestreamer\" untuk memilih jam yang tersedia."
+    image: "https://images.unsplash.com/photo-1559163499-413811fb2344?w=800&h=600&fit=crop&crop=center",
+    title: "REQUEST COLLABORATION",
+    description: "Submit a detailed collaboration request outlining your vision, timeline, and project requirements directly through our platform."
   },
   {
-    image: "/images/4b.png",
-    title: "Cek Detail Booking",
-    description: "Periksa detail booking kamu dan pastikan informasi pengiriman barang dan sub akun sudah benar. Hubungi host atau support jika butuh bantuan."
+    image: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=800&h=600&fit=crop&crop=center",
+    title: "REVIEW PROPOSALS",
+    description: "Receive personalized proposals from interested artists with detailed concepts, pricing, and availability for your project."
   },
   {
-    image: "/images/5b.png",
-    title: "Selesaikan Pembayaran", 
-    description: "Selesaikan pembayaran menggunakan QRIS/VA/Transfer Bank yang tersedia. Setelah itu kamu akan diarahkan untuk melihat booking yang baru saja dibuat."
+    image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop&crop=center",
+    title: "SECURE BOOKING", 
+    description: "Finalize your collaboration with secure payment processing and comprehensive project agreements to protect both parties."
   },
   {
-    image: "/images/6b.png",
-    title: "Tunggu Konfirmasi",
-    description: "Kamu bisa menunggu host untuk menerima/menolak booking dan akan mendapat notifikasi di dalam aplikasi, jadi pastikan untuk membuka web app untuk mengecek."
+    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&h=600&fit=crop&crop=center",
+    title: "PROJECT COORDINATION",
+    description: "Coordinate logistics, schedules, and creative details through our integrated communication system and project management tools."
   },
   {
-    image: "/images/7b.png",
-    title: "Komunikasi dengan Host",
-    description: "Setelah host menerima, komunikasikan via pesan aplikasi dan kirim produk kamu untuk mereka tampilkan."
+    image: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=800&h=600&fit=crop&crop=center",
+    title: "CREATIVE EXECUTION",
+    description: "Watch your vision come to life as the makeup artist delivers exceptional results that exceed your artistic expectations."
   },
   {
-    image: "/images/8b.png",
-    title: "Mulai Live!",
-    description: "Mereka akan melakukan live sesuai waktu booking kamu dan kamu akan diinformasikan tentang semuanya. Selesai!"
+    image: "https://images.unsplash.com/photo-1494790108755-2616b612b272?w=800&h=600&fit=crop&crop=center",
+    title: "SHARE SUCCESS",
+    description: "Showcase your completed collaboration and build lasting relationships for future projects within our creative community."
   }
 ];
 
@@ -59,12 +59,12 @@ export default function About() {
       <div className="sticky top-0 z-30 bg-[#faf9f4]/80 backdrop-blur-sm pt-16 sm:pt-24 pb-8 sm:pb-12">
         <div className="container mx-auto px-3 sm:px-4">
           <div className="text-center">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif mb-4 sm:mb-6 tracking-[-0.02em] text-gray-900">
-              Cara Menggunakan Salda
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light mb-4 sm:mb-6 tracking-wider text-black">
+              HOW IT WORKS
             </h2>
-            <p className="text-xs sm:text-sm md:text-base text-gray-600 leading-relaxed md:leading-relaxed font-light max-w-2xl mx-auto px-2">
-              Mulai perjalanan live commerce Anda dengan langkah-langkah sederhana. 
-              Kami akan membantu Anda di setiap tahap untuk memastikan kesuksesan penjualan.
+            <p className="text-xs sm:text-sm md:text-base text-gray-600 leading-relaxed md:leading-relaxed font-light max-w-3xl mx-auto px-2">
+              From discovery to collaboration, every step is designed to create exceptional 
+              partnerships between visionary creators and world-class makeup artists.
             </p>
           </div>
         </div>
