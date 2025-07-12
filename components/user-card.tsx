@@ -78,48 +78,48 @@ export function UserCard({ user, onCollaborate }: UserCardProps) {
       </div>
 
 
-      {/* Enhanced Gradient Overlay for Better Readability */}
-      <div className="absolute inset-0 z-10">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+      {/* Simple gradient overlay for text readability */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 h-24">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
       </div>
 
-      {/* Model Info Overlay - Clean Style */}
+      {/* Clean Text Overlay with Line */}
       <div className="absolute bottom-0 left-0 right-0 z-20 p-4">
-        <div className="bg-black/40 rounded-lg p-3 border border-white/20 shadow-lg">
-          <div className="text-white">
-            <h3 className="font-light text-lg leading-tight mb-2 tracking-wide">
-              {(() => {
-                const nameParts = user.displayName.split(' ');
-                const firstName = nameParts[0]?.toUpperCase() || '';
-                const lastInitial = nameParts[1]?.charAt(0)?.toUpperCase() || '';
-                return lastInitial ? `${firstName} ${lastInitial}.` : firstName;
-              })()}
-            </h3>
-            
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs text-white/90 font-light tracking-wider">
-                {user.expertise.includes('MUA') ? 'MUA' : 'MUSE'} • {cityCodeMap[user.location] || user.location?.slice(0, 3)?.toUpperCase() || 'LOC'}
-              </div>
-              
-              {/* Instagram followers - prominent display */}
-              <div className="flex items-center gap-1 text-white/90">
-                <Instagram className="w-3 h-3" />
-                <span className="text-xs font-medium">{user.instagramFollowers}</span>
-              </div>
+        <div className="text-white">
+          {/* Subtle line separator */}
+          <div className="w-8 h-0.5 bg-white/60 mb-3"></div>
+          
+          <h3 className="font-medium text-sm leading-tight mb-2 tracking-wide">
+            {(() => {
+              const nameParts = user.displayName.split(' ');
+              const firstName = nameParts[0]?.toUpperCase() || '';
+              const lastInitial = nameParts[1]?.charAt(0)?.toUpperCase() || '';
+              return lastInitial ? `${firstName} ${lastInitial}.` : firstName;
+            })()}
+          </h3>
+          
+          <div className="flex items-center justify-between text-xs mb-2">
+            <div className="text-white/90 font-light tracking-wide">
+              {user.expertise.includes('MUA') ? 'MUA' : 'MUSE'} • {cityCodeMap[user.location] || user.location?.slice(0, 3)?.toUpperCase() || 'LOC'}
             </div>
             
-            {/* Stats - Minimalist */}
-            <div className="flex items-center gap-4 text-white/80">
-              <div className="flex items-center gap-1">
-                <Users className="w-3 h-3" />
-                <span className="text-xs font-light">{user.clientsReached}</span>
-              </div>
-              
-              <div className="flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
-                <span className="text-xs font-light">{conversionRate}%</span>
-              </div>
+            {/* Instagram followers */}
+            <div className="flex items-center gap-1 text-white/90">
+              <Instagram className="w-3 h-3" />
+              <span className="text-xs font-medium">{user.instagramFollowers}</span>
+            </div>
+          </div>
+          
+          {/* Compact Stats */}
+          <div className="flex items-center gap-4 text-white/80 text-xs">
+            <div className="flex items-center gap-1">
+              <Users className="w-3 h-3" />
+              <span>{user.clientsReached}</span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />
+              <span>{conversionRate}%</span>
             </div>
           </div>
         </div>

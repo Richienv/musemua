@@ -47,77 +47,12 @@ export default function MUAPortfolioPage() {
           {user.displayName.toUpperCase()}
         </div>
 
-        {/* Split Layout Container */}
+        {/* Mobile-First Layout: Picture on Top, Details Below */}
         <div className="max-w-7xl mx-auto">
-          <div className="flex min-h-[70vh]">
-            {/* Left Side - Model Information */}
-            <div className="w-1/2 p-12 flex flex-col justify-center bg-gray-50">
-              <h1 className="text-7xl font-light mb-16 tracking-wider text-black leading-none">
-                {user.displayName.toUpperCase()}
-              </h1>
-              
-              {user.characteristics ? (
-                <div className="space-y-8">
-                  {/* Physical Measurements */}
-                  <div className="border-l-2 border-black pl-6">
-                    <h3 className="text-xs font-bold tracking-widest text-gray-600 mb-6 uppercase">Measurements</h3>
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Height</span>
-                        <span className="text-lg font-light">{user.characteristics.height}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Bust</span>
-                        <span className="text-lg font-light">{user.characteristics.bust}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Waist</span>
-                        <span className="text-lg font-light">{user.characteristics.waist}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Hips</span>
-                        <span className="text-lg font-light">{user.characteristics.hips}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Shoes</span>
-                        <span className="text-lg font-light">{user.characteristics.shoes}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Suit</span>
-                        <span className="text-lg font-light">{user.characteristics.suit}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Features */}
-                  <div className="border-l-2 border-black pl-6">
-                    <h3 className="text-xs font-bold tracking-widest text-gray-600 mb-6 uppercase">Features</h3>
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Hair</span>
-                        <span className="text-lg font-light capitalize">{user.characteristics.hairColor}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Eyes</span>
-                        <span className="text-lg font-light capitalize">{user.characteristics.eyeColor}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Ethnicity</span>
-                        <span className="text-lg font-light capitalize">{user.characteristics.ethnicity}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-gray-500 text-lg">
-                  <p>No characteristics data available</p>
-                  <p className="text-sm">User ID: {user.id}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Right Side - Model Portrait */}
-            <div className="w-1/2 relative">
+          {/* Picture Section - Full width on mobile, part of flex on desktop */}
+          <div className="w-full md:flex md:min-h-[70vh]">
+            {/* Model Portrait - Now on top for mobile */}
+            <div className="w-full md:w-1/2 relative h-[60vh] md:h-auto md:order-2">
               <div className="relative h-full">
                 <Image
                   src={user.imageUrl}
@@ -134,32 +69,78 @@ export default function MUAPortfolioPage() {
                 <button className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white text-black rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-sm">
                   <ChevronRight className="w-5 h-5" />
                 </button>
-
               </div>
+            </div>
+
+            {/* Model Information - Now below picture on mobile */}
+            <div className="w-full md:w-1/2 p-6 md:p-12 flex flex-col justify-center bg-gray-50 md:order-1">
+              <h1 className="text-4xl md:text-7xl font-light mb-8 md:mb-16 tracking-wider text-black leading-none text-center md:text-left">
+                {user.displayName.toUpperCase()}
+              </h1>
+              
+              {user.characteristics ? (
+                <div className="space-y-6 md:space-y-8">
+                  {/* Physical Measurements */}
+                  <div className="border-l-2 border-black pl-4 md:pl-6">
+                    <h3 className="text-xs font-bold tracking-widest text-gray-600 mb-4 md:mb-6 uppercase">Measurements</h3>
+                    <div className="grid grid-cols-2 gap-x-4 md:gap-x-8 gap-y-3 md:gap-y-4">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Height</span>
+                        <span className="text-base md:text-lg font-light">{user.characteristics.height}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Bust</span>
+                        <span className="text-base md:text-lg font-light">{user.characteristics.bust}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Waist</span>
+                        <span className="text-base md:text-lg font-light">{user.characteristics.waist}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Hips</span>
+                        <span className="text-base md:text-lg font-light">{user.characteristics.hips}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Shoes</span>
+                        <span className="text-base md:text-lg font-light">{user.characteristics.shoes}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Suit</span>
+                        <span className="text-base md:text-lg font-light">{user.characteristics.suit}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <div className="border-l-2 border-black pl-4 md:pl-6">
+                    <h3 className="text-xs font-bold tracking-widest text-gray-600 mb-4 md:mb-6 uppercase">Features</h3>
+                    <div className="grid grid-cols-2 gap-x-4 md:gap-x-8 gap-y-3 md:gap-y-4">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Hair</span>
+                        <span className="text-base md:text-lg font-light capitalize">{user.characteristics.hairColor}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Eyes</span>
+                        <span className="text-base md:text-lg font-light capitalize">{user.characteristics.eyeColor}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">Ethnicity</span>
+                        <span className="text-base md:text-lg font-light capitalize">{user.characteristics.ethnicity}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-500 text-base md:text-lg text-center md:text-left">
+                  <p>No characteristics data available</p>
+                  <p className="text-sm">User ID: {user.id}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Bottom Action Buttons */}
-        <div className="border-t border-gray-200 p-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-center gap-4">
-            <Button variant="outline" className="px-6 py-2 text-sm font-medium border-black text-black hover:bg-black hover:text-white">
-              MEASUREMENTS
-            </Button>
-            <Button variant="outline" className="px-6 py-2 text-sm font-medium border-black text-black hover:bg-black hover:text-white">
-              SELECT
-            </Button>
-            <Button variant="outline" className="px-6 py-2 text-sm font-medium border-black text-black hover:bg-black hover:text-white">
-              GENERATE YOUR PDF
-            </Button>
-            <Button variant="outline" className="px-6 py-2 text-sm font-medium border-black text-black hover:bg-black hover:text-white">
-              PRINT BOOK
-            </Button>
-            <Button variant="outline" className="px-6 py-2 text-sm font-medium border-black text-black hover:bg-black hover:text-white">
-              PRINT POLAROIDS
-            </Button>
-          </div>
-        </div>
+        {/* Removed unnecessary buttons as requested */}
 
         {/* Portfolio Section */}
         <section className="py-20 bg-white">

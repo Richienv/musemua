@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Navbar } from "@/components/ui/navbar";
 import Image from 'next/image';
-import { Palette, Brush, Camera, Sparkles, Eye, Heart, Monitor, Star, Search, ChevronDown, Filter } from 'lucide-react';
+import { Palette, Brush, Camera, Sparkles, Eye, Heart, Monitor, Star, Search, ChevronDown, Filter, ChevronRight } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ export default function ProtectedPage() {
   const [users, setUsers] = useState<MockUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expertiseFilter, setExpertiseFilter] = useState('Semua Expertise');
+  const [expertiseFilter, setExpertiseFilter] = useState('MUA');
   const [priceFilter, setPriceFilter] = useState('Semua Harga');
   const [levelFilter, setLevelFilter] = useState('Semua Level');
   const [locationFilter, setLocationFilter] = useState('Semua Lokasi');
@@ -111,7 +111,7 @@ export default function ProtectedPage() {
     
     return filterUsers({
       searchQuery,
-      expertise: expertiseFilter !== 'Semua Expertise' ? expertiseFilter : undefined,
+      expertise: expertiseFilter,
       priceRange: priceFilter !== 'Semua Harga' ? priceFilter : undefined,
       level: levelFilter !== 'Semua Level' ? levelFilter : undefined,
       location: locationFilter !== 'Semua Lokasi' ? locationFilter : undefined
@@ -144,24 +144,13 @@ export default function ProtectedPage() {
       <main className="w-full px-6 sm:px-8 lg:px-12 py-8 mt-[80px] bg-white">
         <div className="max-w-[1600px] mx-auto">
 
-          {/* Filter Bar - Vogue Style */}
+          {/* Filter Bar - Vogue Style (MUA/MUSE only) */}
           <div className="mb-16">
             <div className="flex items-center justify-center gap-12 text-sm font-light tracking-widest">
-              <button
-                onClick={() => setExpertiseFilter('Semua Expertise')}
-                className={cn(
-                  "transition-all duration-300 hover:text-black pb-2",
-                  expertiseFilter === 'Semua Expertise'
-                    ? "text-black border-b border-black" 
-                    : "text-gray-400"
-                )}
-              >
-                ALL
-              </button>
               {expertiseTypes.map((expertise) => (
                 <button
                   key={expertise}
-                  onClick={() => setExpertiseFilter(expertise === expertiseFilter ? 'Semua Expertise' : expertise)}
+                  onClick={() => setExpertiseFilter(expertise === expertiseFilter ? 'MUA' : expertise)}
                   className={cn(
                     "transition-all duration-300 hover:text-black pb-2",
                     expertiseFilter === expertise 
@@ -192,11 +181,78 @@ export default function ProtectedPage() {
                   ))}
                 </div>
               ) : filteredUsers.length > 0 ? (
-                <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
-                  {filteredUsers.map((user) => (
-                    <UserCard key={user.id} user={user} />
-                  ))}
-                </div>
+                // Dynamic layout based on filter
+                expertiseFilter === 'MUA' ? (
+                  // MUA-specific layout: Vogue-inspired elegant design
+                  <div className="space-y-1">
+                    {filteredUsers.map((user) => (
+                    // Each MUA gets one elegant row - entire card is clickable
+                    <div 
+                      key={user.id} 
+                      onClick={() => router.push(`/mua/${user.id}`)}
+                      className="group bg-white border-b border-gray-100 hover:bg-gray-50 transition-all duration-300 cursor-pointer overflow-hidden"
+                    >
+                      <div className="flex items-stretch">
+                        {/* User Info Section - Left */}
+                        <div className="w-64 flex-shrink-0 px-8 py-8 flex flex-col justify-center">
+                          <h3 className="text-xl font-light tracking-wide text-black mb-1 uppercase">
+                            {user.displayName}
+                          </h3>
+                          <p className="text-sm font-medium tracking-widest text-gray-500 mb-6 uppercase">
+                            {user.location}
+                          </p>
+                          
+                          {/* Stats - Recommendations & Projects */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium tracking-widest text-gray-400 uppercase">Recommended</span>
+                              <span className="text-sm font-light text-black">{user.clientsReached}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium tracking-widest text-gray-400 uppercase">Projects</span>
+                              <span className="text-sm font-light text-black">{user.projectsCompleted}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 4 Pictures Grid - True 4:5 aspect ratio */}
+                        <div className="flex-1 grid grid-cols-4">
+                          {[...Array(4)].map((_, index) => {
+                            // Create portfolio images by using different variations/filters of the main image
+                            const portfolioImageUrl = `${user.imageUrl}&seed=${index}&q=90&w=320&h=400`;
+                            
+                            return (
+                              <div key={index} className="relative overflow-hidden group/image aspect-[4/5]">
+                                <Image
+                                  src={portfolioImageUrl}
+                                  alt={`${user.displayName} portfolio ${index + 1}`}
+                                  fill
+                                  className="object-cover transition-all duration-500 group-hover:brightness-110 group/image:hover:scale-105"
+                                  sizes="25vw"
+                                />
+                                {/* Subtle overlay on hover */}
+                                <div className="absolute inset-0 bg-black/0 group/image:hover:bg-black/10 transition-colors duration-300" />
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Right Section - Arrow Indicator */}
+                        <div className="w-16 flex-shrink-0 flex items-center justify-center bg-gray-50 group-hover:bg-black transition-colors duration-300">
+                          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors duration-300" />
+                        </div>
+                      </div>
+                    </div>
+                    ))}
+                  </div>
+                ) : (
+                  // MUSE layout: Regular grid for models and other talents
+                  <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
+                    {filteredUsers.map((user) => (
+                      <UserCard key={user.id} user={user} />
+                    ))}
+                  </div>
+                )
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 px-4">
                   <Search className="w-16 h-16 text-gray-300 mb-4" />
@@ -208,7 +264,7 @@ export default function ProtectedPage() {
                   </p>
                   <Button
                     onClick={() => {
-                      setExpertiseFilter('Semua Expertise');
+                      setExpertiseFilter('MUA');
                       setPriceFilter('Semua Harga');
                       setLevelFilter('Semua Level');
                       setLocationFilter('Semua Lokasi');

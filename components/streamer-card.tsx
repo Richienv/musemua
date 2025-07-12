@@ -2548,123 +2548,130 @@ export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardPro
           onOpenChange={setIsProfileModalOpen}
         >
           <DialogContent 
-            className="max-w-2xl w-full h-[85vh] overflow-y-auto z-[9999] fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] p-6 dialog-content-mobile"
+            className="max-w-2xl w-full h-[85vh] overflow-y-auto z-[9999] fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] p-0 dialog-content-mobile"
           >
-            <DialogHeader className="bg-white pb-4 flex flex-row items-start justify-between">
-              <div>
-                <DialogTitle className="text-xl font-semibold text-gray-900">Streamer Profile</DialogTitle>
-                <DialogDescription className="text-sm text-gray-500 mt-1">
-                  View detailed information about this streamer
-                </DialogDescription>
-              </div>
-              <DialogClose className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                <X className="h-5 w-5 text-gray-500" />
+            {/* Mobile-first Hero Section with Image on Top */}
+            <div className="relative">
+              {/* Close Button */}
+              <DialogClose className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-colors">
+                <X className="h-5 w-5 text-white" />
               </DialogClose>
-            </DialogHeader>
-            
-            {isLoadingProfile ? (
-              <div className="space-y-4">
-                <div className="h-4 bg-gray-200 rounded animate-pulse" />
-                <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
-                <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2" />
+              
+              {/* Hero Image */}
+              <div className="relative w-full h-64 md:h-80 overflow-hidden">
+                <Image
+                  src={streamer.image_url}
+                  alt={formatName(streamer.first_name, streamer.last_name)}
+                  fill
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
               </div>
-            ) : extendedProfile ? (
-              <>
-                {/* Professional ID Card Layout */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100 shadow-sm mb-8">
-                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                    {/* Left Column - Photo and Basic Info */}
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="relative w-28 h-28 sm:w-32 sm:h-32">
-                        <Image
-                          src={streamer.image_url}
-                          alt={formatName(streamer.first_name, streamer.last_name)}
-                          fill
-                          className="rounded-lg object-cover border-2 border-white shadow-md"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                        <span className="text-sm font-medium">
-                          {extendedProfile.rating ? `${Number(extendedProfile.rating).toFixed(1)} / 5.0` : 'Not rated yet'}
-                        </span>
-                      </div>
+              
+              {/* Profile Details - Now Below Image */}
+              <div className="relative -mt-20 z-10 px-6 pb-6">
+                <div className="bg-white rounded-2xl p-6 shadow-lg">
+                  <div className="flex flex-col sm:flex-row items-start gap-4">
+                    {/* Profile Picture */}
+                    <div className="w-20 h-20 rounded-xl overflow-hidden border-4 border-white shadow-lg flex-shrink-0">
+                      <Image
+                        src={streamer.image_url}
+                        alt={formatName(streamer.first_name, streamer.last_name)}
+                        width={80}
+                        height={80}
+                        className="object-cover w-full h-full"
+                      />
                     </div>
-
-                    {/* Right Column - Details */}
-                    <div className="flex-1 space-y-4">
-                      {/* Name and Title */}
-                      <div className="border-b border-blue-200 pb-3">
-                        <h2 className="text-xl font-semibold text-blue-900">
-                          {formatName(streamer.first_name, streamer.last_name)}
-                        </h2>
-                        <p className="text-sm text-blue-600 font-medium">Professional Livestreamer</p>
-                      </div>
-
-                      {/* Info Grid - Redesigned for better desktop view */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
-                        {/* Age */}
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 bg-blue-100 rounded-md">
-                            <User className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-blue-600 font-medium">Age</p>
-                            <p className="text-sm">{extendedProfile.age ? `${extendedProfile.age} Years` : 'Not specified'}</p>
-                          </div>
+                    
+                    {/* Basic Info */}
+                    <div className="flex-1 text-center sm:text-left">
+                      <DialogTitle className="text-xl font-semibold text-gray-900 mb-1">
+                        {formatName(streamer.first_name, streamer.last_name)}
+                      </DialogTitle>
+                      <DialogDescription className="text-sm text-gray-500 mb-3">
+                        Professional Livestreamer
+                      </DialogDescription>
+                      <div className="flex flex-wrap justify-center sm:justify-start items-center gap-3 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span>{streamer.rating.toFixed(1)}</span>
                         </div>
-
-                        {/* Gender */}
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 bg-blue-100 rounded-md">
-                            <User className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-blue-600 font-medium">Gender</p>
-                            <p className="text-sm">{extendedProfile.gender || 'Not specified'}</p>
-                          </div>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          <span>{streamer.location}</span>
                         </div>
-
-                        {/* Experience */}
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 bg-blue-100 rounded-md">
-                            <Clock className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-blue-600 font-medium">Experience</p>
-                            <p className="text-sm">{extendedProfile.experience || 'Not specified'}</p>
-                          </div>
-                        </div>
-
-                        {/* Location */}
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 bg-blue-100 rounded-md">
-                            <MapPin className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-blue-600 font-medium">Location</p>
-                            <p className="text-sm">{extendedProfile.location || 'Not specified'}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Platform Tags */}
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {(streamer.platforms || [streamer.platform]).map((platform) => (
-                          <div
-                            key={platform}
-                            className={`px-3 py-1 rounded-full text-white text-xs font-medium
-                              ${platform.toLowerCase() === 'shopee' 
-                                ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
-                                : 'bg-gradient-to-r from-blue-600 to-indigo-600'}`}
-                          >
-                            {platform}
-                          </div>
-                        ))}
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+            
+            {/* Content Section */}
+            <div className="px-6 pb-6">
+              {isLoadingProfile ? (
+                <div className="space-y-4">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2" />
+                </div>
+              ) : extendedProfile ? (
+                <>
+                  {/* Detailed Info Grid */}
+                  <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Age */}
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <User className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium">Age</p>
+                          <p className="text-sm font-medium">{extendedProfile.age ? `${extendedProfile.age} Years` : 'Not specified'}</p>
+                        </div>
+                      </div>
+
+                      {/* Gender */}
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <User className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium">Gender</p>
+                          <p className="text-sm font-medium">{extendedProfile.gender || 'Not specified'}</p>
+                        </div>
+                      </div>
+
+                      {/* Experience */}
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <Clock className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium">Experience</p>
+                          <p className="text-sm font-medium">{extendedProfile.experience || 'Not specified'}</p>
+                        </div>
+                      </div>
+
+                      {/* Platform Tags */}
+                      <div className="flex flex-col">
+                        <p className="text-xs text-gray-500 font-medium mb-2">Platforms</p>
+                        <div className="flex flex-wrap gap-1">
+                          {(streamer.platforms || [streamer.platform]).map((platform) => (
+                            <div
+                              key={platform}
+                              className={`px-2 py-1 rounded text-white text-xs font-medium
+                                ${platform.toLowerCase() === 'shopee' 
+                                  ? 'bg-orange-500' 
+                                  : 'bg-blue-600'}`}
+                            >
+                              {platform}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                 {/* Bio Section */}
                 <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-6">
@@ -2761,8 +2768,10 @@ export function StreamerCard({ streamer, isSelected, onSelect }: StreamerCardPro
                     <p className="text-sm text-gray-500 text-center">No testimonials yet</p>
                   )}
                 </div>
-              </>
-            ) : null}
+                
+                </>
+              ) : null}
+            </div>
           </DialogContent>
         </Dialog>
       )}
