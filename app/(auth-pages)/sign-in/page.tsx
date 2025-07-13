@@ -1,6 +1,6 @@
 "use client";
 
-import { signInAction, signInAsStreamerAction } from "@/app/actions";
+import { signInAction } from "@/app/actions";
 import { FormMessage, Message } from "@/components/form-message";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,8 @@ import { Eye, EyeOff } from "lucide-react";
 
 export default function Login({ searchParams }: { searchParams: Message }) {
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [isSigningInAsStreamer, setIsSigningInAsStreamer] = useState(false);
-  const [showStreamerLogin, setShowStreamerLogin] = useState(false);
+  const [isSigningInAsMua, setIsSigningInAsMua] = useState(false);
+  const [showMuaLogin, setShowMuaLogin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSignIn = async (formData: FormData) => {
@@ -22,27 +22,27 @@ export default function Login({ searchParams }: { searchParams: Message }) {
     setIsSigningIn(false);
   };
 
-  const handleSignInAsStreamer = async (formData: FormData) => {
-    setIsSigningInAsStreamer(true);
-    await signInAsStreamerAction(formData);
-    setIsSigningInAsStreamer(false);
+  const handleSignInAsMua = async (formData: FormData) => {
+    setIsSigningInAsMua(true);
+    await signInAction(formData); // Use same action, differentiate by user type in backend
+    setIsSigningInAsMua(false);
   };
 
   return (
     <div className="relative w-full max-w-[420px]">
 
-      {!showStreamerLogin ? (
-        // Client Login Form
+      {!showMuaLogin ? (
+        // Client/MUSE Login Form
         <div className="overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100">
           <div className="p-8">
             <div className="mb-8">
               <h1 className="text-2xl font-semibold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                Welcome Back
+                Welcome to MUSE
               </h1>
               <p className="mt-2 text-gray-600">
-                New to Salda?{" "}
-                <Link href="/sign-up" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
-                  Create an account
+                New to MUSE?{" "}
+                <Link href="/muse-sign-up" className="text-rose-600 hover:text-rose-700 font-medium transition-colors">
+                  Join as MUSE
                 </Link>
               </p>
             </div>
@@ -56,7 +56,7 @@ export default function Login({ searchParams }: { searchParams: Message }) {
                     placeholder="name@example.com" 
                     required 
                     className="h-11 pl-4 bg-gray-50/50 border-gray-200 focus:bg-white text-base rounded-xl
-                      focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition-all duration-200"
+                      focus:ring-2 focus:ring-rose-100 focus:border-rose-500 transition-all duration-200"
                     style={{ fontSize: '16px' }}
                   />
                 </div>
@@ -71,7 +71,7 @@ export default function Login({ searchParams }: { searchParams: Message }) {
                     placeholder="Enter your password"
                     required
                     className="h-11 pl-4 pr-11 bg-gray-50/50 border-gray-200 focus:bg-white text-base rounded-xl
-                      focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition-all duration-200"
+                      focus:ring-2 focus:ring-rose-100 focus:border-rose-500 transition-all duration-200"
                     style={{ fontSize: '16px' }}
                   />
                   <button
@@ -97,8 +97,8 @@ export default function Login({ searchParams }: { searchParams: Message }) {
                     if (form) handleSignIn(new FormData(form));
                   }}
                   disabled={isSigningIn}
-                  className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 
-                    hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-200 
+                  className="w-full h-11 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 
+                    hover:to-pink-600 text-white rounded-xl font-medium transition-all duration-200 
                     shadow-[0_4px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.15)]"
                 >
                   {isSigningIn ? (
@@ -123,11 +123,11 @@ export default function Login({ searchParams }: { searchParams: Message }) {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setShowStreamerLogin(true)}
-                  className="w-full h-11 border-2 border-gray-200 text-gray-700 hover:text-blue-600 
-                    hover:border-blue-100 hover:bg-blue-50/50 rounded-xl font-medium transition-all duration-200"
+                  onClick={() => setShowMuaLogin(true)}
+                  className="w-full h-11 border-2 border-gray-200 text-gray-700 hover:text-purple-600 
+                    hover:border-purple-100 hover:bg-purple-50/50 rounded-xl font-medium transition-all duration-200"
                 >
-                  Sign in as Streamer
+                  Sign in as MUA
                 </Button>
               </div>
 
@@ -136,16 +136,16 @@ export default function Login({ searchParams }: { searchParams: Message }) {
           </div>
         </div>
       ) : (
-        // Streamer Login Form
+        // MUA Login Form
         <div className="overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100">
           <div className="p-8">
             <div className="mb-8">
               <h1 className="text-2xl font-semibold bg-gradient-to-r from-[#1e40af] to-[#6b21a8] bg-clip-text text-transparent">
-                Streamer Portal
+                MUA Portal
               </h1>
               <p className="mt-2 text-gray-600">
-                Want to be a streamer?{" "}
-                <Link href="/streamer-sign-up" className="text-[#2563eb] hover:text-[#1e40af] font-medium transition-colors">
+                Want to be a MUA?{" "}
+                <Link href="/mua-sign-up" className="text-purple-600 hover:text-purple-700 font-medium transition-colors">
                   Apply now
                 </Link>
               </p>
@@ -198,31 +198,31 @@ export default function Login({ searchParams }: { searchParams: Message }) {
                   onClick={(e) => {
                     e.preventDefault();
                     const form = e.currentTarget.closest('form');
-                    if (form) handleSignInAsStreamer(new FormData(form));
+                    if (form) handleSignInAsMua(new FormData(form));
                   }}
-                  disabled={isSigningInAsStreamer}
+                  disabled={isSigningInAsMua}
                   className="w-full h-11 bg-gradient-to-r from-[#1e40af] to-[#6b21a8] hover:from-[#1e3a8a] 
                     hover:to-[#581c87] text-white rounded-xl font-medium transition-all duration-200 
                     shadow-[0_4px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.15)]"
                 >
-                  {isSigningInAsStreamer ? (
+                  {isSigningInAsMua ? (
                     <div className="flex items-center justify-center gap-2">
                       <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                       <span>Signing in...</span>
                     </div>
                   ) : (
-                    "Sign in as Streamer"
+                    "Sign in as MUA"
                   )}
                 </Button>
 
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setShowStreamerLogin(false)}
-                  className="w-full h-11 border-2 border-gray-200 text-gray-700 hover:text-[#2563eb] 
-                    hover:border-blue-100 hover:bg-blue-50/50 rounded-xl font-medium transition-all duration-200"
+                  onClick={() => setShowMuaLogin(false)}
+                  className="w-full h-11 border-2 border-gray-200 text-gray-700 hover:text-rose-600 
+                    hover:border-rose-100 hover:bg-rose-50/50 rounded-xl font-medium transition-all duration-200"
                 >
-                  Back to Brand Login
+                  Back to MUSE Login
                 </Button>
               </div>
 

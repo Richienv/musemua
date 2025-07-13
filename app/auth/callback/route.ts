@@ -28,10 +28,69 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/auth/error`);
     }
 
-    // Successful authentication
-    const finalRedirect = redirectTo 
-      ? `${origin}${redirectTo}`
-      : `${origin}/protected`;
+    // Check if user is verified and create profile if needed
+    if (data.user && data.user.email_confirmed_at) {
+      try {
+        // Check if user profile already exists
+        const { data: existingProfile } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', data.user.id)
+          .single();
+
+        // If no profile exists, create one from the user metadata
+        if (!existingProfile) {
+          const userMetadata = data.user.user_metadata;
+          const userType = userMetadata.user_type || 'client';
+          
+          const profileData = {
+            id: data.user.id,
+            auth_user_id: data.user.id,
+            email: data.user.email,
+            first_name: userMetadata.first_name || '',
+            last_name: userMetadata.last_name || '',
+            display_name: `${userMetadata.first_name || ''} ${userMetadata.last_name || ''}`.trim(),
+            user_type: userType,
+            status: 'offline',
+            location: userMetadata.location || null,
+            clients_reached: 0,
+            projects_completed: 0,
+            is_available: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          // Add type-specific fields
+          if (userType === 'muse') {
+            profileData.expertise = 'Professional Model';
+          }
+
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert(profileData);
+
+          if (profileError) {
+            console.error('Error creating user profile:', profileError);
+            // Don't redirect to error, just log and continue
+          }
+        }
+      } catch (profileCreationError) {
+        console.error('Error in profile creation process:', profileCreationError);
+        // Don't redirect to error, just log and continue
+      }
+    }
+
+    // Determine final redirect
+    let finalRedirect;
+    if (redirectTo) {
+      finalRedirect = `${origin}${redirectTo}`;
+    } else if (data.user?.email_confirmed_at) {
+      // If email is confirmed, redirect to verification success page
+      finalRedirect = `${origin}/verification-success`;
+    } else {
+      // If email is not confirmed, redirect to verification page
+      finalRedirect = `${origin}/email-verification`;
+    }
 
     return NextResponse.redirect(finalRedirect);
   } catch (error) {

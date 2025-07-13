@@ -32,6 +32,34 @@ export interface MockUser {
     browType: string;
     eyelidType: string;
   };
+  // MUA portfolio data
+  muaPortfolio?: {
+    tagline: string;
+    specialties: string[];
+    priceRange: string;
+    yearsExperience: number;
+    beforeAfterImages: {
+      before: string;
+      after: string;
+      category: string;
+      description: string;
+    }[];
+    services: {
+      name: string;
+      description: string;
+      price: string;
+      duration: string;
+    }[];
+    testimonials: {
+      clientName: string;
+      rating: number;
+      review: string;
+      event: string;
+      image?: string;
+    }[];
+    certifications: string[];
+    productsUsed: string[];
+  };
 }
 
 export const mockUsers: MockUser[] = [
@@ -49,21 +77,80 @@ export const mockUsers: MockUser[] = [
     instagramFollowers: "45K",
     isAvailable: true,
     lastActive: "2 menit yang lalu",
-    characteristics: {
-      height: "168",
-      bust: "101",
-      waist: "82",
-      hips: "99",
-      shoes: "39",
-      suit: "52",
-      hairColor: "BROWN",
-      eyeColor: "BROWN",
-      ethnicity: "Asian",
-      eyeType: "Almond",
-      noseType: "Straight",
-      lipType: "Full",
-      browType: "Arched",
-      eyelidType: "Double"
+    muaPortfolio: {
+      tagline: "Transforming Beauty, Creating Confidence",
+      specialties: ["Bridal Makeup", "Editorial", "Special Effects", "Fashion"],
+      priceRange: "Rp 800K - 2.5M",
+      yearsExperience: 8,
+      beforeAfterImages: [
+        {
+          before: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=600&fit=crop&crop=face",
+          after: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&h=600&fit=crop&crop=face",
+          category: "Bridal",
+          description: "Traditional Indonesian bridal transformation with gold accents"
+        },
+        {
+          before: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=600&fit=crop&crop=face",
+          after: "https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?w=400&h=600&fit=crop&crop=face",
+          category: "Editorial",
+          description: "High fashion editorial look with dramatic contouring"
+        },
+        {
+          before: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=600&fit=crop&crop=face",
+          after: "https://images.unsplash.com/photo-1488207984690-078bdd7cb0dd?w=400&h=600&fit=crop&crop=face",
+          category: "Special Event",
+          description: "Glamorous evening look for red carpet event"
+        }
+      ],
+      services: [
+        {
+          name: "Bridal Makeup",
+          description: "Complete bridal transformation including trial",
+          price: "Rp 2,500,000",
+          duration: "4-5 hours"
+        },
+        {
+          name: "Editorial/Fashion",
+          description: "High-fashion looks for photoshoots and runway",
+          price: "Rp 1,500,000",
+          duration: "2-3 hours"
+        },
+        {
+          name: "Special Event",
+          description: "Glamorous makeup for parties and formal events",
+          price: "Rp 800,000",
+          duration: "1.5-2 hours"
+        },
+        {
+          name: "Special Effects",
+          description: "Creative and theatrical makeup for film/TV",
+          price: "Rp 2,000,000",
+          duration: "3-4 hours"
+        }
+      ],
+      testimonials: [
+        {
+          clientName: "Maya Puspita",
+          rating: 5,
+          review: "Sari made my wedding day absolutely perfect! Her attention to detail and artistic vision exceeded all my expectations.",
+          event: "Wedding",
+          image: "https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=600&fit=crop&crop=face"
+        },
+        {
+          clientName: "Indira Sari",
+          rating: 5,
+          review: "Professional, talented, and so easy to work with. My photoshoot looked absolutely stunning thanks to her work.",
+          event: "Fashion Photoshoot"
+        },
+        {
+          clientName: "Ratna Dewi",
+          rating: 5,
+          review: "Best MUA in Jakarta! She transformed me for my gala event and I felt like a movie star.",
+          event: "Gala Event"
+        }
+      ],
+      certifications: ["MAC Cosmetics Certified", "Bobbi Brown Professional", "Advanced Bridal Specialist"],
+      productsUsed: ["MAC", "Bobbi Brown", "Urban Decay", "Too Faced", "Fenty Beauty"]
     }
   },
   {
@@ -404,6 +491,161 @@ export const mockUsers: MockUser[] = [
       noseType: "Greek",
       lipType: "Wide",
       browType: "Arched",
+      eyelidType: "Double"
+    }
+  },
+  {
+    id: 13,
+    firstName: "Kaia",
+    lastName: "Salsabila",
+    displayName: "Kaia Salsabila",
+    status: "online",
+    imageUrl: "https://images.unsplash.com/photo-1526510747491-58f928ec870f?w=400&h=600&fit=crop&crop=face",
+    expertise: "Professional Model",
+    location: "Jakarta",
+    clientsReached: 89,
+    projectsCompleted: 72,
+    instagramFollowers: "145K",
+    isAvailable: true,
+    lastActive: "Baru saja",
+    characteristics: {
+      height: "178",
+      bust: "84",
+      waist: "61",
+      hips: "87",
+      shoes: "40",
+      suit: "46",
+      hairColor: "BLACK",
+      eyeColor: "BROWN",
+      ethnicity: "Asian",
+      eyeType: "Almond",
+      noseType: "Straight",
+      lipType: "Full",
+      browType: "Arched",
+      eyelidType: "Double"
+    }
+  },
+  {
+    id: 14,
+    firstName: "Bella",
+    lastName: "Aurellia",
+    displayName: "Bella Aurellia",
+    status: "available",
+    imageUrl: "https://images.unsplash.com/photo-1479936343636-73cdc5aae0c3?w=400&h=600&fit=crop&crop=face",
+    expertise: "Fashion Model",
+    location: "Bandung",
+    clientsReached: 67,
+    projectsCompleted: 54,
+    instagramFollowers: "89K",
+    isAvailable: true,
+    lastActive: "5 menit yang lalu",
+    characteristics: {
+      height: "175",
+      bust: "86",
+      waist: "63",
+      hips: "89",
+      shoes: "39",
+      suit: "48",
+      hairColor: "BROWN",
+      eyeColor: "HAZEL",
+      ethnicity: "Mixed",
+      eyeType: "Cat",
+      noseType: "Button",
+      lipType: "Medium",
+      browType: "Straight",
+      eyelidType: "Double"
+    }
+  },
+  {
+    id: 15,
+    firstName: "Naia",
+    lastName: "Ramadhani",
+    displayName: "Naia Ramadhani",
+    status: "connecting",
+    imageUrl: "https://images.unsplash.com/photo-1534751516642-a1af1ef26a56?w=400&h=600&fit=crop&crop=face",
+    expertise: "Commercial Model",
+    location: "Surabaya",
+    clientsReached: 45,
+    projectsCompleted: 38,
+    instagramFollowers: "67K",
+    isAvailable: true,
+    lastActive: "2 menit yang lalu",
+    characteristics: {
+      height: "171",
+      bust: "88",
+      waist: "65",
+      hips: "91",
+      shoes: "38",
+      suit: "50",
+      hairColor: "DARK BROWN",
+      eyeColor: "BROWN",
+      ethnicity: "Asian",
+      eyeType: "Round",
+      noseType: "Aquiline",
+      lipType: "Heart-shaped",
+      browType: "Angular",
+      eyelidType: "Mono"
+    }
+  },
+  {
+    id: 16,
+    firstName: "Aria",
+    lastName: "Windani",
+    displayName: "Aria Windani",
+    status: "busy",
+    imageUrl: "https://images.unsplash.com/photo-1525134479668-1bee5c7c6845?w=400&h=600&fit=crop&crop=face",
+    expertise: "Editorial Model",
+    location: "Bali",
+    clientsReached: 78,
+    projectsCompleted: 61,
+    instagramFollowers: "123K",
+    isAvailable: false,
+    lastActive: "1 jam yang lalu",
+    characteristics: {
+      height: "180",
+      bust: "82",
+      waist: "59",
+      hips: "85",
+      shoes: "41",
+      suit: "44",
+      hairColor: "BLONDE",
+      eyeColor: "BLUE",
+      ethnicity: "Mixed",
+      eyeType: "Deep-set",
+      noseType: "Greek",
+      lipType: "Bow",
+      browType: "Thick",
+      eyelidType: "Double"
+    }
+  },
+  {
+    id: 17,
+    firstName: "Zara",
+    lastName: "Maharani",
+    displayName: "Zara Maharani",
+    status: "offline",
+    imageUrl: "https://images.unsplash.com/photo-1544717297-fa95b6ee9643?w=400&h=600&fit=crop&crop=face",
+    expertise: "Runway Model",
+    location: "Yogyakarta",
+    clientsReached: 56,
+    projectsCompleted: 43,
+    instagramFollowers: "78K",
+    isAvailable: false,
+    lastActive: "3 jam yang lalu",
+    characteristics: {
+      height: "176",
+      bust: "85",
+      waist: "62",
+      hips: "88",
+      shoes: "39",
+      suit: "46",
+      hairColor: "RED",
+      eyeColor: "GREEN",
+      ethnicity: "Mixed",
+      eyeType: "Hooded",
+      noseType: "Roman",
+      lipType: "Wide",
+      browType: "Feathered",
       eyelidType: "Double"
     }
   }

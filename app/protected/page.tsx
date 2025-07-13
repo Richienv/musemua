@@ -11,15 +11,19 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-// Import mock data and auth
-import { mockUsers, getUsersByExpertise, searchUsers, expertiseTypes, priceRanges, levelTypes, locationTypes, filterUsers, MockUser, getUserCategory } from '@/data/mock-users';
-import { MockAuth } from '@/utils/mock-auth';
+// Import Supabase services and auth
+import { userService, expertiseTypes, priceRanges, levelTypes, locationTypes, type CompleteUserProfile } from '@/services/user-service';
+import { createClient } from '@/utils/supabase/client';
 
 // Dynamically import components
 const UserCard = dynamic(() => import("@/components/user-card").then(mod => mod.UserCard), {
   loading: () => (
-    <div className="w-full h-[400px] bg-gray-100 animate-pulse rounded-xl"></div>
+    <div className="w-full h-[400px] bg-vogue-cream animate-pulse rounded-sm"></div>
   )
+});
+
+const UserCardSkeleton = dynamic(() => import("@/components/user-card").then(mod => mod.UserCardSkeleton), {
+  ssr: false
 });
 
 const Slider = dynamic(() => import("react-slick"), {
@@ -52,7 +56,7 @@ const carouselImages = [
 
 export default function ProtectedPage() {
   const router = useRouter();
-  const [users, setUsers] = useState<MockUser[]>([]);
+  const [users, setUsers] = useState<CompleteUserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expertiseFilter, setExpertiseFilter] = useState('MUA');
@@ -75,22 +79,19 @@ export default function ProtectedPage() {
   useEffect(() => {
     const initializePage = async () => {
       try {
-        // Check authentication with mock auth
-        if (!MockAuth.isAuthenticated()) {
+        // Check authentication with Supabase
+        const supabase = createClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError || !user) {
           router.push('/sign-in');
           return;
         }
 
-        // Check if user is client (not streamer)
-        const currentUser = MockAuth.getCurrentUser();
-        if (currentUser?.userType === 'streamer') {
-          router.push('/streamer-dashboard');
-          return;
-        }
-
-        // Load mock users
-        await new Promise(resolve => setTimeout(resolve, 800)); // Simulate loading
-        setUsers(mockUsers);
+        // Load users from Supabase
+        const allUsers = await userService.getAllUsers();
+        setUsers(allUsers);
+        setFilteredUsers(allUsers);
       } catch (error) {
         console.error('Error initializing page:', error);
       } finally {
@@ -105,17 +106,46 @@ export default function ProtectedPage() {
     setSearchQuery(value);
   };
 
+  const [filteredUsers, setFilteredUsers] = useState<CompleteUserProfile[]>([]);
+
   // Filter users based on all filters
-  const filteredUsers = React.useMemo(() => {
-    if (users.length === 0) return [];
+  useEffect(() => {
+    const filterUsers = async () => {
+      if (users.length === 0) {
+        setFilteredUsers([]);
+        return;
+      }
+      
+      // For now, use client-side filtering since the service expects async
+      // TODO: Optimize this to use server-side filtering
+      let filtered = users;
+      
+      // Filter by expertise/user type
+      if (expertiseFilter && expertiseFilter !== 'Semua Expertise') {
+        filtered = filtered.filter(user => 
+          user.user_type === expertiseFilter.toLowerCase()
+        );
+      }
+      
+      // Filter by location
+      if (locationFilter && locationFilter !== 'Semua Lokasi') {
+        filtered = filtered.filter(user => user.location === locationFilter);
+      }
+      
+      // Filter by search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter(user => 
+          user.display_name.toLowerCase().includes(query) ||
+          (user.expertise && user.expertise.toLowerCase().includes(query)) ||
+          (user.location && user.location.toLowerCase().includes(query))
+        );
+      }
+      
+      setFilteredUsers(filtered);
+    };
     
-    return filterUsers({
-      searchQuery,
-      expertise: expertiseFilter,
-      priceRange: priceFilter !== 'Semua Harga' ? priceFilter : undefined,
-      level: levelFilter !== 'Semua Level' ? levelFilter : undefined,
-      location: locationFilter !== 'Semua Lokasi' ? locationFilter : undefined
-    });
+    filterUsers();
   }, [users, searchQuery, expertiseFilter, priceFilter, levelFilter, locationFilter]);
 
   // User Card Skeleton Component
@@ -144,23 +174,48 @@ export default function ProtectedPage() {
       <main className="w-full px-6 sm:px-8 lg:px-12 py-8 mt-[80px] bg-white">
         <div className="max-w-[1600px] mx-auto">
 
-          {/* Filter Bar - Vogue Style (MUA/MUSE only) */}
-          <div className="mb-16">
-            <div className="flex items-center justify-center gap-12 text-sm font-light tracking-widest">
-              {expertiseTypes.map((expertise) => (
-                <button
-                  key={expertise}
-                  onClick={() => setExpertiseFilter(expertise === expertiseFilter ? 'MUA' : expertise)}
-                  className={cn(
-                    "transition-all duration-300 hover:text-black pb-2",
-                    expertiseFilter === expertise 
-                      ? "text-black border-b border-black" 
-                      : "text-gray-400"
-                  )}
-                >
-                  {expertise}
-                </button>
-              ))}
+          {/* Vogue Editorial Filter Bar */}
+          <div className="mb-20">
+            <div className="text-center">
+              <h2 className="editorial-headline text-black mb-8">
+                Discover Talent
+              </h2>
+              <div className="flex items-center justify-center gap-16">
+                {expertiseTypes.map((expertise) => (
+                  <button
+                    key={expertise}
+                    onClick={() => setExpertiseFilter(expertise === expertiseFilter ? 'MUA' : expertise)}
+                    className={cn(
+                      "group relative transition-all duration-500 pb-4",
+                      expertiseFilter === expertise 
+                        ? "text-black" 
+                        : "text-vogue-silver hover:text-black"
+                    )}
+                  >
+                    <span className="editorial-caption tracking-[0.2em]">
+                      {expertise}
+                    </span>
+                    
+                    {/* Elegant underline */}
+                    <div className={cn(
+                      "absolute bottom-0 left-1/2 transform -translate-x-1/2 h-px bg-black transition-all duration-500",
+                      expertiseFilter === expertise 
+                        ? "w-full" 
+                        : "w-0 group-hover:w-full"
+                    )} />
+                    
+                    {/* Gold accent dot */}
+                    {expertiseFilter === expertise && (
+                      <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-vogue-gold rounded-full" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Divider line */}
+              <div className="mt-12 mb-8">
+                <div className="w-32 h-px bg-black mx-auto" />
+              </div>
             </div>
           </div>
 
@@ -174,82 +229,44 @@ export default function ProtectedPage() {
               </div>
             }>
               {isLoading ? (
-                // Show skeleton cards during loading
-                <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
-                  {[...Array(20)].map((_, i) => (
-                    <UserCardSkeleton key={i} />
-                  ))}
-                </div>
-              ) : filteredUsers.length > 0 ? (
-                // Dynamic layout based on filter
+                // Show skeleton cards during loading with proper layout
                 expertiseFilter === 'MUA' ? (
-                  // MUA-specific layout: Vogue-inspired elegant design
-                  <div className="space-y-1">
-                    {filteredUsers.map((user) => (
-                    // Each MUA gets one elegant row - entire card is clickable
-                    <div 
-                      key={user.id} 
-                      onClick={() => router.push(`/mua/${user.id}`)}
-                      className="group bg-white border-b border-gray-100 hover:bg-gray-50 transition-all duration-300 cursor-pointer overflow-hidden"
-                    >
-                      <div className="flex items-stretch">
-                        {/* User Info Section - Left */}
-                        <div className="w-64 flex-shrink-0 px-8 py-8 flex flex-col justify-center">
-                          <h3 className="text-xl font-light tracking-wide text-black mb-1 uppercase">
-                            {user.displayName}
-                          </h3>
-                          <p className="text-sm font-medium tracking-widest text-gray-500 mb-6 uppercase">
-                            {user.location}
-                          </p>
-                          
-                          {/* Stats - Recommendations & Projects */}
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium tracking-widest text-gray-400 uppercase">Recommended</span>
-                              <span className="text-sm font-light text-black">{user.clientsReached}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium tracking-widest text-gray-400 uppercase">Projects</span>
-                              <span className="text-sm font-light text-black">{user.projectsCompleted}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 4 Pictures Grid - True 4:5 aspect ratio */}
-                        <div className="flex-1 grid grid-cols-4">
-                          {[...Array(4)].map((_, index) => {
-                            // Create portfolio images by using different variations/filters of the main image
-                            const portfolioImageUrl = `${user.imageUrl}&seed=${index}&q=90&w=320&h=400`;
-                            
-                            return (
-                              <div key={index} className="relative overflow-hidden group/image aspect-[4/5]">
-                                <Image
-                                  src={portfolioImageUrl}
-                                  alt={`${user.displayName} portfolio ${index + 1}`}
-                                  fill
-                                  className="object-cover transition-all duration-500 group-hover:brightness-110 group/image:hover:scale-105"
-                                  sizes="25vw"
-                                />
-                                {/* Subtle overlay on hover */}
-                                <div className="absolute inset-0 bg-black/0 group/image:hover:bg-black/10 transition-colors duration-300" />
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Right Section - Arrow Indicator */}
-                        <div className="w-16 flex-shrink-0 flex items-center justify-center bg-gray-50 group-hover:bg-black transition-colors duration-300">
-                          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors duration-300" />
-                        </div>
-                      </div>
-                    </div>
+                  <div className="space-y-0">
+                    {[...Array(8)].map((_, i) => (
+                      <UserCardSkeleton key={i} layout="editorial" />
                     ))}
                   </div>
                 ) : (
-                  // MUSE layout: Regular grid for models and other talents
-                  <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {[...Array(12)].map((_, i) => (
+                      <UserCardSkeleton key={i} layout="grid" />
+                    ))}
+                  </div>
+                )
+              ) : filteredUsers.length > 0 ? (
+                // Dynamic layout based on filter
+                expertiseFilter === 'MUA' ? (
+                  // MUA-specific layout: Vogue-inspired editorial design
+                  <div className="space-y-0">
                     {filteredUsers.map((user) => (
-                      <UserCard key={user.id} user={user} />
+                      <UserCard 
+                        key={user.id} 
+                        user={user} 
+                        layout="editorial"
+                        onCollaborate={(user) => router.push(`/mua/${user.id}`)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  // MUSE layout: Fashion editorial grid for models
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {filteredUsers.map((user) => (
+                      <UserCard 
+                        key={user.id} 
+                        user={user} 
+                        layout="grid"
+                        onCollaborate={(user) => router.push(`/mua/${user.id}`)}
+                      />
                     ))}
                   </div>
                 )

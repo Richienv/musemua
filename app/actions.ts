@@ -143,6 +143,136 @@ export async function signUpAction(formData: FormData): Promise<SignUpResponse> 
   }
 }
 
+export async function signUpMuaAction(formData: FormData): Promise<SignUpResponse> {
+  const supabase = createClient();
+  
+  try {
+    // Get basic info only
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const firstName = formData.get("first_name") as string;
+    const lastName = formData.get("last_name") as string;
+    const location = formData.get("location") as string;
+
+    // 1. Check if user already exists
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email)
+      .single();
+
+    if (existingUser) {
+      return {
+        success: false,
+        error: 'Email already registered'
+      };
+    }
+
+    // 2. Create the user with Supabase Auth with email confirmation
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          user_type: 'mua',
+          location: location,
+        }
+      },
+    });
+
+    if (authError) {
+      return {
+        success: false,
+        error: authError?.message || 'Failed to create user'
+      };
+    }
+
+    // 3. For email confirmation flow, we don't create the profile here
+    // The profile will be created in the auth callback after email verification
+    
+    // Return success response with redirect to email verification page
+    return {
+      success: true,
+      redirectTo: '/email-verification',
+      message: 'Please check your email to verify your account'
+    };
+    
+  } catch (error) {
+    console.error('MUA sign up error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected error occurred"
+    };
+  }
+}
+
+export async function signUpMuseAction(formData: FormData): Promise<SignUpResponse> {
+  const supabase = createClient();
+  
+  try {
+    // Get basic info only
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const firstName = formData.get("first_name") as string;
+    const lastName = formData.get("last_name") as string;
+    const location = formData.get("location") as string;
+
+    // 1. Check if user already exists
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email)
+      .single();
+
+    if (existingUser) {
+      return {
+        success: false,
+        error: 'Email already registered'
+      };
+    }
+
+    // 2. Create the user with Supabase Auth with email confirmation
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          user_type: 'muse',
+          location: location,
+        }
+      },
+    });
+
+    if (authError) {
+      return {
+        success: false,
+        error: authError?.message || 'Failed to create user'
+      };
+    }
+
+    // 3. For email confirmation flow, we don't create the profile here
+    // The profile will be created in the auth callback after email verification
+    
+    // Return success response with redirect to email verification page
+    return {
+      success: true,
+      redirectTo: '/email-verification',
+      message: 'Please check your email to verify your account'
+    };
+    
+  } catch (error) {
+    console.error('MUSE sign up error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected error occurred"
+    };
+  }
+}
+
 export const signInAction = async (formData: FormData) => {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -161,7 +291,7 @@ export const signInAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-in", "Sign-in failed: No user data returned");
   }
 
-  // Verify user type is 'client'
+  // Verify user type is 'muse', 'mua', or 'client'
   const { data: userData, error: userError } = await supabase
     .from('users')
     .select('user_type')
@@ -173,9 +303,10 @@ export const signInAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-in", "Error verifying user type");
   }
 
-  if (userData.user_type !== 'client') {
+  // Allow MUSE, MUA, and client users to access the platform
+  if (!['muse', 'mua', 'client'].includes(userData.user_type)) {
     await supabase.auth.signOut();
-    return encodedRedirect("error", "/sign-in", "Please use the streamer login page if you're a streamer");
+    return encodedRedirect("error", "/sign-in", "Invalid user type");
   }
 
   return redirect("/protected");
