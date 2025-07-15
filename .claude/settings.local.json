@@ -9,7 +9,9 @@
       "Bash(npm run build:*)",
       "Bash(grep:*)",
       "Bash(npx next lint:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(find:*)",
+      "Bash(cd:*)"
     ],
     "deny": []
   }

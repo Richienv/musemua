@@ -279,7 +279,30 @@ export default function MUAPortfolioPage() {
     );
   }
 
-  // If no muaPortfolio, show error for MUA
+  // If no muaPortfolio, create a basic one for MUA users
+  if (!user.muaPortfolio && user.user_type === 'mua') {
+    // Create a basic portfolio object for display
+    const basicPortfolio = {
+      id: 'temp',
+      user_id: user.id,
+      tagline: user.bio || 'Professional Makeup Artist',
+      specialties: user.expertise ? [user.expertise] : ['Makeup Artistry'],
+      price_range: 'Contact for pricing',
+      years_experience: 1,
+      certifications: [],
+      products_used: [],
+      website_url: null,
+      services: [],
+      testimonials: [],
+      beforeAfterImages: [],
+      created_at: '',
+      updated_at: ''
+    };
+    
+    user.muaPortfolio = basicPortfolio;
+  }
+
+  // If still no muaPortfolio, show error for MUA
   if (!user.muaPortfolio) {
     return (
       <div className="min-h-screen flex items-center justify-center">

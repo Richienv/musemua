@@ -117,7 +117,27 @@ export function UserCard({ user, onCollaborate, layout = 'grid' }: UserCardProps
           {/* Right: Image Gallery Grid */}
           <div className="flex-1 grid grid-cols-2 gap-0">
             {[...Array(4)].map((_, index) => {
-              const portfolioImageUrl = `${user.image_url || '/placeholder-image.jpg'}?seed=${index}&q=90&w=400&h=500`;
+              // Use portfolio/showcase images for the work display
+              const getPortfolioImage = () => {
+                // If user has portfolio images from database, use those
+                if (user.muaPortfolio?.beforeAfterImages && user.muaPortfolio.beforeAfterImages[index]) {
+                  return user.muaPortfolio.beforeAfterImages[index].after_image_url;
+                }
+                
+                // Use different showcase images for each grid position
+                const showcaseImages = [
+                  '/images/landingpage-main-headshot.png',
+                  '/images/landingpage-eyes-closeup.png', 
+                  '/images/landingpage-lip-closeup.png',
+                  '/images/landing-page-sideview-closeup.png'
+                ];
+                
+                // Rotate through different sets of images for variety
+                const baseIndex = (parseInt(user.id || '0') + index) % showcaseImages.length;
+                return showcaseImages[baseIndex];
+              };
+              
+              const portfolioImageUrl = getPortfolioImage();
               
               return (
                 <div key={index} className="relative overflow-hidden aspect-[4/5] group/image">
@@ -167,7 +187,7 @@ export function UserCard({ user, onCollaborate, layout = 'grid' }: UserCardProps
       {/* Background Image */}
       <div className="absolute inset-0">
         <Image
-          src={user.image_url || '/placeholder-image.jpg'}
+          src={user.image_url || `/images/profile${((parseInt(user.id || '0')) % 3) + 1}.jpg`}
           alt={user.display_name}
           fill
           className={cn(

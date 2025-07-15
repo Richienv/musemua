@@ -47,36 +47,25 @@ export function Navbar({ onFilterChange }: NavbarProps) {
   const isProtectedPage = pathname === '/protected';
 
   return (
-    <div className="w-full bg-white border-b border-black/10 sticky top-0 z-50 backdrop-blur-lg bg-white/95">
+    <div className="w-full bg-old-money-ivory border-b border-old-money-pearl sticky top-0 z-50 backdrop-blur-lg bg-old-money-ivory/95">
       <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
         {/* Main Navigation */}
         <div className="flex items-center justify-between h-24">
-          {/* Left - Navigation Links (Desktop) */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link 
-              href="/protected" 
-              className="editorial-caption text-black hover:text-vogue-gold transition-colors duration-300"
-            >
-              Explore
-            </Link>
-            <Link 
-              href="/about" 
-              className="editorial-caption text-black hover:text-vogue-gold transition-colors duration-300"
-            >
-              About
-            </Link>
+          {/* Left - Empty space for balance */}
+          <div className="hidden md:flex items-center w-48">
+            {/* Intentionally empty for layout balance */}
           </div>
 
           {/* Center - Editorial Masthead */}
           <div className="flex-1 flex justify-center">
             <Link href="/" className="group">
               <div className="text-center">
-                <h1 className="editorial-title text-black group-hover:text-vogue-gold transition-colors duration-500">
+                <h1 className="editorial-title text-old-money-navy group-hover:text-old-money-charcoal transition-colors duration-500">
                   MUSE
                 </h1>
-                <div className="w-16 h-px bg-black group-hover:bg-vogue-gold transition-colors duration-500 mx-auto mt-1"></div>
-                <p className="editorial-caption text-vogue-silver mt-1">
-                  MODELS
+                <div className="w-16 h-px bg-old-money-navy group-hover:bg-old-money-charcoal transition-colors duration-500 mx-auto mt-1"></div>
+                <p className="editorial-caption text-old-money-stone mt-1">
+                  TALENT COLLECTIVE
                 </p>
               </div>
             </Link>
@@ -91,7 +80,7 @@ export function Navbar({ onFilterChange }: NavbarProps) {
                   relative transition-all duration-300 ease-out
                   ${isSearchFocused ? 'w-64' : 'w-48'}
                 `}>
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-vogue-silver" />
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-old-money-stone" />
                   <Input
                     type="text"
                     placeholder="Search talent..."
@@ -173,21 +162,6 @@ export function Navbar({ onFilterChange }: NavbarProps) {
 
             {/* Mobile Navigation */}
             <div className="space-y-4">
-              <Link 
-                href="/protected" 
-                className="block editorial-caption text-black hover:text-vogue-gold transition-colors duration-300"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Explore
-              </Link>
-              <Link 
-                href="/about" 
-                className="block editorial-caption text-black hover:text-vogue-gold transition-colors duration-300"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                About
-              </Link>
-              
               {user ? (
                 <>
                   <Link 

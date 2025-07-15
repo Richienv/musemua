@@ -45,8 +45,8 @@ export const updateSession = async (request: NextRequest) => {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Redirect from auth pages if already authenticated
-    if (isAuthRoute && session) {
+    // Redirect from auth pages if already authenticated (but allow callback to complete)
+    if (isAuthRoute && session && !request.nextUrl.pathname.startsWith('/auth/callback')) {
       return NextResponse.redirect(new URL('/protected', request.url));
     }
 

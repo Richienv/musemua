@@ -61,9 +61,7 @@ export async function GET(request: Request) {
           };
 
           // Add type-specific fields
-          if (userType === 'muse') {
-            profileData.expertise = 'Professional Model';
-          }
+          // Note: Additional type-specific fields will be filled out via profile editing
 
           const { error: profileError } = await supabase
             .from('users')
@@ -85,12 +83,19 @@ export async function GET(request: Request) {
     if (redirectTo) {
       finalRedirect = `${origin}${redirectTo}`;
     } else if (data.user?.email_confirmed_at) {
-      // If email is confirmed, redirect to verification success page
-      finalRedirect = `${origin}/verification-success`;
+      // If email is confirmed, redirect directly to protected page
+      finalRedirect = `${origin}/protected`;
     } else {
       // If email is not confirmed, redirect to verification page
       finalRedirect = `${origin}/email-verification`;
     }
+
+    console.log('Auth callback redirect decision:', {
+      userExists: !!data.user,
+      emailConfirmed: !!data.user?.email_confirmed_at,
+      userType: data.user?.user_metadata?.user_type,
+      finalRedirect
+    });
 
     return NextResponse.redirect(finalRedirect);
   } catch (error) {

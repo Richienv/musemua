@@ -46,13 +46,13 @@ export default function EmailVerificationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-6 py-12">
+    <div className="min-h-screen bg-old-money-ivory flex items-center justify-center px-6 py-12">
       <div className="max-w-lg w-full">
         {/* Back Link */}
         <div className="mb-8">
           <Link 
-            href="/mua-sign-up"
-            className="inline-flex items-center gap-2 text-vogue-silver hover:text-black transition-colors duration-300 editorial-caption"
+            href="/talent-sign-up"
+            className="inline-flex items-center gap-2 text-old-money-stone hover:text-old-money-navy transition-colors duration-300 editorial-caption"
           >
             <ArrowLeft className="w-4 h-4" />
             BACK TO SIGNUP
@@ -63,50 +63,50 @@ export default function EmailVerificationPage() {
         <div className="text-center">
           {/* Icon */}
           <div className="mb-8">
-            <div className="w-20 h-20 mx-auto bg-vogue-cream rounded-full flex items-center justify-center">
-              <Mail className="w-10 h-10 text-black" />
+            <div className="w-20 h-20 mx-auto bg-old-money-cream rounded-full flex items-center justify-center">
+              <Mail className="w-10 h-10 text-old-money-navy" />
             </div>
           </div>
 
           {/* Headline */}
-          <h1 className="editorial-headline text-black mb-6">
+          <h1 className="editorial-headline text-old-money-navy mb-6">
             Check Your Email
           </h1>
 
           {/* Description */}
           <div className="space-y-4 mb-12">
-            <p className="editorial-body text-vogue-charcoal leading-relaxed">
+            <p className="editorial-body text-old-money-charcoal leading-relaxed">
               We've sent a verification link to your email address. Please click the link to activate your account and complete your registration.
             </p>
             
             {email && (
-              <p className="editorial-caption text-vogue-silver">
-                EMAIL SENT TO: <span className="text-black font-medium">{email}</span>
+              <p className="editorial-caption text-old-money-stone">
+                EMAIL SENT TO: <span className="text-old-money-navy font-medium">{email}</span>
               </p>
             )}
           </div>
 
           {/* Instructions */}
-          <div className="bg-vogue-cream rounded-sm p-8 mb-8">
-            <h3 className="editorial-subtitle text-black mb-4">
+          <div className="bg-old-money-cream rounded-sm p-8 mb-8">
+            <h3 className="editorial-subtitle text-old-money-navy mb-4">
               What's Next?
             </h3>
             <div className="space-y-3 text-left">
               <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-vogue-gold rounded-full mt-2 flex-shrink-0" />
-                <p className="editorial-body text-vogue-charcoal">
+                <div className="w-2 h-2 bg-old-money-sage rounded-full mt-2 flex-shrink-0" />
+                <p className="editorial-body text-old-money-charcoal">
                   Check your email inbox (and spam folder)
                 </p>
               </div>
               <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-vogue-gold rounded-full mt-2 flex-shrink-0" />
-                <p className="editorial-body text-vogue-charcoal">
+                <div className="w-2 h-2 bg-old-money-sage rounded-full mt-2 flex-shrink-0" />
+                <p className="editorial-body text-old-money-charcoal">
                   Click the verification link in the email
                 </p>
               </div>
               <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-vogue-gold rounded-full mt-2 flex-shrink-0" />
-                <p className="editorial-body text-vogue-charcoal">
+                <div className="w-2 h-2 bg-old-money-sage rounded-full mt-2 flex-shrink-0" />
+                <p className="editorial-body text-old-money-charcoal">
                   You'll be redirected to complete your profile
                 </p>
               </div>
@@ -115,7 +115,7 @@ export default function EmailVerificationPage() {
 
           {/* Resend Email */}
           <div className="space-y-4">
-            <p className="editorial-caption text-vogue-silver">
+            <p className="editorial-caption text-old-money-stone">
               DIDN'T RECEIVE THE EMAIL?
             </p>
             
@@ -123,7 +123,7 @@ export default function EmailVerificationPage() {
               onClick={handleResendEmail}
               disabled={isResending || !email}
               variant="luxury-outline"
-              className="w-full md:w-auto"
+              className="w-full md:w-auto border-old-money-navy text-old-money-navy hover:bg-old-money-navy hover:text-old-money-ivory"
             >
               {isResending ? (
                 <>
@@ -150,20 +150,20 @@ export default function EmailVerificationPage() {
           </div>
 
           {/* Footer */}
-          <div className="mt-12 pt-8 border-t border-black/10">
-            <p className="editorial-caption text-vogue-silver mb-4">
+          <div className="mt-12 pt-8 border-t border-old-money-pearl">
+            <p className="editorial-caption text-old-money-stone mb-4">
               NEED HELP?
             </p>
             <div className="flex justify-center gap-8">
               <Link 
                 href="/support" 
-                className="editorial-caption text-black hover:text-vogue-gold transition-colors duration-300"
+                className="editorial-caption text-old-money-navy hover:text-old-money-charcoal transition-colors duration-300"
               >
                 CONTACT SUPPORT
               </Link>
               <Link 
                 href="/sign-in" 
-                className="editorial-caption text-black hover:text-vogue-gold transition-colors duration-300"
+                className="editorial-caption text-old-money-navy hover:text-old-money-charcoal transition-colors duration-300"
               >
                 SIGN IN
               </Link>

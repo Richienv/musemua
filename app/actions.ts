@@ -113,7 +113,7 @@ export async function signUpAction(formData: FormData): Promise<SignUpResponse> 
         brand_description: brandDescription,
         brand_guidelines_url: brandGuidelineUrl,
         location: location,
-        profile_picture_url: null,
+        image_url: null,
         bio: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -169,6 +169,8 @@ export async function signUpMuaAction(formData: FormData): Promise<SignUpRespons
     }
 
     // 2. Create the user with Supabase Auth with email confirmation
+    console.log('Attempting MUA signup for email:', email);
+    
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -182,7 +184,16 @@ export async function signUpMuaAction(formData: FormData): Promise<SignUpRespons
       },
     });
 
+    console.log('MUA Signup result:', { 
+      success: !authError, 
+      user: authData.user?.id,
+      email: authData.user?.email,
+      emailConfirmed: authData.user?.email_confirmed_at,
+      error: authError?.message 
+    });
+
     if (authError) {
+      console.error('MUA signup error:', authError);
       return {
         success: false,
         error: authError?.message || 'Failed to create user'
@@ -234,6 +245,8 @@ export async function signUpMuseAction(formData: FormData): Promise<SignUpRespon
     }
 
     // 2. Create the user with Supabase Auth with email confirmation
+    console.log('Attempting MUSE signup for email:', email);
+    
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -247,7 +260,16 @@ export async function signUpMuseAction(formData: FormData): Promise<SignUpRespon
       },
     });
 
+    console.log('MUSE Signup result:', { 
+      success: !authError, 
+      user: authData.user?.id,
+      email: authData.user?.email,
+      emailConfirmed: authData.user?.email_confirmed_at,
+      error: authError?.message 
+    });
+
     if (authError) {
+      console.error('MUSE signup error:', authError);
       return {
         success: false,
         error: authError?.message || 'Failed to create user'
@@ -291,6 +313,16 @@ export const signInAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-in", "Sign-in failed: No user data returned");
   }
 
+  // Check if email is confirmed for MUA and MUSE users
+  if (!data.user.email_confirmed_at) {
+    // Check if this is a MUA or MUSE user from metadata
+    const userType = data.user.user_metadata?.user_type;
+    if (['mua', 'muse'].includes(userType)) {
+      await supabase.auth.signOut();
+      return encodedRedirect("error", "/sign-in", "Please verify your email before signing in. Check your email for the verification link.");
+    }
+  }
+
   // Verify user type is 'muse', 'mua', or 'client'
   const { data: userData, error: userError } = await supabase
     .from('users')
@@ -299,12 +331,54 @@ export const signInAction = async (formData: FormData) => {
     .single();
 
   if (userError || !userData) {
-    await supabase.auth.signOut();
-    return encodedRedirect("error", "/sign-in", "Error verifying user type");
+    console.error('User lookup error:', { userError, userId: data.user.id, email: data.user.email });
+    
+    // If user doesn't exist in users table, try to create from auth metadata
+    if (userError?.code === 'PGRST116') { // No rows returned
+      const userMetadata = data.user.user_metadata;
+      const userType = userMetadata?.user_type || 'client';
+      
+      const profileData: any = {
+        id: data.user.id,
+        auth_user_id: data.user.id,
+        email: data.user.email,
+        first_name: userMetadata?.first_name || '',
+        last_name: userMetadata?.last_name || '',
+        display_name: `${userMetadata?.first_name || ''} ${userMetadata?.last_name || ''}`.trim(),
+        user_type: userType,
+        status: 'offline',
+        location: userMetadata?.location || null,
+        clients_reached: 0,
+        projects_completed: 0,
+        is_available: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      // Add type-specific fields
+      // Note: Additional type-specific fields will be filled out via profile editing
+      
+      const { error: createError } = await supabase
+        .from('users')
+        .insert(profileData);
+        
+      if (createError) {
+        console.error('Error creating user profile during sign-in:', createError);
+        await supabase.auth.signOut();
+        return encodedRedirect("error", "/sign-in", "Error creating user profile");
+      }
+      
+      // Continue with the created profile
+      // No need to fetch again, we know the user_type
+    } else {
+      await supabase.auth.signOut();
+      return encodedRedirect("error", "/sign-in", "Error verifying user type");
+    }
   }
 
   // Allow MUSE, MUA, and client users to access the platform
-  if (!['muse', 'mua', 'client'].includes(userData.user_type)) {
+  const finalUserType = userData?.user_type || data.user.user_metadata?.user_type || 'client';
+  if (!['muse', 'mua', 'client'].includes(finalUserType)) {
     await supabase.auth.signOut();
     return encodedRedirect("error", "/sign-in", "Invalid user type");
   }
@@ -423,6 +497,39 @@ export const signOutAction = async () => {
   return redirect("/sign-in");
 };
 
+export const resendVerificationEmailAction = async (email: string) => {
+  const supabase = createClient();
+  
+  try {
+    console.log('Resending verification email for:', email);
+    
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email,
+    });
+
+    if (error) {
+      console.error('Resend verification error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+
+    console.log('Verification email resent successfully for:', email);
+    return {
+      success: true,
+      message: 'Verification email sent successfully'
+    };
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    return {
+      success: false,
+      error: 'Failed to resend verification email'
+    };
+  }
+};
+
 export async function checkUsernameAvailability(username: string) {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -448,43 +555,171 @@ export async function updateUserProfile(formData: FormData) {
       return { error: 'Not authenticated' };
     }
 
-    const firstName = formData.get('firstName') as string;
-    const lastName = formData.get('lastName') as string;
+    // Support both old and new field names for backward compatibility
+    const firstName = formData.get('first_name') || formData.get('firstName') as string;
+    const lastName = formData.get('last_name') || formData.get('lastName') as string;
     const location = formData.get('location') as string;
+    const bio = formData.get('bio') as string;
     const image = formData.get('image') as File;
+
+    // MUA-specific fields
+    const tagline = formData.get('tagline') as string;
+    const specialties = formData.get('specialties') as string;
+    const yearsExperience = formData.get('years_experience') as string;
+    const certifications = formData.get('certifications') as string;
+    const priceRange = formData.get('price_range') as string;
+    const instagram = formData.get('instagram') as string;
+    const portfolioUrl = formData.get('portfolio_url') as string;
+
+    // MUSE-specific fields
+    const height = formData.get('height') as string;
+    const bust = formData.get('bust') as string;
+    const waist = formData.get('waist') as string;
+    const hips = formData.get('hips') as string;
+    const hairColor = formData.get('hair_color') as string;
+    const eyeColor = formData.get('eye_color') as string;
+    const dressSize = formData.get('dress_size') as string;
+    const shoeSize = formData.get('shoe_size') as string;
+    const modelingExperience = formData.get('modeling_experience') as string;
+    const availableFor = formData.get('available_for') as string;
 
     // First update the users table
     const updateData: any = {
       first_name: firstName,
       last_name: lastName,
       location: location,
+      bio: bio,
       updated_at: new Date().toISOString(),
     };
 
+    // Add MUA-specific fields if provided
+    if (tagline) updateData.tagline = tagline;
+    if (specialties) updateData.specialties = specialties;
+    if (yearsExperience) updateData.years_experience = yearsExperience;
+    if (certifications) updateData.certifications = certifications;
+    if (priceRange) updateData.price_range = priceRange;
+    if (instagram) updateData.instagram = instagram;
+    if (portfolioUrl) updateData.portfolio_url = portfolioUrl;
+
+    // Add MUSE-specific fields if provided
+    if (height) updateData.height = height;
+    if (bust) updateData.bust = bust;
+    if (waist) updateData.waist = waist;
+    if (hips) updateData.hips = hips;
+    if (hairColor) updateData.hair_color = hairColor;
+    if (eyeColor) updateData.eye_color = eyeColor;
+    if (dressSize) updateData.dress_size = dressSize;
+    if (shoeSize) updateData.shoe_size = shoeSize;
+    if (modelingExperience) updateData.modeling_experience = modelingExperience;
+    if (availableFor) updateData.available_for = availableFor;
+
     // Handle profile picture upload if present
     if (image && image.size > 0) {
+      console.log('Uploading profile image:', {
+        name: image.name,
+        size: image.size,
+        type: image.type
+      });
+
       const fileExt = image.name.split('.').pop() || 'jpg';
-      const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
-      const filePath = `profile_picture/${fileName}`;
+      const fileName = `${user.id}/profile/${uuidv4()}.${fileExt}`;
 
       const { error: uploadError, data: uploadData } = await supabase.storage
-        .from('profile_picture')
-        .upload(filePath, image, {
+        .from('userprofile')
+        .upload(fileName, image, {
           cacheControl: '3600',
           upsert: true,
           contentType: image.type
         });
 
       if (uploadError) {
-        console.error('Upload error:', uploadError);
-        return { error: 'Failed to upload profile image' };
+        console.error('Profile image upload error:', uploadError);
+        return { error: `Failed to upload profile image: ${uploadError.message}` };
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('profile_picture')
-        .getPublicUrl(filePath);
+        .from('userprofile')
+        .getPublicUrl(fileName);
 
-      updateData.profile_picture_url = publicUrl;
+      updateData.image_url = publicUrl;
+      console.log('Profile image uploaded successfully:', publicUrl);
+    }
+
+    // Handle showcase image upload if present
+    const showcaseImage = formData.get('showcase_image') as File;
+    if (showcaseImage && showcaseImage.size > 0) {
+      console.log('Uploading showcase image:', {
+        name: showcaseImage.name,
+        size: showcaseImage.size,
+        type: showcaseImage.type
+      });
+
+      const fileExt = showcaseImage.name.split('.').pop() || 'jpg';
+      const fileName = `${user.id}/showcase/${uuidv4()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('userprofile')
+        .upload(fileName, showcaseImage, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: showcaseImage.type
+        });
+
+      if (uploadError) {
+        console.error('Showcase image upload error:', uploadError);
+        return { error: `Failed to upload showcase image: ${uploadError.message}` };
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('userprofile')
+        .getPublicUrl(fileName);
+
+      updateData.showcase_image_url = publicUrl;
+      console.log('Showcase image uploaded successfully:', publicUrl);
+    }
+
+    // Handle portfolio gallery uploads
+    const existingGalleryPhotos = formData.get('existingGalleryPhotos') as string;
+    let existingUrls: string[] = [];
+    try {
+      existingUrls = existingGalleryPhotos ? JSON.parse(existingGalleryPhotos) : [];
+    } catch (e) {
+      console.error('Error parsing existing gallery photos:', e);
+    }
+
+    // Upload new gallery photos
+    const uploadedGalleryUrls: string[] = [];
+    for (let i = 0; i < 10; i++) { // Check for up to 10 gallery photos
+      const galleryFile = formData.get(`gallery_${i}`) as File;
+      if (galleryFile && galleryFile.size > 0) {
+        console.log(`Uploading gallery image ${i}:`, {
+          name: galleryFile.name,
+          size: galleryFile.size,
+          type: galleryFile.type
+        });
+
+        const fileExt = galleryFile.name.split('.').pop() || 'jpg';
+        const fileName = `${user.id}/gallery/${uuidv4()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('muaportfolio')
+          .upload(fileName, galleryFile, {
+            cacheControl: '3600',
+            upsert: true,
+            contentType: galleryFile.type
+          });
+
+        if (uploadError) {
+          console.error(`Gallery image ${i} upload error:`, uploadError);
+          // Continue with other images even if one fails
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('muaportfolio')
+            .getPublicUrl(fileName);
+          uploadedGalleryUrls.push(publicUrl);
+          console.log(`Gallery image ${i} uploaded successfully:`, publicUrl);
+        }
+      }
     }
 
     // Update users table
@@ -495,7 +730,37 @@ export async function updateUserProfile(formData: FormData) {
 
     if (userUpdateError) {
       console.error('User update error:', userUpdateError);
-      return { error: 'Failed to update user profile' };
+      return { error: `Failed to update user profile: ${userUpdateError.message}` };
+    }
+
+    // Update portfolio images if any new ones were uploaded
+    if (uploadedGalleryUrls.length > 0) {
+      // First delete existing portfolio images
+      await supabase
+        .from('portfolio_images')
+        .delete()
+        .eq('user_id', user.id);
+
+      // Insert new portfolio images (existing + new)
+      const allGalleryUrls = [...existingUrls, ...uploadedGalleryUrls];
+      const portfolioInserts = allGalleryUrls.map((url, index) => ({
+        user_id: user.id,
+        image_url: url,
+        order_number: index + 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+
+      if (portfolioInserts.length > 0) {
+        const { error: portfolioError } = await supabase
+          .from('portfolio_images')
+          .insert(portfolioInserts);
+
+        if (portfolioError) {
+          console.error('Portfolio images error:', portfolioError);
+          // Don't fail the whole update for portfolio errors
+        }
+      }
     }
 
     // If user is a streamer, also update streamers table
@@ -510,7 +775,7 @@ export async function updateUserProfile(formData: FormData) {
         first_name: firstName,
         last_name: lastName,
         location: location,
-        ...(updateData.profile_picture_url && { image_url: updateData.profile_picture_url })
+        ...(updateData.image_url && { image_url: updateData.image_url })
       };
 
       const { error: streamerUpdateError } = await supabase
@@ -520,18 +785,19 @@ export async function updateUserProfile(formData: FormData) {
 
       if (streamerUpdateError) {
         console.error('Streamer update error:', streamerUpdateError);
-        return { error: 'Failed to update streamer profile' };
+        return { error: `Failed to update streamer profile: ${streamerUpdateError.message}` };
       }
     }
 
+    console.log('Profile update completed successfully');
     return { 
       success: true, 
-      profilePictureUrl: updateData.profile_picture_url 
+      profilePictureUrl: updateData.image_url 
     };
 
   } catch (error) {
     console.error('Profile update error:', error);
-    return { error: 'Failed to update profile' };
+    return { error: `Profile update failed: ${error instanceof Error ? error.message : 'Unknown error'}` };
   }
 }
 
@@ -675,7 +941,7 @@ export async function streamerSignUpAction(formData: FormData): Promise<SignUpRe
           last_name: formData.get('last_name') as string,
           user_type: 'streamer',
           location: formData.get('city') as string,
-          profile_picture_url: profileImageUrl,
+          image_url: profileImageUrl,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });

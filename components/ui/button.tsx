@@ -19,15 +19,15 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground rounded-md",
         link: "text-primary underline-offset-4 hover:underline",
         
-        // Vogue Luxury Variants
-        luxury: "bg-black text-white font-body font-medium tracking-widest uppercase text-sm transition-all duration-300 ease-out hover:bg-vogue-charcoal hover:tracking-wider border border-transparent",
-        "luxury-outline": "bg-transparent text-black border-black font-body font-medium tracking-widest uppercase text-sm transition-all duration-300 ease-out hover:bg-black hover:text-white hover:tracking-wider",
-        "luxury-gold": "bg-vogue-gold text-black font-body font-medium tracking-widest uppercase text-sm transition-all duration-300 ease-out hover:bg-yellow-600 border border-transparent",
-        "luxury-ghost": "bg-transparent text-black font-body font-medium tracking-wide uppercase text-sm transition-all duration-300 ease-out hover:text-vogue-gold hover:tracking-wider",
+        // Old Money Luxury Variants
+        luxury: "bg-old-money-navy text-old-money-ivory font-body font-medium tracking-wider uppercase text-sm transition-all duration-500 ease-out hover:bg-old-money-charcoal hover:tracking-wide border border-transparent",
+        "luxury-outline": "bg-transparent text-old-money-navy border-old-money-navy font-body font-medium tracking-wider uppercase text-sm transition-all duration-500 ease-out hover:bg-old-money-navy hover:text-old-money-ivory hover:tracking-wide",
+        "luxury-sage": "bg-old-money-sage text-old-money-navy font-body font-medium tracking-wider uppercase text-sm transition-all duration-500 ease-out hover:bg-old-money-navy hover:text-old-money-ivory border border-transparent",
+        "luxury-ghost": "bg-transparent text-old-money-navy font-body font-medium tracking-wide uppercase text-sm transition-all duration-500 ease-out hover:text-old-money-charcoal hover:tracking-wider",
         
         // Editorial Variants
-        editorial: "bg-black text-white font-editorial font-medium text-base transition-all duration-500 ease-out hover:bg-vogue-charcoal rounded-sm",
-        "editorial-outline": "bg-transparent text-black border-2 border-black font-editorial font-medium text-base transition-all duration-500 ease-out hover:bg-black hover:text-white rounded-sm",
+        editorial: "bg-old-money-navy text-old-money-ivory font-editorial font-medium text-base transition-all duration-500 ease-out hover:bg-old-money-charcoal rounded-sm",
+        "editorial-outline": "bg-transparent text-old-money-navy border-2 border-old-money-navy font-editorial font-medium text-base transition-all duration-500 ease-out hover:bg-old-money-navy hover:text-old-money-ivory rounded-sm",
       },
       size: {
         default: "h-10 px-4 py-2",

@@ -15,16 +15,8 @@ import { cn } from "@/lib/utils";
 import { userService, expertiseTypes, priceRanges, levelTypes, locationTypes, type CompleteUserProfile } from '@/services/user-service';
 import { createClient } from '@/utils/supabase/client';
 
-// Dynamically import components
-const UserCard = dynamic(() => import("@/components/user-card").then(mod => mod.UserCard), {
-  loading: () => (
-    <div className="w-full h-[400px] bg-vogue-cream animate-pulse rounded-sm"></div>
-  )
-});
-
-const UserCardSkeleton = dynamic(() => import("@/components/user-card").then(mod => mod.UserCardSkeleton), {
-  ssr: false
-});
+// Import components
+import { UserCard, UserCardSkeleton } from "@/components/user-card";
 
 const Slider = dynamic(() => import("react-slick"), {
   ssr: false,
